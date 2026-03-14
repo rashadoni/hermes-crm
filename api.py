@@ -2291,6 +2291,57 @@ async def get_notifications(user=Depends(require_auth)):
                 "created_at": r["created_at"],
             })
 
+        # 5. Overdue tasks
+        overdue_tasks = conn.execute(
+            "SELECT id, title, due_date FROM tasks "
+            "WHERE due_date != '' AND due_date IS NOT NULL AND due_date < ? "
+            "AND status NOT IN ('done', 'completed') "
+            "ORDER BY due_date ASC LIMIT 5",
+            (today,)
+        ).fetchall()
+        for r in overdue_tasks:
+            notifications.append({
+                "type": "overdue_task",
+                "severity": "high",
+                "title": f"Overdue task: {r['title']}",
+                "detail": f"Due: {r['due_date']}",
+                "entity_type": "task",
+                "entity_id": r["id"],
+            })
+
+        # 6. Recent deals (last 7 days)
+        week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        recent_deals = conn.execute(
+            "SELECT id, title, status, created_at FROM deals "
+            "WHERE created_at >= ? ORDER BY created_at DESC LIMIT 5",
+            (week_ago,)
+        ).fetchall()
+        for r in recent_deals:
+            notifications.append({
+                "type": "new_deal",
+                "severity": "low",
+                "title": f"Deal: {r['title']}",
+                "detail": f"Status: {r['status']}",
+                "entity_type": "deal",
+                "entity_id": r["id"],
+                "created_at": r["created_at"],
+            })
+
+        # 7. Tasks assigned to current user
+        pending_tasks = conn.execute(
+            "SELECT COUNT(*) FROM tasks WHERE assigned_to = ? AND status NOT IN ('done', 'completed')",
+            (user["user_id"],)
+        ).fetchone()[0]
+        if pending_tasks > 0:
+            notifications.append({
+                "type": "pending_tasks",
+                "severity": "medium",
+                "title": f"You have {pending_tasks} pending task(s)",
+                "detail": "Check your task list",
+                "entity_type": "task",
+                "entity_id": None,
+            })
+
     # Sort: high first, then medium, then low
     sev_order = {"high": 0, "medium": 1, "low": 2}
     notifications.sort(key=lambda n: sev_order.get(n["severity"], 3))

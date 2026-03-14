@@ -364,6 +364,17 @@ async def startup_event():
                     opened_at TEXT,
                     clicked_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS contact_segments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    conditions TEXT DEFAULT '{}',
+                    is_dynamic INTEGER DEFAULT 1,
+                    contact_count INTEGER DEFAULT 0,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS web_forms (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL DEFAULT '',
@@ -6667,6 +6678,146 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Contact Segments ─────────────────────────────────────────────
+
+def _evaluate_segment(conn, conditions: dict) -> list:
+    """Build dynamic SQL from segment conditions and return matching contact ids+emails."""
+    where, params = [], []
+    if conditions.get("company_id"):
+        where.append("c.company_id=?")
+        params.append(int(conditions["company_id"]))
+    if conditions.get("company_name"):
+        where.append("c.company_name LIKE ?")
+        params.append(f"%{conditions['company_name']}%")
+    if conditions.get("source"):
+        where.append("c.source=?")
+        params.append(conditions["source"])
+    if conditions.get("role"):
+        where.append("c.role LIKE ?")
+        params.append(f"%{conditions['role']}%")
+    if conditions.get("tag"):
+        where.append("c.tags LIKE ?")
+        params.append(f"%{conditions['tag']}%")
+    if conditions.get("has_email"):
+        where.append("c.email IS NOT NULL AND c.email != ''")
+    if conditions.get("has_phone"):
+        where.append("c.phone IS NOT NULL AND c.phone != ''")
+    if conditions.get("created_after"):
+        where.append("c.created_at >= ?")
+        params.append(conditions["created_after"])
+    if conditions.get("created_before"):
+        where.append("c.created_at <= ?")
+        params.append(conditions["created_before"])
+    if conditions.get("last_contact_after"):
+        where.append("c.last_contact >= ?")
+        params.append(conditions["last_contact_after"])
+    if conditions.get("last_contact_before"):
+        where.append("c.last_contact <= ?")
+        params.append(conditions["last_contact_before"])
+    if conditions.get("name"):
+        where.append("c.name LIKE ?")
+        params.append(f"%{conditions['name']}%")
+    wc = ("WHERE " + " AND ".join(where)) if where else ""
+    rows = conn.execute(f"SELECT c.id, c.email, c.name, c.company_name FROM contacts c {wc} ORDER BY c.name", params).fetchall()
+    return [{"id": r[0], "email": r[1], "name": r[2], "company_name": r[3]} for r in rows]
+
+
+@app.get("/api/contact-segments")
+async def list_contact_segments(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT s.*, u.full_name as creator_name FROM contact_segments s LEFT JOIN users u ON s.created_by=u.id ORDER BY s.name"
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT s.*, u.full_name as creator_name FROM contact_segments s LEFT JOIN users u ON s.created_by=u.id LIMIT 0"
+        ).description]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/contact-segments")
+async def create_contact_segment(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    conditions = data.get("conditions", {})
+    with get_db() as conn:
+        # Evaluate to get count
+        matches = _evaluate_segment(conn, conditions)
+        cur = conn.execute(
+            "INSERT INTO contact_segments (name, description, conditions, is_dynamic, contact_count, created_by) VALUES (?,?,?,?,?,?)",
+            [data.get("name",""), data.get("description",""), _json.dumps(conditions),
+             1 if data.get("is_dynamic", True) else 0, len(matches), user["user_id"]]
+        )
+        sid = cur.lastrowid
+    log_audit(user["user_id"], "create_segment", "contact_segment", sid, ip=_get_ip(request))
+    return _ok({"id": sid, "contact_count": len(matches)})
+
+
+@app.get("/api/contact-segments/{segment_id}")
+async def get_contact_segment(segment_id: int, user=Depends(require_auth)):
+    import json as _json
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM contact_segments WHERE id=?", [segment_id]).fetchone()
+        if not row:
+            _err("Segment not found", 404)
+        cols = [d[0] for d in conn.execute("SELECT * FROM contact_segments LIMIT 0").description]
+        seg = dict(zip(cols, row))
+        # Evaluate contacts
+        conditions = _json.loads(seg.get("conditions") or "{}")
+        contacts = _evaluate_segment(conn, conditions)
+        seg["contacts"] = contacts
+        seg["contact_count"] = len(contacts)
+        # Update count
+        conn.execute("UPDATE contact_segments SET contact_count=?, updated_at=datetime('now') WHERE id=?",
+                     [len(contacts), segment_id])
+        return _ok(seg)
+
+
+@app.put("/api/contact-segments/{segment_id}")
+async def update_contact_segment(segment_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    allowed = {"name", "description", "conditions", "is_dynamic"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "conditions" in updates and isinstance(updates["conditions"], dict):
+        updates["conditions"] = _json.dumps(updates["conditions"])
+    if not updates:
+        _err("No fields", 400)
+    parts = [f"{k}=?" for k in updates]
+    parts.append("updated_at=datetime('now')")
+    with get_db() as conn:
+        # Recalculate count
+        conditions = data.get("conditions", {})
+        if isinstance(conditions, str):
+            conditions = _json.loads(conditions)
+        matches = _evaluate_segment(conn, conditions)
+        parts.append("contact_count=?")
+        vals = list(updates.values()) + [len(matches), segment_id]
+        conn.execute(f"UPDATE contact_segments SET {','.join(parts)} WHERE id=?", vals)
+    log_audit(user["user_id"], "update_segment", "contact_segment", segment_id, ip=_get_ip(request))
+    return _ok({"updated": True, "contact_count": len(matches)})
+
+
+@app.delete("/api/contact-segments/{segment_id}")
+async def delete_contact_segment(segment_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM contact_segments WHERE id=?", [segment_id])
+    log_audit(user["user_id"], "delete_segment", "contact_segment", segment_id)
+    return _ok({"deleted": True})
+
+
+@app.get("/api/contact-segments/{segment_id}/contacts")
+async def get_segment_contacts(segment_id: int, user=Depends(require_auth)):
+    """Get all contacts matching a segment's conditions."""
+    import json as _json
+    with get_db() as conn:
+        row = conn.execute("SELECT conditions FROM contact_segments WHERE id=?", [segment_id]).fetchone()
+        if not row:
+            _err("Segment not found", 404)
+        conditions = _json.loads(row[0] or "{}")
+        contacts = _evaluate_segment(conn, conditions)
+        return _ok(contacts, total=len(contacts))
 
 
 # ─── SMTP Settings ────────────────────────────────────────────────

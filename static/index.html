@@ -244,6 +244,7 @@
         <div class="nav-dropdown-menu">
           <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
           <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
+          <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -336,6 +337,23 @@ const translations = {
     nav_marketing_menu: 'Marketing',
     nav_email_templates: 'Email Templates',
     nav_campaigns: 'Campaigns',
+    nav_segments: 'Segments',
+    seg_title: 'Contact Segments',
+    seg_new: 'New Segment',
+    seg_name: 'Segment Name',
+    seg_description: 'Description',
+    seg_conditions: 'Conditions',
+    seg_contacts_count: 'Contacts',
+    seg_preview: 'Preview',
+    seg_company: 'Company',
+    seg_source: 'Source',
+    seg_role: 'Role',
+    seg_tag: 'Tag',
+    seg_created_after: 'Created After',
+    seg_created_before: 'Created Before',
+    seg_has_email: 'Has Email',
+    seg_has_phone: 'Has Phone',
+    seg_dynamic: 'Dynamic',
     nav_web_forms: 'Web Forms',
     nav_smtp_settings: 'SMTP Settings',
     smtp_title: 'SMTP Settings',
@@ -1063,6 +1081,24 @@ const translations = {
     nav_marketing_menu: 'Маркетинг',
     nav_email_templates: 'Шаблоны Email',
     nav_campaigns: 'Кампании',
+
+    nav_segments: 'Сегменты',
+    seg_title: 'Сегменты контактов',
+    seg_new: 'Новый сегмент',
+    seg_name: 'Название',
+    seg_description: 'Описание',
+    seg_conditions: 'Условия',
+    seg_contacts_count: 'Контактов',
+    seg_preview: 'Предпросмотр',
+    seg_company: 'Компания',
+    seg_source: 'Источник',
+    seg_role: 'Роль',
+    seg_tag: 'Тег',
+    seg_created_after: 'Создан после',
+    seg_created_before: 'Создан до',
+    seg_has_email: 'Есть Email',
+    seg_has_phone: 'Есть Телефон',
+    seg_dynamic: 'Динамический',
     nav_web_forms: 'Веб-формы',
     nav_smtp_settings: 'Настройки SMTP',
     smtp_title: 'Настройки SMTP',
@@ -1787,6 +1823,24 @@ const translations = {
     nav_marketing_menu: 'Marketinq',
     nav_email_templates: 'E-poçt şablonları',
     nav_campaigns: 'Kampaniyalar',
+
+    nav_segments: 'Seqmentlər',
+    seg_title: 'Kontakt seqmentləri',
+    seg_new: 'Yeni seqment',
+    seg_name: 'Ad',
+    seg_description: 'Təsvir',
+    seg_conditions: 'Şərtlər',
+    seg_contacts_count: 'Kontaktlar',
+    seg_preview: 'Önbaxış',
+    seg_company: 'Şirkət',
+    seg_source: 'Mənbə',
+    seg_role: 'Rol',
+    seg_tag: 'Teq',
+    seg_created_after: 'Yaradılma tarixi (sonra)',
+    seg_created_before: 'Yaradılma tarixi (əvvəl)',
+    seg_has_email: 'E-poçtu var',
+    seg_has_phone: 'Telefonu var',
+    seg_dynamic: 'Dinamik',
     nav_web_forms: 'Veb formalar',
     nav_2fa: '🔐 2FA Tənzimləmələr',
 
@@ -3162,6 +3216,9 @@ async function renderPage(page) {
         break;
       case 'campaigns':
         await renderCampaigns(app);
+        break;
+      case 'segments':
+        await renderSegmentsPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14024,6 +14081,235 @@ async function updateCampaignDraft(id) {
     showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Contact Segments ─────────────────────────────────────────
+async function renderSegmentsPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let segments = [];
+  try {
+    const resp = await api.get('/api/contact-segments');
+    segments = resp.data || resp || [];
+  } catch(e) {}
+
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('seg_title')}</h1>
+        <button class="btn btn-primary" onclick="showSegmentForm()">${t('seg_new')}</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left border-b border-slate-700">
+              <th class="p-3">#</th>
+              <th class="p-3">${t('seg_name')}</th>
+              <th class="p-3">${t('seg_description')}</th>
+              <th class="p-3">${t('seg_contacts_count')}</th>
+              <th class="p-3">${t('seg_dynamic')}</th>
+              <th class="p-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${segments.length === 0 ? `<tr><td colspan="6" class="p-6 text-center text-slate-500">${_t('No segments yet','Нет сегментов','Seqment yoxdur')}</td></tr>` :
+              segments.map((s,i) => `
+                <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showSegmentDetail(${s.id})">
+                  <td class="p-3 text-slate-500">${i+1}</td>
+                  <td class="p-3 font-medium">${esc(s.name)}</td>
+                  <td class="p-3 text-slate-400">${esc(s.description||'')}</td>
+                  <td class="p-3"><span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full text-xs">${s.contact_count||0}</span></td>
+                  <td class="p-3">${s.is_dynamic ? '✅' : '—'}</td>
+                  <td class="p-3 text-right">
+                    <button class="text-xs text-indigo-400 hover:underline mr-2" onclick="event.stopPropagation();showSegmentForm(${s.id})">${_t('Edit','Ред.','Redaktə')}</button>
+                    <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteSegment(${s.id})">${_t('Delete','Удалить','Sil')}</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function showSegmentForm(segId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let seg = { name:'', description:'', conditions:{}, is_dynamic:1 };
+  if (segId) {
+    try {
+      const resp = await api.get('/api/contact-segments/' + segId);
+      seg = resp.data || resp;
+      if (typeof seg.conditions === 'string') seg.conditions = JSON.parse(seg.conditions);
+    } catch(e) {}
+  }
+  const c = seg.conditions || {};
+
+  const html = `
+    <div class="p-6">
+      <div class="flex items-center gap-3 mb-6">
+        <button class="text-slate-400 hover:text-white" onclick="navigate('segments')">← ${t('seg_title')}</button>
+        <h1 class="text-2xl font-bold">${segId ? _t('Edit Segment','Редактировать сегмент','Seqmenti redaktə et') : t('seg_new')}</h1>
+      </div>
+      <form onsubmit="saveSegment(event, ${segId||'null'})" class="space-y-4 max-w-2xl">
+        <div>
+          <label class="text-xs text-slate-500">${t('seg_name')} *</label>
+          <input type="text" name="seg_name" value="${esc(seg.name)}" required class="w-full">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">${t('seg_description')}</label>
+          <textarea name="seg_desc" rows="2" class="w-full">${esc(seg.description||'')}</textarea>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <h3 class="text-sm font-semibold mb-3">${t('seg_conditions')}</h3>
+          <div class="grid grid-cols-2 gap-3" style="font-size:13px">
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_company')}</label>
+              <input type="text" name="seg_company_name" value="${esc(c.company_name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_source')}</label>
+              <select name="seg_source" class="w-full text-sm">
+                <option value="">— ${_t('Any','Любой','Hər hansı')} —</option>
+                <option value="EMAIL" ${c.source==='EMAIL'?'selected':''}>Email</option>
+                <option value="PHONE" ${c.source==='PHONE'?'selected':''}>Phone</option>
+                <option value="WEB" ${c.source==='WEB'?'selected':''}>Web</option>
+                <option value="REFERRAL" ${c.source==='REFERRAL'?'selected':''}>Referral</option>
+                <option value="LINKEDIN" ${c.source==='LINKEDIN'?'selected':''}>LinkedIn</option>
+                <option value="OTHER" ${c.source==='OTHER'?'selected':''}>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_role')}</label>
+              <input type="text" name="seg_role" value="${esc(c.role||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_tag')}</label>
+              <input type="text" name="seg_tag" value="${esc(c.tag||'')}" placeholder="${_t('Tag name','Имя тега','Teq adı')}" class="w-full text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_created_after')}</label>
+              <input type="date" name="seg_created_after" value="${c.created_after||''}" class="w-full text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${t('seg_created_before')}</label>
+              <input type="date" name="seg_created_before" value="${c.created_before||''}" class="w-full text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${_t('Name','Имя','Ad')}</label>
+              <input type="text" name="seg_contact_name" value="${esc(c.name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
+            </div>
+            <div class="flex items-end gap-4">
+              <label class="flex items-center gap-1 text-xs cursor-pointer">
+                <input type="checkbox" name="seg_has_email" ${c.has_email?'checked':''} class="accent-indigo-500"> ${t('seg_has_email')}
+              </label>
+              <label class="flex items-center gap-1 text-xs cursor-pointer">
+                <input type="checkbox" name="seg_has_phone" ${c.has_phone?'checked':''} class="accent-indigo-500"> ${t('seg_has_phone')}
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Yadda saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="previewSegment()">${t('seg_preview')}</button>
+          <button type="button" class="btn btn-secondary" onclick="navigate('segments')">${_t('Cancel','Отмена','Ləğv et')}</button>
+        </div>
+      </form>
+      <div id="segmentPreview" class="mt-4 hidden"></div>
+    </div>`;
+  document.getElementById('app').innerHTML = html;
+}
+
+function _collectSegmentConditions() {
+  const f = (n) => { const el = document.querySelector(`[name="${n}"]`); return el ? el.value.trim() : ''; };
+  const ch = (n) => { const el = document.querySelector(`[name="${n}"]`); return el ? el.checked : false; };
+  const conds = {};
+  if (f('seg_company_name')) conds.company_name = f('seg_company_name');
+  if (f('seg_source')) conds.source = f('seg_source');
+  if (f('seg_role')) conds.role = f('seg_role');
+  if (f('seg_tag')) conds.tag = f('seg_tag');
+  if (f('seg_created_after')) conds.created_after = f('seg_created_after');
+  if (f('seg_created_before')) conds.created_before = f('seg_created_before');
+  if (f('seg_contact_name')) conds.name = f('seg_contact_name');
+  if (ch('seg_has_email')) conds.has_email = true;
+  if (ch('seg_has_phone')) conds.has_phone = true;
+  return conds;
+}
+
+async function saveSegment(e, segId) {
+  e.preventDefault();
+  const name = document.querySelector('[name="seg_name"]').value.trim();
+  const description = document.querySelector('[name="seg_desc"]').value.trim();
+  if (!name) { showToast('Name required', 'error'); return; }
+  const conditions = _collectSegmentConditions();
+  const payload = { name, description, conditions, is_dynamic: true };
+  try {
+    if (segId) {
+      await api.put('/api/contact-segments/' + segId, payload);
+    } else {
+      await api.post('/api/contact-segments', payload);
+    }
+    showToast(segId ? 'Segment updated' : 'Segment created', 'success');
+    navigate('segments');
+  } catch(err) { showToast(err.message || 'Error', 'error'); }
+}
+
+async function previewSegment() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const conditions = _collectSegmentConditions();
+  const box = document.getElementById('segmentPreview');
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="text-center text-slate-400 py-4">${_t('Loading...','Загрузка...','Yüklənir...')}</div>`;
+  try {
+    const resp = await api.post('/api/contact-segments', { name: '__preview__', conditions });
+    const sid = (resp.data || resp).id;
+    const detail = await api.get('/api/contact-segments/' + sid);
+    const seg = detail.data || detail;
+    const contacts = seg.contacts || [];
+    try { await api.delete('/api/contact-segments/' + sid); } catch(e){}
+
+    if (!contacts.length) {
+      box.innerHTML = `<div class="text-center text-slate-500 py-4">${_t('No contacts match','Нет совпадений','Uyğun kontakt yoxdur')}</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div class="text-sm font-semibold mb-2">${_t('Matching contacts','Совпадения','Uyğun kontaktlar')}: ${contacts.length}</div>
+      <div class="max-h-64 overflow-y-auto">
+        <table class="w-full text-xs">
+          <thead><tr class="text-left border-b border-slate-700">
+            <th class="p-2">${_t('Name','Имя','Ad')}</th>
+            <th class="p-2">Email</th>
+            <th class="p-2">${_t('Company','Компания','Şirkət')}</th>
+          </tr></thead>
+          <tbody>
+            ${contacts.slice(0, 50).map(c => `
+              <tr class="border-b border-slate-800">
+                <td class="p-2">${esc(c.name||'')}</td>
+                <td class="p-2 text-slate-400">${esc(c.email||'')}</td>
+                <td class="p-2 text-slate-400">${esc(c.company_name||'')}</td>
+              </tr>
+            `).join('')}
+            ${contacts.length > 50 ? `<tr><td colspan="3" class="p-2 text-center text-slate-500">... +${contacts.length - 50} ${_t('more','ещё','daha')}</td></tr>` : ''}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(err) { box.innerHTML = `<div class="text-red-400 py-2">${err.message||'Error'}</div>`; }
+}
+
+async function showSegmentDetail(segId) {
+  showSegmentForm(segId);
+}
+
+async function deleteSegment(segId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  if (!confirm(_t('Delete this segment?','Удалить сегмент?','Seqmenti silmək?'))) return;
+  try {
+    await api.delete('/api/contact-segments/' + segId);
+    showToast('Deleted', 'success');
+    navigate('segments');
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
 }
 
 // ─── SMTP Settings Page ─────────────────────────────────────────

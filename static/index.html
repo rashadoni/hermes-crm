@@ -3291,9 +3291,12 @@ async function renderHomeDashboard(el) {
 
     const summary = summaryR.data || {};
     const ticketsStats = ticketsR.data || {};
-    const activities = activitiesR.data || [];
-    const tasks = tasksR.data || [];
-    const notifications = notifsR.data || [];
+    const activitiesRaw = activitiesR.data || [];
+    const activities = Array.isArray(activitiesRaw) ? activitiesRaw : (activitiesRaw.activities || activitiesRaw.items || []);
+    const tasksRaw = tasksR.data || [];
+    const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw.tasks || tasksRaw.items || []);
+    const notifsRaw = notifsR.data || [];
+    const notifications = Array.isArray(notifsRaw) ? notifsRaw : (notifsRaw.notifications || notifsRaw.items || []);
 
     const deals_pipeline = summary.deals_active || 0;
     const deals_pipeline_value = summary.deals_value || 0;

@@ -5966,43 +5966,75 @@ async function renderContracts(el) {
     ['end_soon', t('sort_end_soon')]
   ];
 
-  el.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('contracts_title')}</h1>
-    </div>
-    <div class="flex gap-3 mb-4 flex-wrap items-center">
-      <input type="text" id="contractsSearch" placeholder="${t('contracts_search')}" value="${esc(contractsFilter.q||'')}" class="flex-1 min-w-[200px] py-2 px-3 rounded-lg" oninput="onContractsSearch(this.value)">
-      <select onchange="onContractTypeFilter(this.value)" style="width:180px"><option value="">${t('contracts_filter_type')}</option>${typeOpts.map(t=>`<option value="${t}">${getTypeLabel(t)}</option>`).join('')}</select>
-      <select onchange="onContractStatusFilter(this.value)" style="width:180px"><option value="">${t('contracts_filter_status')}</option>${statOpts.map(s=>`<option value="${s}">${getStatusLabel(s)}</option>`).join('')}</select>
-      <div class="flex items-center gap-2">
-        <span class="text-slate-500 text-sm">${t('sort_by')}:</span>
-        ${sortSelect(contractsSort, 'onContractsSort', cSortOpts)}
-      </div>
-    </div>
-    <div class="card overflow-x-auto">
-      <table>
-        <thead>
-          <tr><th>${t('contracts_col_name')}</th><th>${t('contracts_col_company')}</th><th>${t('contracts_col_type')}</th><th>${t('contracts_col_status')}</th><th>${t('contracts_col_start')}</th><th>${t('contracts_col_end')}</th><th>${t('col_actions')}</th></tr>
-        </thead>
-        <tbody>
-          ${contracts.length === 0 ? `<tr><td colspan="7" class="text-center text-slate-500 py-4">${t('contracts_none')}</td></tr>` : ''}
-          ${contracts.map(c => {
-            const dl = daysUntil(c.end_date);
-            return `<tr>
-              <td><span class="cursor-pointer text-indigo-400 hover:underline" onclick="showContractDetail(${c.id})">${esc(c.contract_name)}</span></td>
-              <td>${esc(c.counterparty||'')}</td>
-              <td><span class="ctype-badge ctype-${c.contract_type}">${getTypeLabel(c.contract_type)}</span></td>
-              <td><span class="cstatus-${c.status}">${getStatusLabel(c.status)}</span></td>
-              <td>${esc(c.start_date||'—')}</td>
-              <td>${esc(c.end_date||'—')}${dl && dl < 30 ? ` <span class="${dl <= 7 ? 'text-red-400' : 'text-amber-400'} text-xs">${t('contracts_expires_days', {days: dl})}</span>` : ''}</td>
-              <td><button class="btn btn-sm btn-secondary" onclick="showContractDetail(${c.id})">${t('btn_edit')}</button></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-    ${renderPagination(total, state.contractsPage, 'onContractsPage')}
-  `;
+  // Premium contracts layout
+  const L = currentLang;
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  const _activeC = contracts.filter(c => c.status === 'active').length;
+  const _expSoon = contracts.filter(c => { var d = daysUntil(c.end_date); return d && d < 30 && d > 0; }).length;
+
+  let _cHTML = '';
+
+  // Header
+  _cHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+  _cHTML += '<div><h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('contracts_title') + '</h1>';
+  _cHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + total + ' ' + _t('contracts total','контрактов всего','cəmi müqavilə') + '</p></div>';
+  _cHTML += '</div>';
+
+  // Stats
+  _cHTML += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">';
+  _cHTML += '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px"><div style="font-size:24px;font-weight:800;color:#818cf8">' + contracts.length + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + _t('Shown','Показано','Göstərilir') + '</div></div>';
+  _cHTML += '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.15);border-radius:16px;padding:20px"><div style="font-size:24px;font-weight:800;color:#34d399">' + _activeC + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + _t('Active','Активные','Aktiv') + '</div></div>';
+  _cHTML += '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px"><div style="font-size:24px;font-weight:800;color:#fbbf24">' + _expSoon + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + _t('Expiring < 30d','Истекают < 30д','Bitir < 30g') + '</div></div>';
+  _cHTML += '</div>';
+
+  // Search & filters
+  _cHTML += '<div style="background:linear-gradient(135deg,rgba(30,41,59,0.8),rgba(15,23,42,0.9));border:1px solid rgba(99,102,241,0.1);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;gap:14px;flex-wrap:wrap;align-items:center">';
+  _cHTML += '<div style="flex:1;min-width:200px;position:relative"><svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4" width="16" height="16" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  _cHTML += '<input type="text" id="contractsSearch" placeholder="' + t('contracts_search') + '" value="' + esc(contractsFilter.q||'') + '" oninput="onContractsSearch(this.value)" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px 10px 36px;color:#e2e8f0;font-size:14px;outline:none;transition:border-color 0.3s" onfocus="this.style.borderColor=\'rgba(99,102,241,0.4)\'" onblur="this.style.borderColor=\'rgba(99,102,241,0.15)\'"></div>';
+  _cHTML += '<select onchange="onContractTypeFilter(this.value)" style="background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;min-width:160px"><option value="">' + t('contracts_filter_type') + '</option>';
+  typeOpts.forEach(function(tp) { _cHTML += '<option value="' + tp + '">' + getTypeLabel(tp) + '</option>'; });
+  _cHTML += '</select>';
+  _cHTML += '<select onchange="onContractStatusFilter(this.value)" style="background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;min-width:160px"><option value="">' + t('contracts_filter_status') + '</option>';
+  statOpts.forEach(function(st) { _cHTML += '<option value="' + st + '">' + getStatusLabel(st) + '</option>'; });
+  _cHTML += '</select>';
+  _cHTML += '<div style="display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid rgba(71,85,105,0.3)"><span style="color:#64748b;font-size:12px;font-weight:500">' + t('sort_by') + ':</span>' + sortSelect(contractsSort, 'onContractsSort', cSortOpts) + '</div>';
+  _cHTML += '</div>';
+
+  // Table
+  _cHTML += '<div style="background:linear-gradient(135deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));border:1px solid rgba(71,85,105,0.15);border-radius:16px;overflow:hidden">';
+  _cHTML += '<table style="width:100%;font-size:14px;border-collapse:collapse">';
+  _cHTML += '<thead><tr style="border-bottom:1px solid rgba(71,85,105,0.2)">';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_name') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_company') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_type') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_status') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_start') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_end') + '</th>';
+  _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('col_actions') + '</th>';
+  _cHTML += '</tr></thead><tbody>';
+  if (contracts.length === 0) {
+    _cHTML += '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:40px 20px">' + t('contracts_none') + '</td></tr>';
+  }
+  contracts.forEach(function(c) {
+    var dl = daysUntil(c.end_date);
+    _cHTML += '<tr style="border-bottom:1px solid rgba(71,85,105,0.1);transition:background 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+    _cHTML += '<td style="padding:12px 16px"><span style="cursor:pointer;color:#818cf8;font-weight:500" onclick="showContractDetail(' + c.id + ')">' + esc(c.contract_name) + '</span></td>';
+    _cHTML += '<td style="padding:12px 16px;color:#94a3b8">' + esc(c.counterparty || '') + '</td>';
+    _cHTML += '<td style="padding:12px 16px"><span class="ctype-badge ctype-' + c.contract_type + '">' + getTypeLabel(c.contract_type) + '</span></td>';
+    _cHTML += '<td style="padding:12px 16px"><span class="cstatus-' + c.status + '">' + getStatusLabel(c.status) + '</span></td>';
+    _cHTML += '<td style="padding:12px 16px;color:#94a3b8;font-size:13px">' + esc(c.start_date || '\u2014') + '</td>';
+    _cHTML += '<td style="padding:12px 16px;font-size:13px">' + esc(c.end_date || '\u2014');
+    if (dl && dl < 30) {
+      _cHTML += ' <span style="color:' + (dl <= 7 ? '#f87171' : '#fbbf24') + ';font-size:12px">' + t('contracts_expires_days', {days: dl}) + '</span>';
+    }
+    _cHTML += '</td>';
+    _cHTML += '<td style="padding:12px 16px"><button onclick="showContractDetail(' + c.id + ')" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(99,102,241,0.3);background:transparent;color:#818cf8;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + t('btn_edit') + '</button></td>';
+    _cHTML += '</tr>';
+  });
+  _cHTML += '</tbody></table></div>';
+  _cHTML += renderPagination(total, state.contractsPage, 'onContractsPage');
+
+  el.innerHTML = _cHTML;
   document.getElementById('contractsSearch').value = contractsFilter.q;
 }
 

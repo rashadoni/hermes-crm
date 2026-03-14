@@ -3644,7 +3644,7 @@ async function renderAnalytics(el) {
       </div>
       <div class="card p-5">
         <h3 class="text-lg font-semibold mb-4">${t('reports_lead_funnel')}</h3>
-        <canvas id="leadFunnelChart" height="150"></canvas>
+        <div style="position:relative;height:200px;"><canvas id="leadFunnelChart"></canvas></div>
       </div>
     </div>
 
@@ -3698,7 +3698,7 @@ async function renderAnalytics(el) {
     </div>
 
     <!-- Row 2.5: Sales Forecast -->
-    <div class="card p-5 mb-6" id="forecastSection">
+    <div class="card p-5 mb-6" id="forecastSection" style="max-height:420px;overflow:hidden;">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold">📊 Sales Forecast</h3>
         <select id="forecastMonths" onchange="loadForecast()" class="input-field" style="width:auto;padding:4px 8px;font-size:12px;">
@@ -3707,7 +3707,7 @@ async function renderAnalytics(el) {
           <option value="12">12 months</option>
         </select>
       </div>
-      <canvas id="forecastChart" height="140"></canvas>
+      <div style="position:relative;height:200px;"><canvas id="forecastChart"></canvas></div>
       <div id="forecastSummary" class="grid grid-cols-3 gap-4 mt-4" style="display:none;">
         <div class="text-center p-3 rounded" style="background:rgba(99,102,241,0.12)">
           <div class="text-xs text-gray-400">Pipeline Total</div>
@@ -3728,11 +3728,11 @@ async function renderAnalytics(el) {
     <div class="grid md:grid-cols-2 gap-6 mb-6">
       <div class="card p-5">
         <h3 class="text-lg font-semibold mb-4">${t('reports_contact_health')}</h3>
-        <canvas id="contactHealthChart" height="150"></canvas>
+        <div style="position:relative;height:200px;"><canvas id="contactHealthChart"></canvas></div>
       </div>
           <div class="card p-5">
         <h3 class="text-lg font-semibold mb-4">${t('reports_deal_pipeline')}</h3>
-        <canvas id="dealPipelineChart" height="150"></canvas>
+        <div style="position:relative;height:200px;"><canvas id="dealPipelineChart"></canvas></div>
       </div>
     </div>
 
@@ -3755,11 +3755,11 @@ async function renderAnalytics(el) {
     <div class="grid md:grid-cols-2 gap-6 mb-6">
       <div class="card p-5">
         <h3 class="text-lg font-semibold mb-4">${t('reports_contracts_by_status')}</h3>
-        <canvas id="reportsByStatusChart" height="150"></canvas>
+        <div style="position:relative;height:200px;"><canvas id="reportsByStatusChart"></canvas></div>
       </div>
       <div class="card p-5">
         <h3 class="text-lg font-semibold mb-4">${t('reports_contracts_by_type')}</h3>
-        <canvas id="reportsByTypeChart" height="150"></canvas>
+        <div style="position:relative;height:200px;"><canvas id="reportsByTypeChart"></canvas></div>
       </div>
     </div>
 

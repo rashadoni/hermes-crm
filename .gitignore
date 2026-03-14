@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+*.db
+*.db-journal
+backups/
+node_modules/
+.DS_Store
+*.tar.gz
+.jwt_secret

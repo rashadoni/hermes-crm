@@ -6129,35 +6129,28 @@ async function renderTasks(el) {
     const tasksRaw = tasksRes.data || tasksRes;
     const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw.tasks || tasksRaw.items || []);
 
-    const statCards = `
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="card p-4 stat-card cursor-pointer" onclick="filterTasks('all')">
-          <div class="stat-value">${stats.total||0}</div><div class="stat-label">${t('task_all')}</div></div>
-        <div class="card p-4 stat-card cursor-pointer" onclick="filterTasks('overdue')" style="border-left:3px solid #ef4444">
-          <div class="stat-value text-red-400">${stats.overdue||0}</div><div class="stat-label">${t('task_overdue')}</div></div>
-        <div class="card p-4 stat-card cursor-pointer" onclick="filterTasks('due_today')" style="border-left:3px solid #f59e0b">
-          <div class="stat-value text-amber-400">${stats.due_today||0}</div><div class="stat-label">${t('task_due_today')}</div></div>
-        <div class="card p-4 stat-card cursor-pointer" onclick="filterTasks('due_week')" style="border-left:3px solid #3b82f6">
-          <div class="stat-value text-blue-400">${stats.due_week||0}</div><div class="stat-label">${t('task_due_week')}</div></div>
-      </div>`;
+    let statCards = '';
+    statCards += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">';
+    statCards += '<div onclick="filterTasks('all')" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(99,102,241,0.3)';this.style.boxShadow='0 4px 20px rgba(99,102,241,0.1)'" onmouseout="this.style.borderColor='rgba(99,102,241,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#818cf8">' + (stats.total||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + t('task_all') + '</div></div>';
+    statCards += '<div onclick="filterTasks('overdue')" style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(239,68,68,0.3)';this.style.boxShadow='0 4px 20px rgba(239,68,68,0.1)'" onmouseout="this.style.borderColor='rgba(239,68,68,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#f87171">' + (stats.overdue||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + t('task_overdue') + '</div></div>';
+    statCards += '<div onclick="filterTasks('due_today')" style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(245,158,11,0.3)';this.style.boxShadow='0 4px 20px rgba(245,158,11,0.1)'" onmouseout="this.style.borderColor='rgba(245,158,11,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#fbbf24">' + (stats.due_today||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + t('task_due_today') + '</div></div>';
+    statCards += '<div onclick="filterTasks('due_week')" style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(59,130,246,0.3)';this.style.boxShadow='0 4px 20px rgba(59,130,246,0.1)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#60a5fa">' + (stats.due_week||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + t('task_due_week') + '</div></div>';
+    statCards += '</div>';
 
-    const viewToggle = `
-      <div class="flex gap-2">
-        <button class="btn btn-sm ${window._taskView==='list'?'bg-indigo-600':'btn-secondary'}" onclick="window._taskView='list';renderTasks(document.getElementById('app'))">${t('task_view_list')}</button>
-        <button class="btn btn-sm ${window._taskView==='calendar'?'bg-indigo-600':'btn-secondary'}" onclick="window._taskView='calendar';renderTasks(document.getElementById('app'))">${t('task_view_calendar')}</button>
-      </div>`;
+    let viewToggle = '<div style="display:flex;gap:6px">';
+    viewToggle += '<button onclick="window._taskView='list';renderTasks(document.getElementById('app'))" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (window._taskView==='list' ? 'rgba(99,102,241,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (window._taskView==='list' ? 'rgba(99,102,241,0.15)' : 'transparent') + ';color:' + (window._taskView==='list' ? '#c4b5fd' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + t('task_view_list') + '</button>';
+    viewToggle += '<button onclick="window._taskView='calendar';renderTasks(document.getElementById('app'))" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (window._taskView==='calendar' ? 'rgba(99,102,241,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (window._taskView==='calendar' ? 'rgba(99,102,241,0.15)' : 'transparent') + ';color:' + (window._taskView==='calendar' ? '#c4b5fd' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + t('task_view_calendar') + '</button>';
+    viewToggle += '</div>';
 
-    el.innerHTML = `
-      <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <h1 class="text-2xl font-bold">${t('tasks_title')}</h1>
-        <div class="flex gap-2 items-center">
-          ${viewToggle}
-          <button class="btn btn-secondary text-sm" onclick="openCalendarIntegration()" title="${t('cal_integration')}">📅 ${t('cal_connect')}</button>
-          <button class="btn bg-indigo-600 hover:bg-indigo-700 text-sm" onclick="openTaskModal()">${t('tasks_new')}</button>
-        </div>
-      </div>
-      ${statCards}
-      <div id="tasksContent"></div>`;
+    let _tHeader = '';
+    _tHeader += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">';
+    _tHeader += '<div><h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('tasks_title') + '</h1></div>';
+    _tHeader += '<div style="display:flex;gap:10px;align-items:center">';
+    _tHeader += viewToggle;
+    _tHeader += '<button onclick="openCalendarIntegration()" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(71,85,105,0.3);background:transparent;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s" title="' + t('cal_integration') + '">' + String.fromCodePoint(128197) + ' ' + t('cal_connect') + '</button>';
+    _tHeader += '<button onclick="openTaskModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 25px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 15px rgba(99,102,241,0.3)'">' + t('tasks_new') + '</button>';
+    _tHeader += '</div></div>';
+    el.innerHTML = _tHeader + statCards + '<div id="tasksContent"></div>';
 
     if (window._taskView === 'calendar') {
       await renderTasksCalendar(document.getElementById('tasksContent'));
@@ -6182,9 +6175,12 @@ function renderTasksList(el, tasks) {
   else if (filter === 'in_progress') filtered = tasks.filter(t => t.status === 'in_progress');
   else if (filter === 'done') filtered = tasks.filter(t => t.status === 'done');
 
-  const filterBtns = ['all','todo','in_progress','done'].map(f =>
-    `<button class="btn btn-sm ${filter===f?'bg-indigo-600':'btn-secondary'}" onclick="filterTasks('${f}')">${t('task_'+(f==='all'?'all':'status_'+f))}</button>`
-  ).join('');
+  const _filterColors = {'all':'99,102,241','todo':'245,158,11','in_progress':'59,130,246','done':'16,185,129'};
+  const filterBtns = ['all','todo','in_progress','done'].map(function(f) {
+    var fc = _filterColors[f] || '99,102,241';
+    var isActive = filter === f;
+    return '<button onclick="filterTasks(\'' + f + '\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (isActive ? 'rgba(' + fc + ',0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (isActive ? 'rgba(' + fc + ',0.15)' : 'transparent') + ';color:' + (isActive ? 'rgba(' + fc + ',1)' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + t('task_' + (f === 'all' ? 'all' : 'status_' + f)) + '</button>';
+  }).join('');
 
   if (!filtered.length) {
     el.innerHTML = `<div class="flex gap-2 mb-4">${filterBtns}</div><div class="card p-8 text-center text-slate-400">${t('task_no_tasks')}</div>`;
@@ -6208,21 +6204,19 @@ function renderTasksList(el, tasks) {
     </tr>`;
   }).join('');
 
-  el.innerHTML = `
-    <div class="flex gap-2 mb-4 flex-wrap">${filterBtns}</div>
-    <div class="card overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="text-slate-400 border-b border-slate-700">
-          <th class="px-3 py-2 w-8"></th>
-          <th class="px-3 py-2 text-left">${t('task_title')}</th>
-          <th class="px-3 py-2 text-left">${t('task_status')}</th>
-          <th class="px-3 py-2 text-left">${t('task_priority')}</th>
-          <th class="px-3 py-2 text-left">${t('task_due_date')}</th>
-          <th class="px-3 py-2 text-left">${t('task_category')}</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  let _tListHTML = '<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">' + filterBtns + '</div>';
+  _tListHTML += '<div style="background:linear-gradient(135deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));border:1px solid rgba(71,85,105,0.15);border-radius:16px;overflow:hidden">';
+  _tListHTML += '<table style="width:100%;font-size:14px;border-collapse:collapse">';
+  _tListHTML += '<thead><tr style="border-bottom:1px solid rgba(71,85,105,0.2)">';
+  _tListHTML += '<th style="padding:14px 16px;width:32px"></th>';
+  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_title') + '</th>';
+  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_status') + '</th>';
+  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_priority') + '</th>';
+  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_due_date') + '</th>';
+  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_category') + '</th>';
+  _tListHTML += '</tr></thead>';
+  _tListHTML += '<tbody>' + rows + '</tbody></table></div>';
+  el.innerHTML = _tListHTML;
 }
 
 async function renderTasksCalendar(el) {

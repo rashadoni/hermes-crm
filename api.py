@@ -375,6 +375,13 @@ async def startup_event():
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS campaign_deals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    campaign_id INTEGER NOT NULL,
+                    deal_id INTEGER NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    UNIQUE(campaign_id, deal_id)
+                );
                 CREATE TABLE IF NOT EXISTS web_forms (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL DEFAULT '',
@@ -6678,6 +6685,89 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Campaign ROI ─────────────────────────────────────────────────
+
+@app.get("/api/campaigns/{campaign_id}/roi")
+async def campaign_roi(campaign_id: int, user=Depends(require_auth)):
+    """Calculate ROI for a campaign based on linked deals."""
+    with get_db() as conn:
+        campaign = conn.execute("SELECT * FROM campaigns WHERE id=?", [campaign_id]).fetchone()
+        if not campaign:
+            _err("Campaign not found", 404)
+        budget = float(campaign["total_recipients"] or 0) * 0  # placeholder if no budget field
+        # Get linked deals
+        rows = conn.execute(
+            """SELECT d.id, d.title, d.stage, d.value_amount, d.currency
+               FROM campaign_deals cd JOIN deals d ON cd.deal_id = d.id
+               WHERE cd.campaign_id=?""", [campaign_id]
+        ).fetchall()
+        deals = [{"id":r[0],"title":r[1],"stage":r[2],"value_amount":float(r[3] or 0),"currency":r[4]} for r in rows]
+        total_value = sum(d["value_amount"] for d in deals)
+        won_value = sum(d["value_amount"] for d in deals if d["stage"] == "WON")
+        lost_value = sum(d["value_amount"] for d in deals if d["stage"] == "LOST")
+        active_value = total_value - won_value - lost_value
+        roi_pct = ((won_value - budget) / budget * 100) if budget > 0 else 0
+        return _ok({
+            "campaign_id": campaign_id,
+            "deals": deals,
+            "total_deals": len(deals),
+            "total_value": total_value,
+            "won_value": won_value,
+            "lost_value": lost_value,
+            "active_value": active_value,
+            "budget": budget,
+            "roi_percent": round(roi_pct, 1)
+        })
+
+
+@app.post("/api/campaigns/{campaign_id}/deals")
+async def link_deal_to_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    deal_id = data.get("deal_id")
+    if not deal_id:
+        _err("deal_id required", 400)
+    with get_db() as conn:
+        try:
+            conn.execute("INSERT INTO campaign_deals (campaign_id, deal_id) VALUES (?,?)", [campaign_id, deal_id])
+        except Exception:
+            _err("Deal already linked", 409)
+    log_audit(user["user_id"], "link_campaign_deal", "campaign", campaign_id,
+              new_value={"deal_id": deal_id}, ip=_get_ip(request))
+    return _ok({"linked": True})
+
+
+@app.delete("/api/campaigns/{campaign_id}/deals/{deal_id}")
+async def unlink_deal_from_campaign(campaign_id: int, deal_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM campaign_deals WHERE campaign_id=? AND deal_id=?", [campaign_id, deal_id])
+    return _ok({"unlinked": True})
+
+
+@app.get("/api/campaigns/roi-summary")
+async def campaigns_roi_summary(user=Depends(require_auth)):
+    """Summary ROI across all campaigns."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT c.id, c.name, c.status, c.sent_count,
+                   COUNT(cd.deal_id) as deal_count,
+                   COALESCE(SUM(CASE WHEN d.stage='WON' THEN d.value_amount ELSE 0 END), 0) as won_value,
+                   COALESCE(SUM(d.value_amount), 0) as total_pipeline
+            FROM campaigns c
+            LEFT JOIN campaign_deals cd ON c.id = cd.campaign_id
+            LEFT JOIN deals d ON cd.deal_id = d.id
+            GROUP BY c.id
+            ORDER BY won_value DESC
+        """).fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r[0], "name": r[1], "status": r[2], "sent_count": r[3],
+                "deal_count": r[4], "won_value": float(r[5]),
+                "total_pipeline": float(r[6])
+            })
+        return _ok(result)
 
 
 # ─── Contact Segments ─────────────────────────────────────────────

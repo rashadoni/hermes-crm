@@ -245,6 +245,7 @@
           <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
           <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
           <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
+          <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -337,6 +338,13 @@ const translations = {
     nav_marketing_menu: 'Marketing',
     nav_email_templates: 'Email Templates',
     nav_campaigns: 'Campaigns',
+    roi_title: 'Campaign ROI',
+    roi_deals: 'Linked Deals',
+    roi_won: 'Won Revenue',
+    roi_pipeline: 'Pipeline Value',
+    roi_link_deal: 'Link Deal',
+    roi_no_deals: 'No deals linked',
+    roi_summary: 'ROI Summary',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1081,6 +1089,13 @@ const translations = {
     nav_marketing_menu: 'Маркетинг',
     nav_email_templates: 'Шаблоны Email',
     nav_campaigns: 'Кампании',
+    roi_title: 'ROI кампаний',
+    roi_deals: 'Связанные сделки',
+    roi_won: 'Выигранная выручка',
+    roi_pipeline: 'В воронке',
+    roi_link_deal: 'Привязать сделку',
+    roi_no_deals: 'Нет связанных сделок',
+    roi_summary: 'Сводка ROI',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1823,6 +1838,13 @@ const translations = {
     nav_marketing_menu: 'Marketinq',
     nav_email_templates: 'E-poçt şablonları',
     nav_campaigns: 'Kampaniyalar',
+    roi_title: 'Kampaniya ROI',
+    roi_deals: 'Əlaqəli sövdələşmələr',
+    roi_won: 'Qazanılmış gəlir',
+    roi_pipeline: 'Boru xəttində',
+    roi_link_deal: 'Sövdələşmə bağla',
+    roi_no_deals: 'Əlaqəli sövdələşmə yoxdur',
+    roi_summary: 'ROI xülasəsi',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3219,6 +3241,9 @@ async function renderPage(page) {
         break;
       case 'segments':
         await renderSegmentsPage(app);
+        break;
+      case 'campaign-roi':
+        await renderCampaignRoiPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14081,6 +14106,144 @@ async function updateCampaignDraft(id) {
     showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Campaign ROI ─────────────────────────────────────────────
+async function renderCampaignRoiPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let data = [];
+  try { const r = await api.get('/api/campaigns/roi-summary'); data = r.data || r || []; } catch(e){}
+  const totalWon = data.reduce((s,c) => s + c.won_value, 0);
+  const totalPipeline = data.reduce((s,c) => s + c.total_pipeline, 0);
+  const totalDeals = data.reduce((s,c) => s + c.deal_count, 0);
+
+  container.innerHTML = `
+    <div class="p-6">
+      <h1 class="text-2xl font-bold mb-6">${t('roi_title')}</h1>
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-slate-800 rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-green-400">${totalWon.toLocaleString()} ₼</div>
+          <div class="text-xs text-slate-400 mt-1">${t('roi_won')}</div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-indigo-400">${totalPipeline.toLocaleString()} ₼</div>
+          <div class="text-xs text-slate-400 mt-1">${t('roi_pipeline')}</div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-slate-300">${totalDeals}</div>
+          <div class="text-xs text-slate-400 mt-1">${t('roi_deals')}</div>
+        </div>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b border-slate-700">
+          <th class="p-3">${_t('Campaign','Кампания','Kampaniya')}</th>
+          <th class="p-3">${_t('Status','Статус','Status')}</th>
+          <th class="p-3">${_t('Sent','Отправлено','Göndərildi')}</th>
+          <th class="p-3">${t('roi_deals')}</th>
+          <th class="p-3">${t('roi_won')}</th>
+          <th class="p-3">${t('roi_pipeline')}</th>
+          <th class="p-3"></th>
+        </tr></thead>
+        <tbody>
+          ${data.length===0 ? '<tr><td colspan="7" class="p-6 text-center text-slate-500">No data</td></tr>' :
+            data.map(c => `
+              <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                <td class="p-3 font-medium">${esc(c.name)}</td>
+                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full ${c.status==='sent'?'bg-green-500/20 text-green-400':'bg-slate-700 text-slate-400'}">${c.status}</span></td>
+                <td class="p-3">${c.sent_count||0}</td>
+                <td class="p-3">${c.deal_count}</td>
+                <td class="p-3 text-green-400">${c.won_value.toLocaleString()} ₼</td>
+                <td class="p-3 text-indigo-400">${c.total_pipeline.toLocaleString()} ₼</td>
+                <td class="p-3"><button class="text-xs text-indigo-400 hover:underline" onclick="showCampaignRoiDetail(${c.id})">${_t('Details','Детали','Ətraflı')}</button></td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function showCampaignRoiDetail(campaignId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let roi = { deals:[], total_deals:0, won_value:0, total_value:0, active_value:0, lost_value:0 };
+  try { const r = await api.get('/api/campaigns/' + campaignId + '/roi'); roi = r.data || r; } catch(e){}
+
+  let allDeals = [];
+  try { const r = await api.get('/api/deals?limit=200'); allDeals = r.data || r || []; } catch(e){}
+  const linkedIds = new Set(roi.deals.map(d => d.id));
+  const available = allDeals.filter(d => !linkedIds.has(d.id));
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <button class="text-slate-400 hover:text-white" onclick="navigate('campaign-roi')">← ${t('roi_title')}</button>
+        <h1 class="text-xl font-bold">${_t('Campaign','Кампания','Kampaniya')} #${campaignId}</h1>
+      </div>
+      <div class="grid grid-cols-4 gap-3 mb-6">
+        <div class="bg-slate-800 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold">${roi.total_deals}</div>
+          <div class="text-xs text-slate-400">${t('roi_deals')}</div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-green-400">${roi.won_value.toLocaleString()} ₼</div>
+          <div class="text-xs text-slate-400">${t('roi_won')}</div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-indigo-400">${roi.active_value.toLocaleString()} ₼</div>
+          <div class="text-xs text-slate-400">${_t('Active','Активные','Aktiv')}</div>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-red-400">${roi.lost_value.toLocaleString()} ₼</div>
+          <div class="text-xs text-slate-400">${_t('Lost','Потеряно','İtirilmiş')}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mb-4">
+        <select id="roiDealSelect" class="text-sm" style="max-width:300px">
+          <option value="">— ${t('roi_link_deal')} —</option>
+          ${available.map(d => '<option value="' + d.id + '">' + esc(d.title) + ' (' + (d.value_amount||0).toLocaleString() + ' ' + (d.currency||'AZN') + ')</option>').join('')}
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="linkDealToCampaign(${campaignId})">+</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b border-slate-700">
+          <th class="p-2">${_t('Deal','Сделка','Sövdələşmə')}</th>
+          <th class="p-2">${_t('Stage','Стадия','Mərhələ')}</th>
+          <th class="p-2">${_t('Amount','Сумма','Məbləğ')}</th>
+          <th class="p-2"></th>
+        </tr></thead>
+        <tbody>
+          ${roi.deals.length===0 ? '<tr><td colspan="4" class="p-4 text-center text-slate-500">' + t('roi_no_deals') + '</td></tr>' :
+            roi.deals.map(d => `
+              <tr class="border-b border-slate-800">
+                <td class="p-2">${esc(d.title)}</td>
+                <td class="p-2"><span class="text-xs px-2 py-0.5 rounded-full ${d.stage==='WON'?'bg-green-500/20 text-green-400':d.stage==='LOST'?'bg-red-500/20 text-red-400':'bg-indigo-500/20 text-indigo-400'}">${d.stage}</span></td>
+                <td class="p-2">${d.value_amount.toLocaleString()} ${d.currency||'AZN'}</td>
+                <td class="p-2 text-right"><button class="text-xs text-red-400 hover:underline" onclick="unlinkDealFromCampaign(${campaignId},${d.id})">✕</button></td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function linkDealToCampaign(campaignId) {
+  const sel = document.getElementById('roiDealSelect');
+  if (!sel || !sel.value) return;
+  try {
+    await api.post('/api/campaigns/' + campaignId + '/deals', { deal_id: parseInt(sel.value) });
+    showToast('Deal linked', 'success');
+    showCampaignRoiDetail(campaignId);
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
+}
+
+async function unlinkDealFromCampaign(campaignId, dealId) {
+  try {
+    await api.delete('/api/campaigns/' + campaignId + '/deals/' + dealId);
+    showToast('Unlinked', 'success');
+    showCampaignRoiDetail(campaignId);
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
 }
 
 // ─── Contact Segments ─────────────────────────────────────────

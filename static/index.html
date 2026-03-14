@@ -6548,30 +6548,77 @@ async function renderDeals(el) {
   } catch(e) {}
   const columns = stages.map(s => deals.filter(d => d.stage === s));
 
-  el.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('deals_title')}</h1>
-      <button class="btn btn-primary btn-sm" onclick="showDealModal()">${t('deals_add')}</button>
-    </div>
-    <div class="flex gap-4 overflow-x-auto pb-4">
-      ${stages.map((stage, idx) => `
-        <div class="kanban-col" data-stage="${stage}">
-          <div class="kanban-header font-semibold mb-3 pb-2 border-b border-slate-700">${t('deals_stage_'+stage.toLowerCase())} <span class="text-slate-500 text-sm">${columns[idx].length}</span></div>
-          <div class="kanban-drop-zone" ondrop="onDealDrop(event, '${stage}')" ondragover="event.preventDefault()" style="min-height:100px">
-            ${columns[idx].map(d => `
-              <div class="kanban-card" draggable="true" ondragstart="onDealDragStart(event, ${d.id})" onclick="showDealDetail(${d.id})" style="cursor:pointer">
-                <div class="font-semibold text-sm">${esc(d.title)}</div>
-                <div class="text-xs text-slate-500 mt-1">${esc(d.contact_name||d.company_name||'')}</div>
-                ${d.assigned_to_name ? `<div class="text-xs text-slate-400 mt-1">👤 ${esc(d.assigned_to_name)}</div>` : ''}
-                <div class="text-sm font-bold text-indigo-400 mt-2">${formatCurrency(d.value_amount)}</div>
-                ${d.lost_reason ? `<div class="lost-reason">${esc(d.lost_reason)}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
+  // Premium deals kanban
+  const L = currentLang;
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  const _totalValue = deals.reduce((s, d) => s + (d.value_amount || 0), 0);
+  const _wonDeals = deals.filter(d => d.stage === 'WON');
+  const _wonValue = _wonDeals.reduce((s, d) => s + (d.value_amount || 0), 0);
+  const _lostDeals = deals.filter(d => d.stage === 'LOST').length;
+
+  let _dHTML = '';
+
+  // Header
+  _dHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+  _dHTML += '<div>';
+  _dHTML += '<h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('deals_title') + '</h1>';
+  _dHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + deals.length + ' ' + _t('deals total','сделок всего','cəmi sövdələşmə') + '</p>';
+  _dHTML += '</div>';
+  _dHTML += '<button onclick="showDealModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(99,102,241,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(99,102,241,0.3)\'">' + t('deals_add') + '</button>';
+  _dHTML += '</div>';
+
+  // Stats row
+  _dHTML += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">';
+  _dHTML += '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:14px;padding:18px"><div style="font-size:22px;font-weight:800;color:#f1f5f9">' + deals.length + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Total deals','Всего сделок','Cəmi sövdələşmə') + '</div></div>';
+  _dHTML += '<div style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border:1px solid rgba(59,130,246,0.15);border-radius:14px;padding:18px"><div style="font-size:22px;font-weight:800;color:#f1f5f9">' + formatCurrency(_totalValue) + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Pipeline value','Сумма воронки','Boru xətti dəyəri') + '</div></div>';
+  _dHTML += '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.15);border-radius:14px;padding:18px"><div style="font-size:22px;font-weight:800;color:#34d399">' + formatCurrency(_wonValue) + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Won','Выиграно','Qazanılıb') + ' (' + _wonDeals.length + ')</div></div>';
+  _dHTML += '<div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px"><div style="font-size:22px;font-weight:800;color:#f87171">' + _lostDeals + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Lost','Проиграно','İtirildi') + '</div></div>';
+  _dHTML += '</div>';
+
+  // Kanban columns
+  var _stageColors = {'LEAD':'#6366f1','QUALIFIED':'#3b82f6','PROPOSAL':'#f59e0b','NEGOTIATION':'#8b5cf6','WON':'#10b981','LOST':'#ef4444'};
+  var _stageDefault = '#6366f1';
+  _dHTML += '<div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:16px">';
+  stages.forEach(function(stage, idx) {
+    var sc = _stageColors[stage] || _stageDefault;
+    var stageDeals = columns[idx];
+    var stageValue = stageDeals.reduce(function(s, d) { return s + (d.value_amount || 0); }, 0);
+
+    _dHTML += '<div data-stage="' + stage + '" style="min-width:260px;flex:1;background:linear-gradient(180deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));border:1px solid rgba(71,85,105,0.2);border-radius:16px;padding:0;overflow:hidden">';
+    // Column header
+    _dHTML += '<div style="padding:16px 18px 12px;border-bottom:2px solid ' + sc + '40;background:linear-gradient(135deg,' + sc + '08,' + sc + '03)">';
+    _dHTML += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    _dHTML += '<div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:' + sc + ';box-shadow:0 0 8px ' + sc + '60"></div><span style="font-size:13px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px">' + t('deals_stage_' + stage.toLowerCase()) + '</span></div>';
+    _dHTML += '<span style="background:' + sc + '20;color:' + sc + ';padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700">' + stageDeals.length + '</span>';
+    _dHTML += '</div>';
+    if (stageValue > 0) {
+      _dHTML += '<div style="font-size:12px;color:#94a3b8;margin-top:6px">' + formatCurrency(stageValue) + '</div>';
+    }
+    _dHTML += '</div>';
+
+    // Cards area
+    _dHTML += '<div class="kanban-drop-zone" ondrop="onDealDrop(event, \'' + stage + '\')" ondragover="event.preventDefault()" style="min-height:80px;padding:10px">';
+    stageDeals.forEach(function(d) {
+      _dHTML += '<div class="kanban-card" draggable="true" ondragstart="onDealDragStart(event, ' + d.id + ')" onclick="showDealDetail(' + d.id + ')" style="cursor:pointer;background:linear-gradient(135deg,rgba(30,41,59,0.9),' + sc + '06);border:1px solid rgba(71,85,105,0.2);border-radius:12px;padding:14px;margin-bottom:10px;transition:all 0.25s ease" onmouseover="this.style.borderColor=\'' + sc + '40\';this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 15px ' + sc + '15\'" onmouseout="this.style.borderColor=\'rgba(71,85,105,0.2)\';this.style.transform=\'none\';this.style.boxShadow=\'none\'">';
+      _dHTML += '<div style="font-size:14px;font-weight:600;color:#f1f5f9;margin-bottom:6px">' + esc(d.title) + '</div>';
+      if (d.contact_name || d.company_name) {
+        _dHTML += '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px">' + esc(d.contact_name || d.company_name || '') + '</div>';
+      }
+      if (d.assigned_to_name) {
+        _dHTML += '<div style="font-size:11px;color:#64748b;margin-bottom:6px">' + String.fromCodePoint(128100) + ' ' + esc(d.assigned_to_name) + '</div>';
+      }
+      _dHTML += '<div style="font-size:15px;font-weight:700;color:' + sc + '">' + formatCurrency(d.value_amount) + '</div>';
+      if (d.lost_reason) {
+        _dHTML += '<div style="margin-top:6px;padding:6px 10px;background:rgba(239,68,68,0.1);border-radius:8px;font-size:11px;color:#f87171">' + esc(d.lost_reason) + '</div>';
+      }
+      _dHTML += '</div>';
+    });
+    _dHTML += '</div>';
+    _dHTML += '</div>';
+  });
+  _dHTML += '</div>';
+
+  el.innerHTML = _dHTML;
 }
 
 let draggedDealId = null;

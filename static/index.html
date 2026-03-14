@@ -3807,110 +3807,107 @@ async function renderAnalytics(el) {
   // Chart colors
   const chartColors = ['#6366f1','#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b'];
   const chartTextColor = '#94a3b8';
+  const chartOpts = {animation:false, responsive:true, maintainAspectRatio:false};
 
-  // 1. Lead Funnel Chart
+  // Lazy chart rendering — only create charts when their canvas scrolls into view
+  const _chartQueue = [];
+  function queueChart(canvasId, createFn) {
+    _chartQueue.push({canvasId, createFn, created: false});
+  }
+  
+  const _chartObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const item = _chartQueue.find(q => q.canvasId === entry.target.id && !q.created);
+        if (item) {
+          try { item.createFn(); } catch(e) { console.warn('Chart error:', item.canvasId, e); }
+          item.created = true;
+          _chartObserver.unobserve(entry.target);
+        }
+      }
+    });
+  }, {rootMargin: '200px'});
+
+  // Queue all charts for lazy rendering
+  _chartQueue.length = 0;
+
+  // 1. Lead Funnel
   const fKeys = funnelOrder.filter(k => funnel[k]);
   if (fKeys.length) {
-    new Chart(document.getElementById('leadFunnelChart'), {
-      type: 'bar',
-      data: {
-        labels: fKeys.map(k => funnelLabels[k]||k),
-        datasets: [{data: fKeys.map(k => funnel[k]), backgroundColor: fKeys.map(k => funnelColors[k]||'#6366f1'), borderWidth: 0}]
-      },
-      options: {responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+    queueChart('leadFunnelChart', () => {
+      new Chart(document.getElementById('leadFunnelChart'), {
+        type: 'bar',
+        data: {labels: fKeys.map(k => funnelLabels[k]||k), datasets: [{data: fKeys.map(k => funnel[k]), backgroundColor: fKeys.map(k => funnelColors[k]||'#6366f1'), borderWidth: 0}]},
+        options: {...chartOpts, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+      });
     });
   }
 
-  // 2. Activity Timeline Chart
-  const atl = adv.activity_by_month || [];
-  if (atl.length) {
-  }
-
-  // 3. Activity Types Chart
-  const aTypes = adv.activity_types || [];
-  if (aTypes.length) {
-  }
-
-  // 4. Deal Pipeline Chart
+  // 4. Deal Pipeline
   const dp = adv.deal_pipeline || [];
   if (dp.length) {
-    new Chart(document.getElementById('dealPipelineChart'), {
-      type: 'bar',
-      data: {
-        labels: dp.map(r => r.stage||'unknown'),
-        datasets: [
-          {label:t('reports_col_count')||'Count',data:dp.map(r=>r.count),backgroundColor:'#6366f1',yAxisID:'y'},
-          {label:t('reports_col_value')||'Value',data:dp.map(r=>r.value),backgroundColor:'#10b981',yAxisID:'y1'}
-        ]
-      },
-      options: {responsive:true, plugins:{legend:{labels:{color:chartTextColor}}}, scales:{y:{beginAtZero:true,position:'left',ticks:{color:chartTextColor}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+    queueChart('dealPipelineChart', () => {
+      new Chart(document.getElementById('dealPipelineChart'), {
+        type: 'bar',
+        data: {labels: dp.map(r => r.stage||'unknown'), datasets: [{label:t('reports_col_count')||'Count',data:dp.map(r=>r.count),backgroundColor:'#6366f1',yAxisID:'y'},{label:t('reports_col_value')||'Value',data:dp.map(r=>r.value),backgroundColor:'#10b981',yAxisID:'y1'}]},
+        options: {...chartOpts, plugins:{legend:{labels:{color:chartTextColor}}}, scales:{y:{beginAtZero:true,position:'left',ticks:{color:chartTextColor}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+      });
     });
   }
 
-  // 5. Contact Health Chart
+  // 5. Contact Health
   if (health.active_30d !== undefined) {
-    new Chart(document.getElementById('contactHealthChart'), {
-      type: 'doughnut',
-      data: {
-        labels: [t('reports_active_30d')||'Active (30d)', t('reports_inactive_30d')||'Inactive (30d+)', t('reports_never_contacted')||'Never Contacted'],
-        datasets: [{data: [health.active_30d, health.inactive_30d, health.never_contacted], backgroundColor: ['#10b981','#f59e0b','#ef4444'], borderWidth: 0}]
-      },
-      options: {responsive:true, plugins:{legend:{position:'right',labels:{color:chartTextColor,padding:8}}}}
+    queueChart('contactHealthChart', () => {
+      new Chart(document.getElementById('contactHealthChart'), {
+        type: 'doughnut',
+        data: {labels: [t('reports_active_30d')||'Active (30d)', t('reports_inactive_30d')||'Inactive (30d+)', t('reports_never_contacted')||'Never Contacted'], datasets: [{data: [health.active_30d, health.inactive_30d, health.never_contacted], backgroundColor: ['#10b981','#f59e0b','#ef4444'], borderWidth: 0}]},
+        options: {...chartOpts, plugins:{legend:{position:'right',labels:{color:chartTextColor,padding:8}}}}
+      });
     });
   }
 
-  // 6. Contract Status Doughnut
+  // 6. Contract Status
   if (cbystatus.length) {
-    const rStatusCanvas = document.getElementById('reportsByStatusChart');
-      const rStatusExisting = Chart.getChart(rStatusCanvas);
-      if (rStatusExisting) rStatusExisting.destroy();
-      new Chart(rStatusCanvas, {
-      type: 'doughnut',
-      data: {
-        labels: cbystatus.map(r => getStatusLabel(r.status)),
-        datasets: [{data: cbystatus.map(r => r.count), backgroundColor: ['#34d399','#60a5fa','#fbbf24','#f87171','#a78bfa','#9ca3af','#fb923c','#e879f9'], borderWidth: 0}]
-      },
-      options: {responsive:true, plugins:{legend:{position:'right',labels:{color:chartTextColor,padding:8}}}}
+    queueChart('reportsByStatusChart', () => {
+      const cv = document.getElementById('reportsByStatusChart');
+      const ex = Chart.getChart(cv); if (ex) ex.destroy();
+      new Chart(cv, {
+        type: 'doughnut',
+        data: {labels: cbystatus.map(r => getStatusLabel(r.status)), datasets: [{data: cbystatus.map(r => r.count), backgroundColor: ['#34d399','#60a5fa','#fbbf24','#f87171','#a78bfa','#9ca3af','#fb923c','#e879f9'], borderWidth: 0}]},
+        options: {...chartOpts, plugins:{legend:{position:'right',labels:{color:chartTextColor,padding:8}}}}
+      });
     });
   }
 
   // 7. Contract Types Bar
   if (cbytype.length) {
-    const rTypeCanvas = document.getElementById('reportsByTypeChart');
-      const rTypeExisting = Chart.getChart(rTypeCanvas);
-      if (rTypeExisting) rTypeExisting.destroy();
-      new Chart(rTypeCanvas, {
-      type: 'bar',
-      data: {
-        labels: cbytype.map(r => getTypeLabel(r.type)),
-        datasets: [{label: t('nav_contracts'), data: cbytype.map(r => r.count), backgroundColor: '#6366f1', borderWidth: 0}]
-      },
-      options: {responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+    queueChart('reportsByTypeChart', () => {
+      const cv = document.getElementById('reportsByTypeChart');
+      const ex = Chart.getChart(cv); if (ex) ex.destroy();
+      new Chart(cv, {
+        type: 'bar',
+        data: {labels: cbytype.map(r => getTypeLabel(r.type)), datasets: [{label: t('nav_contracts'), data: cbytype.map(r => r.count), backgroundColor: '#6366f1', borderWidth: 0}]},
+        options: {...chartOpts, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+      });
     });
   }
 
   // 8. Contracts by Month
   const cbm = adv.contracts_by_month || [];
   if (cbm.length) {
-    const cMonthCanvas = document.getElementById('contractsByMonthChart');
-      const cMonthExisting = Chart.getChart(cMonthCanvas);
-      if (cMonthExisting) cMonthExisting.destroy();
-      new Chart(cMonthCanvas, {
-      type: 'line',
-      data: {
-        labels: cbm.map(r => r.month),
-        datasets: [{label:'Contracts',data:cbm.map(r=>r.count),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#3b82f6'}]
-      },
-      options: {responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+    queueChart('contractsByMonthChart', () => {
+      const cv = document.getElementById('contractsByMonthChart');
+      const ex = Chart.getChart(cv); if (ex) ex.destroy();
+      new Chart(cv, {
+        type: 'line',
+        data: {labels: cbm.map(r => r.month), datasets: [{label:'Contracts',data:cbm.map(r=>r.count),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#3b82f6'}]},
+        options: {...chartOpts, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{color:chartTextColor}},x:{ticks:{color:chartTextColor}}}}
+      });
     });
   }
 
-  // 9. Companies Growth
-  const cg = adv.companies_by_month || [];
-  if (cg.length) {
-  }
-
-    // === Financial widgets ===
+  // Financial widgets — also lazy
+  queueChart('serviceProfitChart', async () => {
     try {
       const finResp = await apiFetch('/api/cost-model/analytics');
       const fin = finResp.data;
@@ -3927,41 +3924,41 @@ async function renderAnalytics(el) {
         mpEl.className = 'text-lg font-bold ' + (s.margin_pct >= 0 ? 'text-green-400' : 'text-red-400');
         document.getElementById('finProfitable').textContent = s.profitable_clients;
         document.getElementById('finLoss').textContent = s.loss_clients;
-        if (fin.service_analytics && document.getElementById('serviceProfitChart')) {
+        if (fin.service_analytics) {
           const sa = fin.service_analytics;
-          new Chart(document.getElementById('serviceProfitChart'),{type:'bar',data:{labels:sa.map(s=>s.service.length>15?s.service.substring(0,15)+'...':s.service),datasets:[{label:'Balance',data:sa.map(s=>s.balance),backgroundColor:sa.map(s=>s.balance>=0?'rgba(16,185,129,0.7)':'rgba(239,68,68,0.7)'),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9ca3af'}},y:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:11}}}}}});
-
-      // Companies Growth Chart
-      try {
-        const cgCtx = document.getElementById('companiesGrowthChart');
-        if (cgCtx) {
-          const cgR = await fetch('/api/companies?limit=1000', {headers:{'Authorization':'Bearer '+localStorage.getItem('crm_token')}});
-          const cgD = await cgR.json();
-          const comps = Array.isArray(cgD) ? cgD : (cgD.data||[]);
-          const mc = {};
-          comps.forEach(co => {
-            const d = co.created_at||co.created||'';
-            const m = d.substring(0,7);
-            if(m) mc[m]=(mc[m]||0)+1;
-          });
-          const sm = Object.keys(mc).sort();
-          let cum=0;
-          const cd = sm.map(m => { cum+=mc[m]; return cum; });
-          new Chart(cgCtx, {type:'bar',data:{labels:sm.slice(-12),datasets:[{label:'Total Companies',data:cd.slice(-12),backgroundColor:'rgba(16,185,129,0.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.1)'}},x:{ticks:{color:'#94a3b8'},grid:{display:false}}}}});
-        }
-      } catch(e) { console.warn('cg err:', e); }
+          new Chart(document.getElementById('serviceProfitChart'),{type:'bar',data:{labels:sa.map(s=>s.service.length>15?s.service.substring(0,15)+'...':s.service),datasets:[{label:'Balance',data:sa.map(s=>s.balance),backgroundColor:sa.map(s=>s.balance>=0?'rgba(16,185,129,0.7)':'rgba(239,68,68,0.7)'),borderRadius:4}]},options:{indexAxis:'y',...chartOpts,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9ca3af'}},y:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:11}}}}}});
         }
         if (document.getElementById('clientStatusChart')) {
-          new Chart(document.getElementById('clientStatusChart'),{type:'doughnut',data:{labels:['Profitable ('+s.profitable_clients+')','Loss-making ('+s.loss_clients+')'],datasets:[{data:[s.profitable_clients,s.loss_clients],backgroundColor:['rgba(16,185,129,0.8)','rgba(239,68,68,0.8)'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom',labels:{color:'#9ca3af',padding:15}}}}});
+          new Chart(document.getElementById('clientStatusChart'),{type:'doughnut',data:{labels:['Profitable ('+s.profitable_clients+')','Loss-making ('+s.loss_clients+')'],datasets:[{data:[s.profitable_clients,s.loss_clients],backgroundColor:['rgba(16,185,129,0.8)','rgba(239,68,68,0.8)'],borderWidth:0}]},options:{...chartOpts,cutout:'55%',plugins:{legend:{position:'bottom',labels:{color:'#9ca3af',padding:15}}}}});
         }
         if (fin.client_data && document.getElementById('topRevenueChart')) {
           const t10 = [...fin.client_data].sort((a,b)=>b.total_revenue-a.total_revenue).slice(0,10);
-          new Chart(document.getElementById('topRevenueChart'),{type:'bar',data:{labels:t10.map(c=>c.name.length>18?c.name.substring(0,18)+'...':c.name),datasets:[{label:'Revenue',data:t10.map(c=>c.total_revenue),backgroundColor:t10.map(c=>c.margin>=0?'rgba(99,102,241,0.7)':'rgba(245,158,11,0.7)'),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9ca3af'}},y:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:10}}}}}});
+          new Chart(document.getElementById('topRevenueChart'),{type:'bar',data:{labels:t10.map(c=>c.name.length>18?c.name.substring(0,18)+'...':c.name),datasets:[{label:'Revenue',data:t10.map(c=>c.total_revenue),backgroundColor:t10.map(c=>c.margin>=0?'rgba(99,102,241,0.7)':'rgba(245,158,11,0.7)'),borderRadius:4}]},options:{indexAxis:'y',...chartOpts,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9ca3af'}},y:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:10}}}}}});
         }
       }
     } catch(e) { console.warn('Financial widgets error:', e); }
+  });
 
+  // Companies Growth — lazy and limited
+  queueChart('companiesGrowthChart', async () => {
+    try {
+      const cgR = await fetch('/api/companies?limit=200', {headers:{'Authorization':'Bearer '+localStorage.getItem('crm_token')}});
+      const cgD = await cgR.json();
+      const comps = Array.isArray(cgD) ? cgD : (cgD.data||[]);
+      const mc = {};
+      comps.forEach(co => { const m = (co.created_at||co.created||'').substring(0,7); if(m) mc[m]=(mc[m]||0)+1; });
+      const sm = Object.keys(mc).sort();
+      let cum=0;
+      const cd = sm.map(m => { cum+=mc[m]; return cum; });
+      new Chart(document.getElementById('companiesGrowthChart'), {type:'bar',data:{labels:sm.slice(-12),datasets:[{label:'Total Companies',data:cd.slice(-12),backgroundColor:'rgba(16,185,129,0.8)',borderRadius:4}]},options:{...chartOpts,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.1)'}},x:{ticks:{color:'#94a3b8'},grid:{display:false}}}}});
+    } catch(e) { console.warn('cg err:', e); }
+  });
 
+  // Start observing all queued canvases
+  _chartQueue.forEach(item => {
+    const canvas = document.getElementById(item.canvasId);
+    if (canvas) _chartObserver.observe(canvas);
+  });
 
     // Load forecast widget
     loadForecast();

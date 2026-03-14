@@ -727,20 +727,41 @@ class Activity:
     def create(data):
         # type: (Dict[str, Any]) -> Optional[Dict]
         with get_db() as conn:
-            cursor = conn.execute(
-                "INSERT INTO activities "
-                "(contact_id, deal_id, activity_type, direction, subject, content, metadata) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    data.get("contact_id"),
-                    data.get("deal_id"),
-                    data.get("activity_type", "NOTE"),
-                    data.get("direction", "INBOUND"),
-                    data.get("subject", ""),
-                    data.get("content", ""),
-                    data.get("metadata", "{}"),
-                ),
-            )
+            ts = data.get("timestamp")
+            status = data.get("status", "completed")
+            if ts:
+                cursor = conn.execute(
+                    "INSERT INTO activities "
+                    "(contact_id, deal_id, activity_type, direction, subject, content, metadata, timestamp, status) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        data.get("contact_id"),
+                        data.get("deal_id"),
+                        data.get("activity_type", "NOTE"),
+                        data.get("direction", "INBOUND"),
+                        data.get("subject", ""),
+                        data.get("content", ""),
+                        data.get("metadata", "{}"),
+                        ts,
+                        status,
+                    ),
+                )
+            else:
+                cursor = conn.execute(
+                    "INSERT INTO activities "
+                    "(contact_id, deal_id, activity_type, direction, subject, content, metadata, status) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        data.get("contact_id"),
+                        data.get("deal_id"),
+                        data.get("activity_type", "NOTE"),
+                        data.get("direction", "INBOUND"),
+                        data.get("subject", ""),
+                        data.get("content", ""),
+                        data.get("metadata", "{}"),
+                        status,
+                    ),
+                )
             row = conn.execute(
                 "SELECT * FROM activities WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()

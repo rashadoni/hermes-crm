@@ -10561,12 +10561,6 @@ async function showOfferForm(id) {
           <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
             <input type="checkbox" name="show_vat" ${o.show_vat?'checked':''} class="accent-indigo-500"> ƏDV 18%
           </label>
-          <span class="text-slate-600">|</span>
-          <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
-            <input type="checkbox" id="offerDiscountToggle" onchange="toggleOfferDiscount(this.checked)" class="accent-orange-500" ${_offerItems.some(i=>i.discount>0)?'checked':''}> ${t('offer_discount')}
-          </label>
-          <input type="number" id="offerDiscountPct" min="0" max="100" step="1" value="${_offerItems[0]?.discount||0}" onchange="applyGlobalDiscount(+this.value)" class="text-xs py-1 px-2 ${_offerItems.some(i=>i.discount>0)?'':'hidden'}" style="width:55px" placeholder="%">
-          <span id="offerDiscountPctLabel" class="text-xs text-orange-400 ${_offerItems.some(i=>i.discount>0)?'':'hidden'}">%</span>
         </div>
 
         <!-- Row 1b: View mode -->

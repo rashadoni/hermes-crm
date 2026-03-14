@@ -5374,6 +5374,7 @@ async function renderCompanyList(el, mode) {
   }
 
   // ─── PARTNERS MODE ───
+  const L = currentLang;
   const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
   const [{data:companies}] = await Promise.all([
     api.get(`/api/companies?limit=500&q=`+encodeURIComponent(state.companiesQuery)),

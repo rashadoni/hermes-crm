@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS activities (
     subject         TEXT DEFAULT '',
     content         TEXT DEFAULT '',
     metadata        TEXT DEFAULT '{}',
+    status          TEXT DEFAULT 'completed',
     timestamp       TEXT DEFAULT (datetime('now'))
 );
 

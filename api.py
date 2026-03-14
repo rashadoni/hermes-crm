@@ -247,6 +247,8 @@ async def startup_event():
                 conn.execute("ALTER TABLE activities ADD COLUMN lead_id INTEGER DEFAULT NULL")
             if "company_id" not in cols:
                 conn.execute("ALTER TABLE activities ADD COLUMN company_id INTEGER DEFAULT NULL")
+            if "status" not in cols:
+                conn.execute("ALTER TABLE activities ADD COLUMN status TEXT DEFAULT 'completed'")
     except Exception:
         pass
     # ─── Phase 3: Service Cloud tables ─────────────────────────
@@ -2088,6 +2090,26 @@ async def create_activity(request: Request, user=Depends(require_auth)):
     return _ok(activity)
 
 
+@app.patch("/api/activities/{activity_id}/complete")
+async def complete_activity(activity_id: int, request: Request, user=Depends(require_auth)):
+    """Mark a scheduled activity as completed."""
+    with get_db() as conn:
+        conn.execute("UPDATE activities SET status='completed' WHERE id=?", (activity_id,))
+    return _ok({"id": activity_id, "status": "completed"})
+
+
+@app.get("/api/activities/scheduled")
+async def get_scheduled_activities(request: Request, user=Depends(require_auth)):
+    """Get upcoming scheduled activities."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT a.*, c.name as contact_name, c.email as contact_email "
+            "FROM activities a LEFT JOIN contacts c ON a.contact_id = c.id "
+            "WHERE a.status = 'scheduled' ORDER BY a.timestamp ASC LIMIT 50"
+        ).fetchall()
+        return _ok([dict(r) for r in rows])
+
+
 @app.get("/api/activities/company-counts")
 async def activity_company_counts(user=Depends(require_auth)):
     """Get activity counts grouped by company_id."""
@@ -2359,6 +2381,66 @@ async def get_notifications(user=Depends(require_auth)):
                 "entity_type": "task",
                 "entity_id": None,
             })
+
+        # 8. Scheduled/planned activities (upcoming calls, emails, meetings)
+        try:
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d 23:59:59")
+            scheduled = conn.execute(
+                "SELECT id, contact_id, activity_type, subject, timestamp FROM activities "
+                "WHERE status = 'scheduled' AND timestamp >= ? AND timestamp <= ? "
+                "ORDER BY timestamp ASC LIMIT 10",
+                (today, tomorrow)
+            ).fetchall()
+            for r in scheduled:
+                act_icons = {"call": "📞", "email": "✉️", "meeting": "📅"}
+                act_names = {"call": "Звонок", "email": "Email", "meeting": "Встреча"}
+                act_icon = act_icons.get(r["activity_type"], "📋")
+                act_name = act_names.get(r["activity_type"], r["activity_type"])
+                # Get contact name
+                contact_name = ""
+                if r["contact_id"]:
+                    cn = conn.execute("SELECT name, email FROM contacts WHERE id=?", (r["contact_id"],)).fetchone()
+                    if cn:
+                        contact_name = cn["name"] or cn["email"] or ""
+                time_part = r["timestamp"][11:16] if len(r["timestamp"]) > 11 else ""
+                notifications.append({
+                    "type": "scheduled_activity",
+                    "severity": "high",
+                    "title": f"{act_icon} {act_name}: {r['subject']}",
+                    "detail": f"{contact_name} — {time_part}" if contact_name else time_part,
+                    "entity_type": "contact",
+                    "entity_id": r["contact_id"],
+                })
+        except Exception:
+            pass
+
+        # 9. Overdue scheduled activities (planned but not done)
+        try:
+            overdue_activities = conn.execute(
+                "SELECT id, contact_id, activity_type, subject, timestamp FROM activities "
+                "WHERE status = 'scheduled' AND timestamp < ? "
+                "ORDER BY timestamp DESC LIMIT 10",
+                (today,)
+            ).fetchall()
+            for r in overdue_activities:
+                act_icons = {"call": "📞", "email": "✉️", "meeting": "📅"}
+                act_names = {"call": "Звонок", "email": "Email", "meeting": "Встреча"}
+                act_name = act_names.get(r["activity_type"], r["activity_type"])
+                contact_name = ""
+                if r["contact_id"]:
+                    cn = conn.execute("SELECT name, email FROM contacts WHERE id=?", (r["contact_id"],)).fetchone()
+                    if cn:
+                        contact_name = cn["name"] or cn["email"] or ""
+                notifications.append({
+                    "type": "overdue_activity",
+                    "severity": "high",
+                    "title": f"⚠️ Пропущено: {act_name} — {r['subject']}",
+                    "detail": f"{contact_name} — {r['timestamp'][:10]}",
+                    "entity_type": "contact",
+                    "entity_id": r["contact_id"],
+                })
+        except Exception:
+            pass
 
     # Sort: high first, then medium, then low
     sev_order = {"high": 0, "medium": 1, "low": 2}

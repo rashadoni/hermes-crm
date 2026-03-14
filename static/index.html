@@ -13687,14 +13687,17 @@ async function loadCampaignRecipientCount() {
   if (!countEl) return;
   countEl.textContent = '...';
   try {
-    if (targetType === 'all') {
-      var c1 = await api.get('/api/contacts?limit=1');
-      var c2 = await api.get('/api/leads?limit=1');
-      var total = (c1.total || c1.data.length || 0) + (c2.total || c2.data.length || 0);
-      countEl.textContent = total;
+    var cResp = await api.get('/api/contacts?limit=1');
+    var contactsTotal = cResp.total || 0;
+    if (targetType === 'all' || targetType === 'contacts') {
+      if (targetType === 'contacts') { countEl.textContent = contactsTotal; return; }
+      var lResp = await api.get('/api/leads?limit=10000');
+      var leadsArr = (lResp.data && lResp.data.leads) ? lResp.data.leads : (Array.isArray(lResp.data) ? lResp.data : []);
+      countEl.textContent = contactsTotal + leadsArr.length;
     } else {
-      var r = await api.get('/api/' + targetType + '?limit=1');
-      countEl.textContent = r.total || r.data.length || 0;
+      var lResp2 = await api.get('/api/leads?limit=10000');
+      var leadsArr2 = (lResp2.data && lResp2.data.leads) ? lResp2.data.leads : (Array.isArray(lResp2.data) ? lResp2.data : []);
+      countEl.textContent = leadsArr2.length;
     }
   } catch(e) { countEl.textContent = '?'; }
 }

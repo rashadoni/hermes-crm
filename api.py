@@ -412,6 +412,31 @@ async def startup_event():
                     value TEXT DEFAULT '',
                     UNIQUE(field_id, entity_id)
                 );
+                CREATE TABLE IF NOT EXISTS workflow_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    entity_type TEXT NOT NULL DEFAULT 'deals',
+                    trigger_event TEXT NOT NULL DEFAULT 'updated',
+                    conditions TEXT DEFAULT '{}',
+                    is_active INTEGER DEFAULT 1,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS workflow_actions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rule_id INTEGER NOT NULL,
+                    action_type TEXT NOT NULL DEFAULT 'send_notification',
+                    action_config TEXT DEFAULT '{}',
+                    action_order INTEGER DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS dashboard_layouts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    name TEXT DEFAULT 'Default',
+                    layout TEXT DEFAULT '[]',
+                    is_default INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS currencies (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT UNIQUE NOT NULL,
@@ -6778,6 +6803,163 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Workflow Automation ──────────────────────────────────────────
+
+@app.get("/api/workflow-rules")
+async def list_workflow_rules(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT r.*, u.full_name as creator_name,
+                      (SELECT COUNT(*) FROM workflow_actions WHERE rule_id=r.id) as action_count
+               FROM workflow_rules r LEFT JOIN users u ON r.created_by=u.id ORDER BY r.created_at DESC"""
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT r.*, u.full_name as creator_name FROM workflow_rules r LEFT JOIN users u ON r.created_by=u.id LIMIT 0"
+        ).description] + ["action_count"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/workflow-rules")
+async def create_workflow_rule(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active, created_by) VALUES (?,?,?,?,?,?)",
+            [data.get("name",""), data.get("entity_type","deals"), data.get("trigger_event","updated"),
+             json.dumps(data.get("conditions",{})), 1 if data.get("is_active",True) else 0, user["user_id"]]
+        )
+        rid = cur.lastrowid
+        for i, action in enumerate(data.get("actions", [])):
+            conn.execute(
+                "INSERT INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?,?,?,?)",
+                [rid, action.get("action_type","send_notification"), json.dumps(action.get("action_config",{})), i]
+            )
+    log_audit(user["user_id"], "create_workflow", "workflow_rule", rid, ip=_get_ip(request))
+    return _ok({"id": rid})
+
+
+@app.get("/api/workflow-rules/{rule_id}")
+async def get_workflow_rule(rule_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM workflow_rules WHERE id=?", [rule_id]).fetchone()
+        if not row:
+            _err("Rule not found", 404)
+        cols = [d[0] for d in conn.execute("SELECT * FROM workflow_rules LIMIT 0").description]
+        rule = dict(zip(cols, row))
+        try:
+            rule["conditions"] = json.loads(rule["conditions"] or "{}")
+        except Exception:
+            rule["conditions"] = {}
+        actions = conn.execute("SELECT * FROM workflow_actions WHERE rule_id=? ORDER BY action_order", [rule_id]).fetchall()
+        acols = [d[0] for d in conn.execute("SELECT * FROM workflow_actions LIMIT 0").description]
+        rule["actions"] = []
+        for a in actions:
+            ad = dict(zip(acols, a))
+            try:
+                ad["action_config"] = json.loads(ad["action_config"] or "{}")
+            except Exception:
+                ad["action_config"] = {}
+            rule["actions"].append(ad)
+        return _ok(rule)
+
+
+@app.put("/api/workflow-rules/{rule_id}")
+async def update_workflow_rule(rule_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        allowed = {"name", "entity_type", "trigger_event", "conditions", "is_active"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        if "conditions" in updates and isinstance(updates["conditions"], dict):
+            updates["conditions"] = json.dumps(updates["conditions"])
+        if "is_active" in updates:
+            updates["is_active"] = 1 if updates["is_active"] else 0
+        if updates:
+            parts = [f"{k}=?" for k in updates]
+            conn.execute(f"UPDATE workflow_rules SET {','.join(parts)} WHERE id=?", list(updates.values()) + [rule_id])
+        if "actions" in data:
+            conn.execute("DELETE FROM workflow_actions WHERE rule_id=?", [rule_id])
+            for i, action in enumerate(data["actions"]):
+                conn.execute(
+                    "INSERT INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?,?,?,?)",
+                    [rule_id, action.get("action_type","send_notification"), json.dumps(action.get("action_config",{})), i]
+                )
+    log_audit(user["user_id"], "update_workflow", "workflow_rule", rule_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/workflow-rules/{rule_id}")
+async def delete_workflow_rule(rule_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM workflow_actions WHERE rule_id=?", [rule_id])
+        conn.execute("DELETE FROM workflow_rules WHERE id=?", [rule_id])
+    return _ok({"deleted": True})
+
+
+# ─── Dashboard Layouts ───────────────────────────────────────────
+
+@app.get("/api/dashboard-layouts")
+async def list_dashboard_layouts(user=Depends(require_auth)):
+    uid = user["user_id"]
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM dashboard_layouts WHERE user_id=? ORDER BY is_default DESC, name", [uid]).fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM dashboard_layouts LIMIT 0").description]
+        result = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            try:
+                d["layout"] = json.loads(d["layout"] or "[]")
+            except Exception:
+                d["layout"] = []
+            result.append(d)
+        return _ok(result)
+
+
+@app.post("/api/dashboard-layouts")
+async def create_dashboard_layout(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    uid = user["user_id"]
+    layout = json.dumps(data.get("layout", []))
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO dashboard_layouts (user_id, name, layout, is_default) VALUES (?,?,?,?)",
+            [uid, data.get("name", "Custom"), layout, 1 if data.get("is_default") else 0]
+        )
+        lid = cur.lastrowid
+        if data.get("is_default"):
+            conn.execute("UPDATE dashboard_layouts SET is_default=0 WHERE user_id=? AND id!=?", [uid, lid])
+    return _ok({"id": lid})
+
+
+@app.put("/api/dashboard-layouts/{layout_id}")
+async def update_dashboard_layout(layout_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    uid = user["user_id"]
+    with get_db() as conn:
+        existing = conn.execute("SELECT id FROM dashboard_layouts WHERE id=? AND user_id=?", [layout_id, uid]).fetchone()
+        if not existing:
+            _err("Layout not found", 404)
+        updates = {}
+        if "name" in data:
+            updates["name"] = data["name"]
+        if "layout" in data:
+            updates["layout"] = json.dumps(data["layout"])
+        if "is_default" in data:
+            updates["is_default"] = 1 if data["is_default"] else 0
+            if data["is_default"]:
+                conn.execute("UPDATE dashboard_layouts SET is_default=0 WHERE user_id=? AND id!=?", [uid, layout_id])
+        if updates:
+            parts = [f"{k}=?" for k in updates]
+            conn.execute(f"UPDATE dashboard_layouts SET {','.join(parts)} WHERE id=?", list(updates.values()) + [layout_id])
+    return _ok({"updated": True})
+
+
+@app.delete("/api/dashboard-layouts/{layout_id}")
+async def delete_dashboard_layout(layout_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM dashboard_layouts WHERE id=? AND user_id=?", [layout_id, user["user_id"]])
+    return _ok({"deleted": True})
 
 
 # ─── Multi-Currency ──────────────────────────────────────────────

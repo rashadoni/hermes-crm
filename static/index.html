@@ -250,6 +250,10 @@
           <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
           <a href="#/email-log" data-page="email-log" data-i18n="email_log">Email Log</a>
           <a href="#/currencies" data-page="currencies" data-i18n="cur_title">Currencies</a>
+          <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
+          <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
+          <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
+          <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -374,7 +378,7 @@ const translations = {
     email_body: 'Body',
     email_to: 'To',
     email_sent: 'Email sent',    email_history: 'Email History',
-    cur_title: 'Currencies', cur_new: 'Add Currency', cur_code: 'Code', cur_name: 'Name', cur_symbol: 'Symbol', cur_rate: 'Exchange Rate', cur_base: 'Base', cur_convert: 'Convert',
+    cur_title: 'Currencies', cur_new: 'Add Currency', cur_code: 'Code', cur_name: 'Name', cur_symbol: 'Symbol', cur_rate: 'Exchange Rate', cur_base: 'Base', cur_convert: 'Convert', wf_title: 'Workflow Automation', wf_new: 'New Rule', wf_entity: 'Entity', wf_trigger: 'Trigger', wf_actions: 'Actions', wf_condition: 'Condition', wf_action_type: 'Action Type', dash_title: 'Dashboard Settings', dash_new: 'New Layout', dash_widgets: 'Widgets', dash_default: 'Default',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1151,7 +1155,7 @@ const translations = {
     email_body: 'Текст',
     email_to: 'Кому',
     email_sent: 'Email отправлен',    email_history: 'История писем',
-    cur_title: 'Валюты', cur_new: 'Добавить валюту', cur_code: 'Код', cur_name: 'Название', cur_symbol: 'Символ', cur_rate: 'Курс', cur_base: 'Базовая', cur_convert: 'Конвертер',
+    cur_title: 'Валюты', cur_new: 'Добавить валюту', cur_code: 'Код', cur_name: 'Название', cur_symbol: 'Символ', cur_rate: 'Курс', cur_base: 'Базовая', cur_convert: 'Конвертер', wf_title: 'Автоматизация', wf_new: 'Новое правило', wf_entity: 'Сущность', wf_trigger: 'Триггер', wf_actions: 'Действия', wf_condition: 'Условие', wf_action_type: 'Тип действия', dash_title: 'Настройки панели', dash_new: 'Новый макет', dash_widgets: 'Виджеты', dash_default: 'По умолчанию',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1926,7 +1930,7 @@ const translations = {
     email_body: 'Mətn',
     email_to: 'Kimə',
     email_sent: 'E-poçt göndərildi',    email_history: 'Yazışma tarixçəsi',
-    cur_title: 'Valyutalar', cur_new: 'Valyuta əlavə et', cur_code: 'Kod', cur_name: 'Ad', cur_symbol: 'Simvol', cur_rate: 'Məzənnə', cur_base: 'Əsas', cur_convert: 'Çevirici',
+    cur_title: 'Valyutalar', cur_new: 'Valyuta əlavə et', cur_code: 'Kod', cur_name: 'Ad', cur_symbol: 'Simvol', cur_rate: 'Məzənnə', cur_base: 'Əsas', cur_convert: 'Çevirici', wf_title: 'Avtomatlaşdırma', wf_new: 'Yeni qayda', wf_entity: 'Varlıq', wf_trigger: 'Tetikleyici', wf_actions: 'Hərəkətlər', wf_condition: 'Şərt', wf_action_type: 'Hərəkət növü', dash_title: 'Panel tənzimləmələri', dash_new: 'Yeni tərtibat', dash_widgets: 'Vidcetlər', dash_default: 'Defolt',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3339,6 +3343,10 @@ async function renderPage(page) {
       case 'currencies':
         if (isAdmin()) await renderCurrenciesPage(app);
         break;
+      case 'workflows': await renderWorkflowsPage(app); break;
+      case 'dashboard-settings': await renderDashboardSettings(app); break;
+      case 'workflows': await renderWorkflowsPage(app); break;
+      case 'dashboard-settings': await renderDashboardSettings(app); break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
         break;
@@ -14202,6 +14210,464 @@ async function updateCampaignDraft(id) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
+
+
+// ─── Workflow Automation ──────────────────────────────────────
+async function renderWorkflowsPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let rules = [];
+  try { const r = await api.get('/api/workflow-rules'); rules = r.data || r || []; } catch(e){}
+  const entityLabels = {deals:_t('Deals','Сделки','Sövdələşmələr'), leads:_t('Leads','Лиды','Lidlər'), tickets:_t('Tickets','Тикеты','Müraciətlər'), tasks:_t('Tasks','Задачи','Tapşırıqlar'), contacts:_t('Contacts','Контакты','Kontaktlar')};
+  const triggerLabels = {created:_t('Created','Создан','Yaradıldı'), updated:_t('Updated','Обновлён','Yeniləndi'), stage_changed:_t('Stage Changed','Стадия изменена','Mərhələ dəyişdi'), status_changed:_t('Status Changed','Статус изменён','Status dəyişdi')};
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('wf_title')}</h1>
+        <button class="btn btn-primary" onclick="showWorkflowForm()">${t('wf_new')}</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b border-slate-700">
+          <th class="p-3">${_t('Name','Название','Ad')}</th>
+          <th class="p-3">${t('wf_entity')}</th>
+          <th class="p-3">${t('wf_trigger')}</th>
+          <th class="p-3">${t('wf_actions')}</th>
+          <th class="p-3">${_t('Status','Статус','Status')}</th>
+          <th class="p-3"></th>
+        </tr></thead>
+        <tbody>
+          ${rules.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No rules','Нет правил','Qayda yoxdur') + '</td></tr>' :
+            rules.map(r => `
+              <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showWorkflowForm(${r.id})">
+                <td class="p-3 font-medium">${esc(r.name)}</td>
+                <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${entityLabels[r.entity_type]||r.entity_type}</span></td>
+                <td class="p-3"><span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">${triggerLabels[r.trigger_event]||r.trigger_event}</span></td>
+                <td class="p-3">${r.action_count||0}</td>
+                <td class="p-3">${r.is_active ? '<span class="text-green-400 text-xs">ON</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
+                <td class="p-3 text-right">
+                  <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteWorkflow(${r.id})">${_t('Delete','Удалить','Sil')}</button>
+                </td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function showWorkflowForm(ruleId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let rule = {name:'',entity_type:'deals',trigger_event:'stage_changed',conditions:{},is_active:1,actions:[]};
+  if (ruleId) {
+    try { const r = await api.get('/api/workflow-rules/'+ruleId); rule = r.data||r; } catch(e){}
+  }
+  
+  const entities = ['deals','leads','tickets','tasks','contacts'];
+  const triggers = ['created','updated','stage_changed','status_changed'];
+  const actionTypes = ['send_notification','send_email','create_task','assign_to','update_field'];
+  const actionLabels = {send_notification:_t('Notification','Уведомление','Bildiriş'), send_email:'Email', create_task:_t('Create Task','Создать задачу','Tapşırıq yarat'), assign_to:_t('Assign To','Назначить','Təyin et'), update_field:_t('Update Field','Обновить поле','Sahəni yenilə')};
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="p-6 max-w-3xl">
+      <div class="flex items-center gap-3 mb-6">
+        <button class="text-slate-400 hover:text-white" onclick="navigate('workflows')">← ${t('wf_title')}</button>
+        <h1 class="text-xl font-bold">${ruleId ? _t('Edit Rule','Ред. правило','Qayda redaktə') : t('wf_new')}</h1>
+      </div>
+      <form onsubmit="saveWorkflow(event, ${ruleId||'null'})" class="space-y-4">
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label><input type="text" id="wfName" value="${esc(rule.name)}" required class="w-full"></div>
+          <div>
+            <label class="text-xs text-slate-500">${t('wf_entity')}</label>
+            <select id="wfEntity" class="w-full text-sm">
+              ${entities.map(e => '<option value="'+e+'" '+(rule.entity_type===e?'selected':'')+'>'+e+'</option>').join('')}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">${t('wf_trigger')}</label>
+            <select id="wfTrigger" class="w-full text-sm">
+              ${triggers.map(t => '<option value="'+t+'" '+(rule.trigger_event===t?'selected':'')+'>'+t+'</option>').join('')}
+            </select>
+          </div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">${t('wf_condition')}</h3>
+          </div>
+          <div class="grid grid-cols-2 gap-2" style="font-size:12px">
+            <div><label class="text-xs text-slate-600">${_t('Field','Поле','Sahə')}</label><input type="text" id="wfCondField" value="${esc(Object.keys(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="stage"></div>
+            <div><label class="text-xs text-slate-600">${_t('Value','Значение','Dəyər')}</label><input type="text" id="wfCondValue" value="${esc(Object.values(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="WON"></div>
+          </div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">${t('wf_actions')}</h3>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addWfAction()">+ ${_t('Add','Добавить','Əlavə et')}</button>
+          </div>
+          <div id="wfActionsContainer">
+            ${(rule.actions||[]).map((a,i) => _renderWfActionRow(i, a, actionTypes, actionLabels)).join('')}
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="wfActive" ${rule.is_active?'checked':''} class="accent-green-500"> ${_t('Active','Активно','Aktiv')}</label>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="navigate('workflows')">${_t('Cancel','Отмена','Ləğv')}</button>
+        </div>
+      </form>
+    </div>`;
+  window._wfActionIdx = (rule.actions||[]).length;
+  window._wfActionTypes = actionTypes;
+  window._wfActionLabels = actionLabels;
+}
+
+function _renderWfActionRow(idx, action, actionTypes, actionLabels) {
+  const cfg = action.action_config || {};
+  return `
+    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-900 rounded" id="wfAction${idx}">
+      <span class="text-xs text-slate-500 w-6">#${idx+1}</span>
+      <select name="wfa_type_${idx}" class="text-xs flex-1">
+        ${actionTypes.map(t => '<option value="'+t+'" '+(action.action_type===t?'selected':'')+'>'+(actionLabels[t]||t)+'</option>').join('')}
+      </select>
+      <input type="text" name="wfa_config_${idx}" value="${esc(cfg.template_id||cfg.assign_to||cfg.field||cfg.message||'')}" class="text-xs flex-1" placeholder="Config value">
+      <button type="button" class="text-red-400 text-xs" onclick="document.getElementById('wfAction${idx}').remove()">✕</button>
+    </div>`;
+}
+
+function addWfAction() {
+  const idx = window._wfActionIdx || 0;
+  window._wfActionIdx = idx + 1;
+  const container = document.getElementById('wfActionsContainer');
+  const div = document.createElement('div');
+  div.innerHTML = _renderWfActionRow(idx, {}, window._wfActionTypes||[], window._wfActionLabels||{});
+  container.appendChild(div.firstElementChild);
+}
+
+async function saveWorkflow(e, ruleId) {
+  e.preventDefault();
+  const name = document.getElementById('wfName').value.trim();
+  if (!name) { showToast('Name required','error'); return; }
+  const condField = document.getElementById('wfCondField').value.trim();
+  const condValue = document.getElementById('wfCondValue').value.trim();
+  const conditions = condField ? {[condField]: condValue} : {};
+  const actions = [];
+  document.querySelectorAll('[id^="wfAction"]').forEach(el => {
+    const idx = el.id.replace('wfAction','');
+    const type = document.querySelector('[name="wfa_type_'+idx+'"]');
+    const config = document.querySelector('[name="wfa_config_'+idx+'"]');
+    if (type) actions.push({ action_type: type.value, action_config: { value: config?config.value:'' } });
+  });
+  const payload = {
+    name, entity_type: document.getElementById('wfEntity').value,
+    trigger_event: document.getElementById('wfTrigger').value,
+    conditions, is_active: document.getElementById('wfActive').checked, actions
+  };
+  try {
+    if (ruleId) await api.put('/api/workflow-rules/'+ruleId, payload);
+    else await api.post('/api/workflow-rules', payload);
+    showToast(ruleId?'Updated':'Created','success');
+    navigate('workflows');
+  } catch(err) { showToast(err.message||'Error','error'); }
+}
+
+async function deleteWorkflow(ruleId) {
+  if (!confirm('Delete?')) return;
+  try { await api.delete('/api/workflow-rules/'+ruleId); showToast('Deleted','success'); navigate('workflows'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
+
+// ─── Dashboard Settings ───────────────────────────────────────
+async function renderDashboardSettings(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let layouts = [];
+  try { const r = await api.get('/api/dashboard-layouts'); layouts = r.data || r || []; } catch(e){}
+  const widgets = ['stat_cards','lead_funnel','deal_pipeline','revenue_chart','task_summary','ticket_stats','forecast_chart','contract_status','campaign_performance'];
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
+        <button class="btn btn-primary" onclick="createDashLayout()">${t('dash_new')}</button>
+      </div>
+      ${layouts.length===0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom layouts. Using default dashboard.','Нет макетов. Используется стандартная панель.','Xüsusi tərtibat yoxdur.') + '</div>' :
+        layouts.map(l => `
+          <div class="bg-slate-800/50 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <span class="font-semibold">${esc(l.name)}</span>
+                ${l.is_default ? '<span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">'+t('dash_default')+'</span>' : ''}
+              </div>
+              <div class="flex gap-2">
+                ${!l.is_default ? '<button class="text-xs text-indigo-400 hover:underline" onclick="setDefaultLayout('+l.id+')">'+_t('Set Default','По умолчанию','Defolt et')+'</button>' : ''}
+                <button class="text-xs text-red-400 hover:underline" onclick="deleteDashLayout(${l.id})">${_t('Delete','Удалить','Sil')}</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              ${(l.layout||[]).map(w => '<span class="text-xs bg-slate-700 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
+            </div>
+          </div>
+        `).join('')}
+      <div class="mt-6 bg-slate-800/50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold mb-3">${t('dash_widgets')}</h3>
+        <div class="flex flex-wrap gap-2">
+          ${widgets.map(w => '<span class="text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded cursor-pointer hover:bg-indigo-500/20">'+w+'</span>').join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function createDashLayout() {
+  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+  const name = prompt(_t('Layout name:','Название макета:','Tərtibat adı:'));
+  if (!name) return;
+  const defaultWidgets = [{widget:'stat_cards',w:12,h:2,x:0,y:0},{widget:'deal_pipeline',w:12,h:4,x:0,y:2},{widget:'revenue_chart',w:6,h:3,x:0,y:6},{widget:'task_summary',w:6,h:3,x:6,y:6}];
+  try {
+    await api.post('/api/dashboard-layouts', { name, layout: defaultWidgets, is_default: true });
+    showToast('Created','success');
+    navigate('dashboard-settings');
+  } catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function setDefaultLayout(layoutId) {
+  try { await api.put('/api/dashboard-layouts/'+layoutId, {is_default:true}); showToast('Set as default','success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function deleteDashLayout(layoutId) {
+  if (!confirm('Delete?')) return;
+  try { await api.delete('/api/dashboard-layouts/'+layoutId); showToast('Deleted','success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
+
+
+// ─── Workflow Automation ──────────────────────────────────────
+async function renderWorkflowsPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let rules = [];
+  try { const r = await api.get('/api/workflow-rules'); rules = r.data || r || []; } catch(e){}
+  const entityLabels = {deals:_t('Deals','Сделки','Sövdələşmələr'), leads:_t('Leads','Лиды','Lidlər'), tickets:_t('Tickets','Тикеты','Müraciətlər'), tasks:_t('Tasks','Задачи','Tapşırıqlar'), contacts:_t('Contacts','Контакты','Kontaktlar')};
+  const triggerLabels = {created:_t('Created','Создан','Yaradıldı'), updated:_t('Updated','Обновлён','Yeniləndi'), stage_changed:_t('Stage Changed','Стадия изменена','Mərhələ dəyişdi'), status_changed:_t('Status Changed','Статус изменён','Status dəyişdi')};
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('wf_title')}</h1>
+        <button class="btn btn-primary" onclick="showWorkflowForm()">${t('wf_new')}</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b border-slate-700">
+          <th class="p-3">${_t('Name','Название','Ad')}</th>
+          <th class="p-3">${t('wf_entity')}</th>
+          <th class="p-3">${t('wf_trigger')}</th>
+          <th class="p-3">${t('wf_actions')}</th>
+          <th class="p-3">${_t('Status','Статус','Status')}</th>
+          <th class="p-3"></th>
+        </tr></thead>
+        <tbody>
+          ${rules.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No rules','Нет правил','Qayda yoxdur') + '</td></tr>' :
+            rules.map(r => `
+              <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showWorkflowForm(${r.id})">
+                <td class="p-3 font-medium">${esc(r.name)}</td>
+                <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${entityLabels[r.entity_type]||r.entity_type}</span></td>
+                <td class="p-3"><span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">${triggerLabels[r.trigger_event]||r.trigger_event}</span></td>
+                <td class="p-3">${r.action_count||0}</td>
+                <td class="p-3">${r.is_active ? '<span class="text-green-400 text-xs">ON</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
+                <td class="p-3 text-right">
+                  <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteWorkflow(${r.id})">${_t('Delete','Удалить','Sil')}</button>
+                </td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function showWorkflowForm(ruleId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let rule = {name:'',entity_type:'deals',trigger_event:'stage_changed',conditions:{},is_active:1,actions:[]};
+  if (ruleId) {
+    try { const r = await api.get('/api/workflow-rules/'+ruleId); rule = r.data||r; } catch(e){}
+  }
+  
+  const entities = ['deals','leads','tickets','tasks','contacts'];
+  const triggers = ['created','updated','stage_changed','status_changed'];
+  const actionTypes = ['send_notification','send_email','create_task','assign_to','update_field'];
+  const actionLabels = {send_notification:_t('Notification','Уведомление','Bildiriş'), send_email:'Email', create_task:_t('Create Task','Создать задачу','Tapşırıq yarat'), assign_to:_t('Assign To','Назначить','Təyin et'), update_field:_t('Update Field','Обновить поле','Sahəni yenilə')};
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="p-6 max-w-3xl">
+      <div class="flex items-center gap-3 mb-6">
+        <button class="text-slate-400 hover:text-white" onclick="navigate('workflows')">← ${t('wf_title')}</button>
+        <h1 class="text-xl font-bold">${ruleId ? _t('Edit Rule','Ред. правило','Qayda redaktə') : t('wf_new')}</h1>
+      </div>
+      <form onsubmit="saveWorkflow(event, ${ruleId||'null'})" class="space-y-4">
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label><input type="text" id="wfName" value="${esc(rule.name)}" required class="w-full"></div>
+          <div>
+            <label class="text-xs text-slate-500">${t('wf_entity')}</label>
+            <select id="wfEntity" class="w-full text-sm">
+              ${entities.map(e => '<option value="'+e+'" '+(rule.entity_type===e?'selected':'')+'>'+e+'</option>').join('')}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">${t('wf_trigger')}</label>
+            <select id="wfTrigger" class="w-full text-sm">
+              ${triggers.map(t => '<option value="'+t+'" '+(rule.trigger_event===t?'selected':'')+'>'+t+'</option>').join('')}
+            </select>
+          </div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">${t('wf_condition')}</h3>
+          </div>
+          <div class="grid grid-cols-2 gap-2" style="font-size:12px">
+            <div><label class="text-xs text-slate-600">${_t('Field','Поле','Sahə')}</label><input type="text" id="wfCondField" value="${esc(Object.keys(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="stage"></div>
+            <div><label class="text-xs text-slate-600">${_t('Value','Значение','Dəyər')}</label><input type="text" id="wfCondValue" value="${esc(Object.values(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="WON"></div>
+          </div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">${t('wf_actions')}</h3>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addWfAction()">+ ${_t('Add','Добавить','Əlavə et')}</button>
+          </div>
+          <div id="wfActionsContainer">
+            ${(rule.actions||[]).map((a,i) => _renderWfActionRow(i, a, actionTypes, actionLabels)).join('')}
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="wfActive" ${rule.is_active?'checked':''} class="accent-green-500"> ${_t('Active','Активно','Aktiv')}</label>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="navigate('workflows')">${_t('Cancel','Отмена','Ləğv')}</button>
+        </div>
+      </form>
+    </div>`;
+  window._wfActionIdx = (rule.actions||[]).length;
+  window._wfActionTypes = actionTypes;
+  window._wfActionLabels = actionLabels;
+}
+
+function _renderWfActionRow(idx, action, actionTypes, actionLabels) {
+  const cfg = action.action_config || {};
+  return `
+    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-900 rounded" id="wfAction${idx}">
+      <span class="text-xs text-slate-500 w-6">#${idx+1}</span>
+      <select name="wfa_type_${idx}" class="text-xs flex-1">
+        ${actionTypes.map(t => '<option value="'+t+'" '+(action.action_type===t?'selected':'')+'>'+(actionLabels[t]||t)+'</option>').join('')}
+      </select>
+      <input type="text" name="wfa_config_${idx}" value="${esc(cfg.template_id||cfg.assign_to||cfg.field||cfg.message||'')}" class="text-xs flex-1" placeholder="Config value">
+      <button type="button" class="text-red-400 text-xs" onclick="document.getElementById('wfAction${idx}').remove()">✕</button>
+    </div>`;
+}
+
+function addWfAction() {
+  const idx = window._wfActionIdx || 0;
+  window._wfActionIdx = idx + 1;
+  const container = document.getElementById('wfActionsContainer');
+  const div = document.createElement('div');
+  div.innerHTML = _renderWfActionRow(idx, {}, window._wfActionTypes||[], window._wfActionLabels||{});
+  container.appendChild(div.firstElementChild);
+}
+
+async function saveWorkflow(e, ruleId) {
+  e.preventDefault();
+  const name = document.getElementById('wfName').value.trim();
+  if (!name) { showToast('Name required','error'); return; }
+  const condField = document.getElementById('wfCondField').value.trim();
+  const condValue = document.getElementById('wfCondValue').value.trim();
+  const conditions = condField ? {[condField]: condValue} : {};
+  const actions = [];
+  document.querySelectorAll('[id^="wfAction"]').forEach(el => {
+    const idx = el.id.replace('wfAction','');
+    const type = document.querySelector('[name="wfa_type_'+idx+'"]');
+    const config = document.querySelector('[name="wfa_config_'+idx+'"]');
+    if (type) actions.push({ action_type: type.value, action_config: { value: config?config.value:'' } });
+  });
+  const payload = {
+    name, entity_type: document.getElementById('wfEntity').value,
+    trigger_event: document.getElementById('wfTrigger').value,
+    conditions, is_active: document.getElementById('wfActive').checked, actions
+  };
+  try {
+    if (ruleId) await api.put('/api/workflow-rules/'+ruleId, payload);
+    else await api.post('/api/workflow-rules', payload);
+    showToast(ruleId?'Updated':'Created','success');
+    navigate('workflows');
+  } catch(err) { showToast(err.message||'Error','error'); }
+}
+
+async function deleteWorkflow(ruleId) {
+  if (!confirm('Delete?')) return;
+  try { await api.delete('/api/workflow-rules/'+ruleId); showToast('Deleted','success'); navigate('workflows'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
+
+// ─── Dashboard Settings ───────────────────────────────────────
+async function renderDashboardSettings(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let layouts = [];
+  try { const r = await api.get('/api/dashboard-layouts'); layouts = r.data || r || []; } catch(e){}
+  const widgets = ['stat_cards','lead_funnel','deal_pipeline','revenue_chart','task_summary','ticket_stats','forecast_chart','contract_status','campaign_performance'];
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
+        <button class="btn btn-primary" onclick="createDashLayout()">${t('dash_new')}</button>
+      </div>
+      ${layouts.length===0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom layouts. Using default dashboard.','Нет макетов. Используется стандартная панель.','Xüsusi tərtibat yoxdur.') + '</div>' :
+        layouts.map(l => `
+          <div class="bg-slate-800/50 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <span class="font-semibold">${esc(l.name)}</span>
+                ${l.is_default ? '<span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">'+t('dash_default')+'</span>' : ''}
+              </div>
+              <div class="flex gap-2">
+                ${!l.is_default ? '<button class="text-xs text-indigo-400 hover:underline" onclick="setDefaultLayout('+l.id+')">'+_t('Set Default','По умолчанию','Defolt et')+'</button>' : ''}
+                <button class="text-xs text-red-400 hover:underline" onclick="deleteDashLayout(${l.id})">${_t('Delete','Удалить','Sil')}</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              ${(l.layout||[]).map(w => '<span class="text-xs bg-slate-700 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
+            </div>
+          </div>
+        `).join('')}
+      <div class="mt-6 bg-slate-800/50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold mb-3">${t('dash_widgets')}</h3>
+        <div class="flex flex-wrap gap-2">
+          ${widgets.map(w => '<span class="text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded cursor-pointer hover:bg-indigo-500/20">'+w+'</span>').join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function createDashLayout() {
+  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+  const name = prompt(_t('Layout name:','Название макета:','Tərtibat adı:'));
+  if (!name) return;
+  const defaultWidgets = [{widget:'stat_cards',w:12,h:2,x:0,y:0},{widget:'deal_pipeline',w:12,h:4,x:0,y:2},{widget:'revenue_chart',w:6,h:3,x:0,y:6},{widget:'task_summary',w:6,h:3,x:6,y:6}];
+  try {
+    await api.post('/api/dashboard-layouts', { name, layout: defaultWidgets, is_default: true });
+    showToast('Created','success');
+    navigate('dashboard-settings');
+  } catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function setDefaultLayout(layoutId) {
+  try { await api.put('/api/dashboard-layouts/'+layoutId, {is_default:true}); showToast('Set as default','success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function deleteDashLayout(layoutId) {
+  if (!confirm('Delete?')) return;
+  try { await api.delete('/api/dashboard-layouts/'+layoutId); showToast('Deleted','success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
 
 // ─── Multi-Currency ───────────────────────────────────────────
 async function renderCurrenciesPage(container) {

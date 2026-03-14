@@ -6750,11 +6750,15 @@ async def test_smtp_settings(request: Request, user=Depends(require_auth)):
         """
         msg.attach(MIMEText(html_body, "html"))
 
-        if use_tls:
-            server = smtplib.SMTP(host, port, timeout=10)
-            server.starttls()
+        # Port 465 = SMTP_SSL (implicit TLS), Port 587 = STARTTLS
+        if use_tls and port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=15)
         else:
-            server = smtplib.SMTP(host, port, timeout=10)
+            server = smtplib.SMTP(host, port, timeout=15)
+            server.ehlo()
+            if use_tls:
+                server.starttls()
+                server.ehlo()
 
         if username and password:
             server.login(username, password)

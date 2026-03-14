@@ -412,6 +412,17 @@ async def startup_event():
                     value TEXT DEFAULT '',
                     UNIQUE(field_id, entity_id)
                 );
+                CREATE TABLE IF NOT EXISTS portal_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT DEFAULT '',
+                    company_id INTEGER,
+                    contact_id INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    last_login TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS workflow_rules (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL DEFAULT '',
@@ -7913,3 +7924,248 @@ async def submit_web_form(token: str, request: Request):
 
     return _ok({"created": True, "contact_id": contact_id})
 
+
+# ─── Client Portal ───────────────────────────────────────────────
+
+def _portal_require_auth(request: Request):
+    """Validate portal JWT token."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = auth[7:]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if payload.get("type") != "portal":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.post("/api/portal/register")
+async def portal_register(request: Request):
+    """Register a new portal user. Must have matching contact email."""
+    data = await request.json()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    full_name = data.get("full_name", "").strip()
+    if not email or not password or len(password) < 6:
+        _err("Email and password (min 6 chars) required", 400)
+    with get_db() as conn:
+        # Check if contact exists
+        contact = conn.execute("SELECT id, company_id FROM contacts WHERE email=?", [email]).fetchone()
+        if not contact:
+            _err("No contact found with this email. Contact your CRM administrator.", 404)
+        # Check if already registered
+        existing = conn.execute("SELECT id FROM portal_users WHERE email=?", [email]).fetchone()
+        if existing:
+            _err("Account already exists", 409)
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        conn.execute(
+            "INSERT INTO portal_users (email, password_hash, full_name, company_id, contact_id) VALUES (?,?,?,?,?)",
+            [email, pw_hash, full_name or email, contact[1], contact[0]]
+        )
+    return _ok({"registered": True})
+
+
+@app.post("/api/portal/login")
+async def portal_login(request: Request):
+    data = await request.json()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    with get_db() as conn:
+        user = conn.execute("SELECT * FROM portal_users WHERE email=? AND is_active=1", [email]).fetchone()
+        if not user:
+            _err("Invalid credentials", 401)
+        cols = [d[0] for d in conn.execute("SELECT * FROM portal_users LIMIT 0").description]
+        u = dict(zip(cols, user))
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        if u["password_hash"] != pw_hash:
+            _err("Invalid credentials", 401)
+        conn.execute("UPDATE portal_users SET last_login=datetime('now') WHERE id=?", [u["id"]])
+    token = jwt.encode({
+        "portal_user_id": u["id"], "email": u["email"], "company_id": u.get("company_id"),
+        "contact_id": u.get("contact_id"), "type": "portal",
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }, SECRET_KEY, algorithm="HS256")
+    return _ok({"token": token, "user": {"id": u["id"], "email": u["email"], "full_name": u["full_name"], "company_id": u.get("company_id")}})
+
+
+@app.get("/api/portal/me")
+async def portal_me(request: Request):
+    user = _portal_require_auth(request)
+    with get_db() as conn:
+        row = conn.execute("SELECT id, email, full_name, company_id, contact_id, last_login FROM portal_users WHERE id=?",
+                          [user["portal_user_id"]]).fetchone()
+        if not row:
+            _err("User not found", 404)
+        cols = ["id", "email", "full_name", "company_id", "contact_id", "last_login"]
+        return _ok(dict(zip(cols, row)))
+
+
+@app.get("/api/portal/tickets")
+async def portal_tickets(request: Request):
+    """Get tickets for the portal user's company."""
+    user = _portal_require_auth(request)
+    company_id = user.get("company_id")
+    contact_id = user.get("contact_id")
+    with get_db() as conn:
+        where = []
+        params = []
+        if company_id:
+            where.append("t.company_id=?")
+            params.append(company_id)
+        if contact_id:
+            where.append("t.contact_id=?")
+            params.append(contact_id)
+        wc = "WHERE (" + " OR ".join(where) + ")" if where else ""
+        rows = conn.execute(
+            f"""SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.category,
+                       t.created_at, t.resolved_at
+                FROM tickets t {wc} ORDER BY t.created_at DESC LIMIT 100""", params
+        ).fetchall()
+        cols = ["id", "ticket_number", "subject", "status", "priority", "category", "created_at", "resolved_at"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/portal/tickets")
+async def portal_create_ticket(request: Request):
+    user = _portal_require_auth(request)
+    data = await request.json()
+    subject = data.get("subject", "").strip()
+    description = data.get("description", "").strip()
+    priority = data.get("priority", "medium")
+    category = data.get("category", "general")
+    if not subject:
+        _err("Subject required", 400)
+    with get_db() as conn:
+        # Generate ticket number
+        last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()[0] or 0
+        ticket_number = f"TK-{last+1:04d}"
+        conn.execute(
+            """INSERT INTO tickets (ticket_number, subject, description, priority, status, category,
+               company_id, contact_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
+            [ticket_number, subject, description, priority, "new", category,
+             user.get("company_id"), user.get("contact_id"), None]
+        )
+    return _ok({"created": True, "ticket_number": ticket_number})
+
+
+@app.get("/api/portal/tickets/{ticket_id}")
+async def portal_ticket_detail(ticket_id: int, request: Request):
+    user = _portal_require_auth(request)
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if not row:
+            _err("Ticket not found", 404)
+        cols = [d[0] for d in conn.execute("SELECT * FROM tickets LIMIT 0").description]
+        ticket = dict(zip(cols, row))
+        # Verify access
+        if ticket.get("company_id") != user.get("company_id") and ticket.get("contact_id") != user.get("contact_id"):
+            _err("Access denied", 403)
+        # Get public comments only
+        comments = conn.execute(
+            """SELECT tc.comment, tc.created_at, u.full_name as author FROM ticket_comments tc
+               LEFT JOIN users u ON tc.user_id = u.id
+               WHERE tc.ticket_id=? AND tc.is_internal=0 ORDER BY tc.created_at""",
+            [ticket_id]
+        ).fetchall()
+        ticket["comments"] = [{"comment": c[0], "created_at": c[1], "author": c[2] or "Support"} for c in comments]
+        return _ok(ticket)
+
+
+@app.post("/api/portal/tickets/{ticket_id}/comments")
+async def portal_add_comment(ticket_id: int, request: Request):
+    user = _portal_require_auth(request)
+    data = await request.json()
+    comment = data.get("comment", "").strip()
+    if not comment:
+        _err("Comment required", 400)
+    with get_db() as conn:
+        # Verify access
+        ticket = conn.execute("SELECT company_id, contact_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if not ticket:
+            _err("Ticket not found", 404)
+        if ticket[0] != user.get("company_id") and ticket[1] != user.get("contact_id"):
+            _err("Access denied", 403)
+        conn.execute(
+            "INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal, created_at) VALUES (?,?,?,0,datetime('now'))",
+            [ticket_id, None, comment]
+        )
+    return _ok({"added": True})
+
+
+@app.get("/api/portal/contracts")
+async def portal_contracts(request: Request):
+    """Get contracts for the portal user's company."""
+    user = _portal_require_auth(request)
+    company_id = user.get("company_id")
+    if not company_id:
+        return _ok([])
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT id, title, status, amount, start_date, end_date, created_at
+               FROM contracts WHERE company_id=? ORDER BY created_at DESC""",
+            [company_id]
+        ).fetchall()
+        cols = ["id", "title", "status", "amount", "start_date", "end_date", "created_at"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.get("/api/portal/documents")
+async def portal_documents(request: Request):
+    """Get offers/documents for the portal user's company."""
+    user = _portal_require_auth(request)
+    company_id = user.get("company_id")
+    if not company_id:
+        return _ok([])
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT id, offer_number, offer_type, status, currency, total_amount, valid_until, created_at
+               FROM offers WHERE company_id=? ORDER BY created_at DESC""",
+            [company_id]
+        ).fetchall()
+        cols = ["id", "offer_number", "offer_type", "status", "currency", "total_amount", "valid_until", "created_at"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+# Admin: manage portal users
+@app.get("/api/portal-users")
+async def list_portal_users(user=Depends(require_admin)):
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT pu.*, c.name as company_name FROM portal_users pu
+               LEFT JOIN companies c ON pu.company_id = c.id ORDER BY pu.created_at DESC"""
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT pu.*, c.name as company_name FROM portal_users pu LEFT JOIN companies c ON pu.company_id = c.id LIMIT 0"
+        ).description]
+        result = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            d.pop("password_hash", None)
+            result.append(d)
+        return _ok(result)
+
+
+@app.put("/api/portal-users/{portal_user_id}/toggle")
+async def toggle_portal_user(portal_user_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        current = conn.execute("SELECT is_active FROM portal_users WHERE id=?", [portal_user_id]).fetchone()
+        if not current:
+            _err("User not found", 404)
+        new_status = 0 if current[0] else 1
+        conn.execute("UPDATE portal_users SET is_active=? WHERE id=?", [new_status, portal_user_id])
+    return _ok({"is_active": new_status})
+
+
+# Serve portal SPA
+@app.get("/portal")
+async def serve_portal():
+    from fastapi.responses import FileResponse
+    portal_path = os.path.join(os.path.dirname(__file__), "static", "portal.html")
+    if os.path.exists(portal_path):
+        return FileResponse(portal_path, media_type="text/html")
+    _err("Portal not found", 404)

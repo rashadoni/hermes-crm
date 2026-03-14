@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .input-field { @apply w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500; }
+        .btn-primary { @apply px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition; }
+        .btn-secondary { @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded transition; }
+        .btn-danger { @apply px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition; }
+        .table-row { @apply border-b border-slate-700 hover:bg-slate-900 transition; }
+        .badge { @apply inline-block px-3 py-1 rounded text-xs font-semibold; }
+        .badge-open { @apply bg-green-900 text-green-200; }
+        .badge-closed { @apply bg-red-900 text-red-200; }
+        .badge-pending { @apply bg-yellow-900 text-yellow-200; }
+        .badge-high { @apply bg-red-900 text-red-200; }
+        .badge-medium { @apply bg-yellow-900 text-yellow-200; }
+        .badge-low { @apply bg-blue-900 text-blue-200; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100">
+    <div id="app"></div>
+
+    <script>
+        // Language system
+        const translations = {
+            en: {
+                hermes_portal: 'Hermes Portal',
+                login: 'Login',
+                register: 'Register',
+                email: 'Email',
+                password: 'Password',
+                full_name: 'Full Name',
+                sign_in: 'Sign In',
+                create_account: 'Create Account',
+                dont_have_account: "Don't have an account?",
+                have_account: 'Already have an account?',
+                tickets: 'Tickets',
+                contracts: 'Contracts',
+                documents: 'Documents',
+                profile: 'Profile',
+                logout: 'Logout',
+                new_ticket: 'New Ticket',
+                ticket_number: 'Ticket #',
+                subject: 'Subject',
+                status: 'Status',
+                priority: 'Priority',
+                date: 'Date',
+                description: 'Description',
+                category: 'Category',
+                create_ticket: 'Create Ticket',
+                cancel: 'Cancel',
+                back: 'Back',
+                comments: 'Comments',
+                add_comment: 'Add Comment',
+                send: 'Send',
+                title: 'Title',
+                amount: 'Amount',
+                valid_until: 'Valid Until',
+                document_type: 'Type',
+                number: 'Number',
+                user_info: 'User Information',
+                loading: 'Loading...',
+                error: 'Error',
+                success: 'Success',
+                close: 'Close',
+                open: 'Open',
+                closed: 'Closed',
+                pending: 'Pending',
+                high: 'High',
+                medium: 'Medium',
+                low: 'Low'
+            },
+            ru: {
+                hermes_portal: 'Портал Hermes',
+                login: 'Вход',
+                register: 'Регистрация',
+                email: 'Email',
+                password: 'Пароль',
+                full_name: 'Полное имя',
+                sign_in: 'Войти',
+                create_account: 'Создать аккаунт',
+                dont_have_account: 'Нет аккаунта?',
+                have_account: 'Уже есть аккаунт?',
+                tickets: 'Билеты',
+                contracts: 'Контракты',
+                documents: 'Документы',
+                profile: 'Профиль',
+                logout: 'Выход',
+                new_ticket: 'Новый билет',
+                ticket_number: 'Билет №',
+                subject: 'Тема',
+                status: 'Статус',
+                priority: 'Приоритет',
+                date: 'Дата',
+                description: 'Описание',
+                category: 'Категория',
+                create_ticket: 'Создать билет',
+                cancel: 'Отмена',
+                back: 'Назад',
+                comments: 'Комментарии',
+                add_comment: 'Добавить комментарий',
+                send: 'Отправить',
+                title: 'Название',
+                amount: 'Сумма',
+                valid_until: 'Действителен до',
+                document_type: 'Тип',
+                number: 'Номер',
+                user_info: 'Информация пользователя',
+                loading: 'Загрузка...',
+                error: 'Ошибка',
+                success: 'Успешно',
+                close: 'Закрыть',
+                open: 'Открыт',
+                closed: 'Закрыт',
+                pending: 'Ожидание',
+                high: 'Высокий',
+                medium: 'Средний',
+                low: 'Низкий'
+            },
+            az: {
+                hermes_portal: 'Hermes Portal',
+                login: 'Daxil ol',
+                register: 'Qeydiyyat',
+                email: 'Email',
+                password: 'Şifrə',
+                full_name: 'Tam Ad',
+                sign_in: 'Daxil ol',
+                create_account: 'Hesab Aç',
+                dont_have_account: 'Hesabınız yoxdur?',
+                have_account: 'Artıq hesabınız var?',
+                tickets: 'Biletlər',
+                contracts: 'Müqavilələr',
+                documents: 'Sənədlər',
+                profile: 'Profil',
+                logout: 'Çıxış',
+                new_ticket: 'Yeni Bilet',
+                ticket_number: 'Bilet №',
+                subject: 'Mövzu',
+                status: 'Status',
+                priority: 'Prioritet',
+                date: 'Tarix',
+                description: 'Təsvir',
+                category: 'Kateqoriya',
+                create_ticket: 'Bilet Yarat',
+                cancel: 'Ləğv et',
+                back: 'Geri',
+                comments: 'Şərhlər',
+                add_comment: 'Şərh Əlavə et',
+                send: 'Göndər',
+                title: 'Başlıq',
+                amount: 'Məbləğ',
+                valid_until: 'Etibarlı qədər',
+                document_type: 'Tip',
+                number: 'Nömrə',
+                user_info: 'İstifadəçi Məlumatı',
+                loading: 'Yüklənir...',
+                error: 'Xəta',
+                success: 'Uğurlu',
+                close: 'Bağla',
+                open: 'Açıq',
+                closed: 'Bağlı',
+                pending: 'Gözləmə',
+                high: 'Yüksək',
+                medium: 'Orta',
+                low: 'Aşağı'
+            }
+        };
+
+        let L = 'en';
+        const _t = (en, ru, az) => {
+            if (L === 'ru') return ru;
+            if (L === 'az') return az;
+            return en;
+        };
+
+        // Global state
+        let currentUser = null;
+        let currentPage = 'login';
+        let currentTicketDetail = null;
+
+        // API calls
+        async function apiCall(method, endpoint, data = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (currentUser?.token) {
+                options.headers['Authorization'] = `Bearer ${currentUser.token}`;
+            }
+            if (data) options.body = JSON.stringify(data);
+
+            const response = await fetch(endpoint, options);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'API error');
+            return result;
+        }
+
+        async function handleRegister(email, password, fullName) {
+            try {
+                const result = await apiCall('POST', '/api/portal/register', {
+                    email, password, full_name: fullName
+                });
+                currentUser = result.user;
+                currentUser.token = result.token;
+                currentPage = 'tickets';
+                render();
+            } catch (err) {
+                alert(_t('Registration failed: ' + err.message, 'Ошибка регистрации: ' + err.message, 'Qeydiyyat uğursuz: ' + err.message));
+            }
+        }
+
+        async function handleLogin(email, password) {
+            try {
+                const result = await apiCall('POST', '/api/portal/login', {
+                    email, password
+                });
+                currentUser = result.user;
+                currentUser.token = result.token;
+                currentPage = 'tickets';
+                render();
+            } catch (err) {
+                alert(_t('Login failed: ' + err.message, 'Ошибка входа: ' + err.message, 'Daxil olmaq uğursuz: ' + err.message));
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            currentPage = 'login';
+            currentTicketDetail = null;
+            render();
+        }
+
+        async function loadTickets() {
+            try {
+                return await apiCall('GET', '/api/portal/tickets');
+            } catch (err) {
+                alert(_t('Failed to load tickets', 'Ошибка загрузки билетов', 'Biletləri yükləmə uğursuz'));
+                return [];
+            }
+        }
+
+        async function loadContracts() {
+            try {
+                return await apiCall('GET', '/api/portal/contracts');
+            } catch (err) {
+                alert(_t('Failed to load contracts', 'Ошибка загрузки контрактов', 'Müqavilələri yükləmə uğursuz'));
+                return [];
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                return await apiCall('GET', '/api/portal/documents');
+            } catch (err) {
+                alert(_t('Failed to load documents', 'Ошибка загрузки документов', 'Sənədləri yükləmə uğursuz'));
+                return [];
+            }
+        }
+
+        async function loadTicketDetail(id) {
+            try {
+                return await apiCall('GET', `/api/portal/tickets/${id}`);
+            } catch (err) {
+                alert(_t('Failed to load ticket', 'Ошибка загрузки билета', 'Bileti yükləmə uğursuz'));
+                return null;
+            }
+        }
+
+        async function createTicket(subject, description, priority, category) {
+            try {
+                await apiCall('POST', '/api/portal/tickets', {
+                    subject, description, priority, category
+                });
+                currentPage = 'tickets';
+                render();
+            } catch (err) {
+                alert(_t('Failed to create ticket', 'Ошибка создания билета', 'Bilet yaratmaq uğursuz'));
+            }
+        }
+
+        async function addComment(ticketId, comment) {
+            try {
+                await apiCall('POST', `/api/portal/tickets/${ticketId}/comments`, { comment });
+                const detail = await loadTicketDetail(ticketId);
+                currentTicketDetail = detail;
+                render();
+            } catch (err) {
+                alert(_t('Failed to add comment', 'Ошибка добавления комментария', 'Şərh əlavə etmə uğursuz'));
+            }
+        }
+
+        // UI Components
+        function LoginForm() {
+            let email = '', password = '';
+            return `
+                <div class="min-h-screen bg-slate-950 flex items-center justify-center">
+                    <div class="w-full max-w-md">
+                        <div class="text-center mb-8">
+                            <h1 class="text-3xl font-bold text-blue-400 mb-2">Hermes Portal</h1>
+                            <p class="text-slate-400">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
+                        </div>
+                        <div class="bg-slate-900 p-8 rounded-lg border border-slate-800">
+                            <h2 class="text-xl font-bold mb-6">${_t('Sign In', 'Вход', 'Daxil ol')}</h2>
+                            <form onsubmit="event.preventDefault(); handleLogin(document.getElementById('login-email').value, document.getElementById('login-password').value)">
+                                <input type="email" id="login-email" class="input-field mb-4" placeholder="${_t('Email', 'Email', 'Email')}" required>
+                                <input type="password" id="login-password" class="input-field mb-6" placeholder="${_t('Password', 'Пароль', 'Şifrə')}" required>
+                                <button type="submit" class="btn-primary w-full mb-4">${_t('Sign In', 'Войти', 'Daxil ol')}</button>
+                            </form>
+                            <button onclick="switchAuthMode()" class="text-blue-400 text-sm hover:underline w-full text-center">
+                                ${_t("Don't have an account? Register", 'Нет аккаунта? Регистрация', 'Hesabınız yoxdur? Qeydiyyat')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function RegisterForm() {
+            return `
+                <div class="min-h-screen bg-slate-950 flex items-center justify-center">
+                    <div class="w-full max-w-md">
+                        <div class="text-center mb-8">
+                            <h1 class="text-3xl font-bold text-blue-400 mb-2">Hermes Portal</h1>
+                            <p class="text-slate-400">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
+                        </div>
+                        <div class="bg-slate-900 p-8 rounded-lg border border-slate-800">
+                            <h2 class="text-xl font-bold mb-6">${_t('Create Account', 'Создать аккаунт', 'Hesab Aç')}</h2>
+                            <form onsubmit="event.preventDefault(); handleRegister(document.getElementById('register-email').value, document.getElementById('register-password').value, document.getElementById('register-name').value)">
+                                <input type="text" id="register-name" class="input-field mb-4" placeholder="${_t('Full Name', 'Полное имя', 'Tam Ad')}" required>
+                                <input type="email" id="register-email" class="input-field mb-4" placeholder="${_t('Email', 'Email', 'Email')}" required>
+                                <input type="password" id="register-password" class="input-field mb-6" placeholder="${_t('Password', 'Пароль', 'Şifrə')}" required>
+                                <button type="submit" class="btn-primary w-full mb-4">${_t('Create Account', 'Создать аккаунт', 'Hesab Aç')}</button>
+                            </form>
+                            <button onclick="switchAuthMode()" class="text-blue-400 text-sm hover:underline w-full text-center">
+                                ${_t('Already have an account? Sign In', 'Уже есть аккаунт? Войти', 'Artıq hesabınız var? Daxil ol')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function NavBar() {
+            return `
+                <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+                    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                        <h1 class="text-xl font-bold text-blue-400">Hermes Portal</h1>
+                        <div class="flex gap-6 items-center">
+                            <button onclick="switchPage('tickets')" class="hover:text-blue-400 transition ${currentPage === 'tickets' ? 'text-blue-400' : ''}">${_t('Tickets', 'Билеты', 'Biletlər')}</button>
+                            <button onclick="switchPage('contracts')" class="hover:text-blue-400 transition ${currentPage === 'contracts' ? 'text-blue-400' : ''}">${_t('Contracts', 'Контракты', 'Müqavilələr')}</button>
+                            <button onclick="switchPage('documents')" class="hover:text-blue-400 transition ${currentPage === 'documents' ? 'text-blue-400' : ''}">${_t('Documents', 'Документы', 'Sənədlər')}</button>
+                            <button onclick="switchPage('profile')" class="hover:text-blue-400 transition ${currentPage === 'profile' ? 'text-blue-400' : ''}">${_t('Profile', 'Профиль', 'Profil')}</button>
+                            <div class="flex gap-2 items-center">
+                                <select onchange="changeLanguage(this.value)" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm">
+                                    <option value="en" ${L === 'en' ? 'selected' : ''}>EN</option>
+                                    <option value="ru" ${L === 'ru' ? 'selected' : ''}>РУ</option>
+                                    <option value="az" ${L === 'az' ? 'selected' : ''}>AZ</option>
+                                </select>
+                            </div>
+                            <button onclick="handleLogout()" class="btn-secondary text-sm">${_t('Logout', 'Выход', 'Çıxış')}</button>
+                        </div>
+                    </div>
+                </nav>
+            `;
+        }
+
+        function TicketsPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">${_t('Tickets', 'Билеты', 'Biletlər')}</h2>
+                        <button onclick="showNewTicketForm()" class="btn-primary">${_t('New Ticket', 'Новый билет', 'Yeni Bilet')}</button>
+                    </div>
+                    <div id="tickets-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    </div>
+                    <div id="new-ticket-form" style="display: none;" class="mt-6 bg-slate-900 p-6 rounded-lg border border-slate-800">
+                        <h3 class="text-xl font-bold mb-4">${_t('New Ticket', 'Новый билет', 'Yeni Bilet')}</h3>
+                        <form onsubmit="event.preventDefault(); submitNewTicket()">
+                            <input type="text" id="ticket-subject" class="input-field mb-4" placeholder="${_t('Subject', 'Тема', 'Mövzu')}" required>
+                            <textarea id="ticket-description" class="input-field mb-4 h-24" placeholder="${_t('Description', 'Описание', 'Təsvir')}" required></textarea>
+                            <select id="ticket-priority" class="input-field mb-4" required>
+                                <option value="">-- ${_t('Priority', 'Приоритет', 'Prioritet')} --</option>
+                                <option value="low">${_t('Low', 'Низкий', 'Aşağı')}</option>
+                                <option value="medium">${_t('Medium', 'Средний', 'Orta')}</option>
+                                <option value="high">${_t('High', 'Высокий', 'Yüksək')}</option>
+                            </select>
+                            <input type="text" id="ticket-category" class="input-field mb-4" placeholder="${_t('Category', 'Категория', 'Kateqoriya')}" required>
+                            <div class="flex gap-2">
+                                <button type="submit" class="btn-primary">${_t('Create Ticket', 'Создать билет', 'Bilet Yarat')}</button>
+                                <button type="button" onclick="hideNewTicketForm()" class="btn-secondary">${_t('Cancel', 'Отмена', 'Ləğv et')}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function ContractsPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8">
+                    <h2 class="text-2xl font-bold mb-6">${_t('Contracts', 'Контракты', 'Müqavilələr')}</h2>
+                    <div id="contracts-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function DocumentsPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8">
+                    <h2 class="text-2xl font-bold mb-6">${_t('Documents', 'Документы', 'Sənədlər')}</h2>
+                    <div id="documents-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function ProfilePage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8">
+                    <h2 class="text-2xl font-bold mb-6">${_t('Profile', 'Профиль', 'Profil')}</h2>
+                    <div class="bg-slate-900 p-6 rounded-lg border border-slate-800 max-w-2xl">
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="text-slate-400 text-sm">${_t('Full Name', 'Полное имя', 'Tam Ad')}</label>
+                                <p class="text-lg font-semibold">${currentUser.full_name || '-'}</p>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">${_t('Email', 'Email', 'Email')}</label>
+                                <p class="text-lg font-semibold">${currentUser.email || '-'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function TicketDetailPage() {
+            if (!currentTicketDetail) return '<div class="text-center py-8">${_t("Loading...", "Загрузка...", "Yüklənir...")}</div>';
+            const t = currentTicketDetail;
+            const statusClass = t.status === 'open' ? 'badge-open' : t.status === 'closed' ? 'badge-closed' : 'badge-pending';
+            const priorityClass = t.priority === 'high' ? 'badge-high' : t.priority === 'medium' ? 'badge-medium' : 'badge-low';
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-8">
+                    <button onclick="backToTickets()" class="btn-secondary mb-6">${_t('Back', 'Назад', 'Geri')}</button>
+                    <div class="bg-slate-900 p-6 rounded-lg border border-slate-800">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-2xl font-bold">${_t('Ticket #', 'Билет №', 'Bilet №')}${t.number}</h2>
+                                <p class="text-slate-400">${t.subject}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="badge ${statusClass}">${t.status}</span>
+                                <span class="badge ${priorityClass}">${t.priority}</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-slate-700">
+                            <div>
+                                <label class="text-slate-400 text-sm">${_t('Category', 'Категория', 'Kateqoriya')}</label>
+                                <p>${t.category}</p>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 text-sm">${_t('Date', 'Дата', 'Tarix')}</label>
+                                <p>${new Date(t.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div class="mb-6">
+                            <label class="text-slate-400 text-sm block mb-2">${_t('Description', 'Описание', 'Təsvir')}</label>
+                            <p class="whitespace-pre-wrap">${t.description}</p>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold mb-4">${_t('Comments', 'Комментарии', 'Şərhlər')}</h3>
+                            <div class="space-y-4 mb-6 max-h-96 overflow-y-auto">
+                                ${(t.comments || []).map(c => `
+                                    <div class="bg-slate-800 p-4 rounded">
+                                        <p class="text-sm text-slate-400">${c.author} - ${new Date(c.created_at).toLocaleString()}</p>
+                                        <p class="mt-2">${c.text}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${t.status !== 'closed' ? `
+                                <form onsubmit="event.preventDefault(); submitComment()">
+                                    <textarea id="comment-text" class="input-field mb-2 h-20" placeholder="${_t('Add Comment', 'Добавить комментарий', 'Şərh Əlavə et')}" required></textarea>
+                                    <button type="submit" class="btn-primary">${_t('Send', 'Отправить', 'Göndər')}</button>
+                                </form>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Page switching
+        function switchPage(page) {
+            currentPage = page;
+            currentTicketDetail = null;
+            render();
+        }
+
+        function switchAuthMode() {
+            currentPage = currentPage === 'login' ? 'register' : 'login';
+            render();
+        }
+
+        function changeLanguage(lang) {
+            L = lang;
+            render();
+        }
+
+        function showNewTicketForm() {
+            document.getElementById('new-ticket-form').style.display = 'block';
+        }
+
+        function hideNewTicketForm() {
+            document.getElementById('new-ticket-form').style.display = 'none';
+        }
+
+        async function submitNewTicket() {
+            const subject = document.getElementById('ticket-subject').value;
+            const description = document.getElementById('ticket-description').value;
+            const priority = document.getElementById('ticket-priority').value;
+            const category = document.getElementById('ticket-category').value;
+            await createTicket(subject, description, priority, category);
+        }
+
+        function backToTickets() {
+            currentTicketDetail = null;
+            currentPage = 'tickets';
+            render();
+        }
+
+        async function viewTicketDetail(id) {
+            currentTicketDetail = await loadTicketDetail(id);
+            render();
+        }
+
+        async function submitComment() {
+            const text = document.getElementById('comment-text').value;
+            await addComment(currentTicketDetail.id, text);
+        }
+
+        // Main render function
+        async function render() {
+            const app = document.getElementById('app');
+
+            if (!currentUser) {
+                app.innerHTML = currentPage === 'register' ? RegisterForm() : LoginForm();
+                return;
+            }
+
+            let content = '';
+
+            if (currentTicketDetail) {
+                content = TicketDetailPage();
+            } else if (currentPage === 'tickets') {
+                content = TicketsPage();
+            } else if (currentPage === 'contracts') {
+                content = ContractsPage();
+            } else if (currentPage === 'documents') {
+                content = DocumentsPage();
+            } else if (currentPage === 'profile') {
+                content = ProfilePage();
+            }
+
+            app.innerHTML = NavBar() + content;
+
+            // Load data for current page
+            if (currentPage === 'tickets' && !currentTicketDetail) {
+                const tickets = await loadTickets();
+                const html = tickets.length ? `
+                    <table class="w-full">
+                        <thead class="border-b border-slate-700">
+                            <tr class="text-left text-slate-400 text-sm">
+                                <th class="p-4">${_t('Ticket #', 'Билет №', 'Bilet №')}</th>
+                                <th class="p-4">${_t('Subject', 'Тема', 'Mövzu')}</th>
+                                <th class="p-4">${_t('Status', 'Статус', 'Status')}</th>
+                                <th class="p-4">${_t('Priority', 'Приоритет', 'Prioritet')}</th>
+                                <th class="p-4">${_t('Date', 'Дата', 'Tarix')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tickets.map(t => {
+                                const statusClass = t.status === 'open' ? 'badge-open' : t.status === 'closed' ? 'badge-closed' : 'badge-pending';
+                                const priorityClass = t.priority === 'high' ? 'badge-high' : t.priority === 'medium' ? 'badge-medium' : 'badge-low';
+                                return `
+                                    <tr class="table-row cursor-pointer" onclick="viewTicketDetail(${t.id})">
+                                        <td class="p-4">#${t.number}</td>
+                                        <td class="p-4">${t.subject}</td>
+                                        <td class="p-4"><span class="badge ${statusClass}">${t.status}</span></td>
+                                        <td class="p-4"><span class="badge ${priorityClass}">${t.priority}</span></td>
+                                        <td class="p-4 text-slate-400">${new Date(t.created_at).toLocaleDateString()}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                ` : `<div class="p-4 text-slate-400">${_t('No tickets found', 'Билеты не найдены', 'Bilet tapılmadı')}</div>`;
+                document.getElementById('tickets-list').innerHTML = html;
+            } else if (currentPage === 'contracts') {
+                const contracts = await loadContracts();
+                const html = contracts.length ? `
+                    <table class="w-full">
+                        <thead class="border-b border-slate-700">
+                            <tr class="text-left text-slate-400 text-sm">
+                                <th class="p-4">${_t('Title', 'Название', 'Başlıq')}</th>
+                                <th class="p-4">${_t('Status', 'Статус', 'Status')}</th>
+                                <th class="p-4">${_t('Amount', 'Сумма', 'Məbləğ')}</th>
+                                <th class="p-4">${_t('Date', 'Дата', 'Tarix')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${contracts.map(c => `
+                                <tr class="table-row">
+                                    <td class="p-4">${c.title}</td>
+                                    <td class="p-4"><span class="badge badge-open">${c.status}</span></td>
+                                    <td class="p-4">${c.amount}</td>
+                                    <td class="p-4 text-slate-400">${new Date(c.start_date).toLocaleDateString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : `<div class="p-4 text-slate-400">${_t('No contracts found', 'Контракты не найдены', 'Müqavilə tapılmadı')}</div>`;
+                document.getElementById('contracts-list').innerHTML = html;
+            } else if (currentPage === 'documents') {
+                const documents = await loadDocuments();
+                const html = documents.length ? `
+                    <table class="w-full">
+                        <thead class="border-b border-slate-700">
+                            <tr class="text-left text-slate-400 text-sm">
+                                <th class="p-4">${_t('Number', 'Номер', 'Nömrə')}</th>
+                                <th class="p-4">${_t('Type', 'Тип', 'Tip')}</th>
+                                <th class="p-4">${_t('Status', 'Статус', 'Status')}</th>
+                                <th class="p-4">${_t('Amount', 'Сумма', 'Məbləğ')}</th>
+                                <th class="p-4">${_t('Valid Until', 'Действителен до', 'Etibarlı qədər')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${documents.map(d => `
+                                <tr class="table-row">
+                                    <td class="p-4">${d.number}</td>
+                                    <td class="p-4">${d.type}</td>
+                                    <td class="p-4"><span class="badge badge-pending">${d.status}</span></td>
+                                    <td class="p-4">${d.amount}</td>
+                                    <td class="p-4 text-slate-400">${new Date(d.valid_until).toLocaleDateString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : `<div class="p-4 text-slate-400">${_t('No documents found', 'Документы не найдены', 'Sənəd tapılmadı')}</div>`;
+                document.getElementById('documents-list').innerHTML = html;
+            }
+        }
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>

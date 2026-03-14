@@ -4018,10 +4018,19 @@ async function renderContacts(el) {
     ['last_recent', t('sort_last_recent')], ['last_oldest', t('sort_last_oldest')]
   ];
 
+  // Compute stats
+  var totalActive = 0, totalOverdue = 0, totalWithAct = 0;
+  contacts.forEach(function(c) {
+    var ld = c.last_contact ? daysSince(c.last_contact) : null;
+    if (ld !== null && ld < 30) totalActive++;
+    if (ld !== null && ld >= 30) totalOverdue++;
+    if ((c.activity_count || c.email_count || 0) > 0) totalWithAct++;
+  });
+
   // Build contact cards
   var contactRows = '';
   if (contacts.length === 0) {
-    contactRows = '<div style="text-align:center;color:#64748b;padding:64px 0;font-size:14px"><div style="font-size:48px;margin-bottom:16px;opacity:0.3">👥</div>' + t('contacts_none') + '</div>';
+    contactRows = '<div style="text-align:center;color:#64748b;padding:80px 0;font-size:14px"><div style="font-size:56px;margin-bottom:16px;opacity:0.2">👥</div><div style="font-size:16px;color:#475569;font-weight:500">' + t('contacts_none') + '</div><div style="font-size:12px;color:#334155;margin-top:8px">Добавьте первый контакт для начала работы</div></div>';
   } else {
     contacts.forEach(function(c, idx) {
       var names = (c.name || c.email || '').split(' ');
@@ -4034,109 +4043,145 @@ async function renderContacts(el) {
       var avatarNum = avatarIdx < 35 ? avatarIdx : avatarIdx - 35;
       var avatarUrl = '/static/avatars/' + avatarGender + '_' + avatarNum + '.jpg';
       var lastD = c.last_contact ? daysSince(c.last_contact) : null;
-      var lastLabel = lastD !== null ? (lastD === 0 ? t('sort_last_recent').split(' ')[0] : lastD + ' ' + (lastD === 1 ? 'день' : 'дн.')) : '';
+      var lastLabel = lastD !== null ? (lastD === 0 ? 'Сегодня' : lastD + ' ' + (lastD === 1 ? 'день' : lastD < 5 ? 'дня' : 'дн.') + ' назад') : '';
       var isOverdue = lastD && lastD >= 30;
       var actCount = c.activity_count || c.email_count || 0;
       var actColor = actCount > 10 ? '#10b981' : actCount > 0 ? '#6366f1' : '#334155';
 
-      var sourceBadge = c.source ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:' + bgColor + '18;color:' + bgColor + ';font-size:10px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;border:1px solid ' + bgColor + '25">' + esc(c.source) + '</span>' : '';
+      var sourceBadge = c.source ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:' + bgColor + '15;color:' + bgColor + ';font-size:10px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase">' + esc(c.source) + '</span>' : '';
 
-      var phoneDisplay = c.phone ? '<span style="color:#cbd5e1;font-size:12px;font-family:\'SF Mono\',Monaco,monospace;letter-spacing:0.3px">' + esc(c.phone.length > 18 ? c.phone.substring(0, 18) + '...' : c.phone) + '</span>' : '<span style="color:#1e293b">—</span>';
+      var phoneDisplay = c.phone ? '<a href="tel:' + esc(c.phone) + '" onclick="event.stopPropagation()" style="color:#94a3b8;font-size:12px;text-decoration:none;font-family:\'SF Mono\',Monaco,monospace;letter-spacing:0.3px;transition:color 0.15s" onmouseover="this.style.color=\'#e2e8f0\'" onmouseout="this.style.color=\'#94a3b8\'">' + esc(c.phone.length > 20 ? c.phone.substring(0, 20) + '…' : c.phone) + '</a>' : '<span style="color:#1e293b">—</span>';
 
       var lastContactHtml = '';
       if (lastLabel) {
         if (isOverdue) {
-          lastContactHtml = '<div style="display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 6px #ef444480"></span><span style="color:#f87171;font-size:12px;font-weight:500">' + lastLabel + '</span></div>';
+          lastContactHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:8px;background:#ef444410;border:1px solid #ef444420"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 6px #ef444460"></span><span style="color:#f87171;font-size:11px;font-weight:600">' + lastLabel + '</span></div>';
         } else {
-          lastContactHtml = '<div style="display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 6px #10b98180"></span><span style="color:#94a3b8;font-size:12px">' + lastLabel + '</span></div>';
+          lastContactHtml = '<div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:8px;background:#10b98108;border:1px solid #10b98115"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 6px #10b98160"></span><span style="color:#94a3b8;font-size:11px">' + lastLabel + '</span></div>';
         }
       } else {
-        lastContactHtml = '<span style="color:#334155;font-size:12px">—</span>';
+        lastContactHtml = '<span style="color:#1e293b;font-size:12px">—</span>';
       }
 
       var actBadge = '';
       if (actCount > 0) {
-        actBadge = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:22px;padding:0 8px;border-radius:11px;background:' + actColor + '18;color:' + actColor + ';font-size:11px;font-weight:700;border:1px solid ' + actColor + '30">' + actCount + '</span>';
+        actBadge = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:24px;padding:0 10px;border-radius:12px;background:' + actColor + '15;color:' + actColor + ';font-size:12px;font-weight:700;border:1px solid ' + actColor + '25">' + actCount + '</span>';
       } else {
-        actBadge = '<span style="color:#334155;font-size:12px">—</span>';
+        actBadge = '<span style="color:#1e293b;font-size:12px">—</span>';
       }
 
-      var rowBg = isOverdue ? 'background:linear-gradient(90deg, #ef444408 0%, transparent 40%);border-left:3px solid #ef4444' : 'border-left:3px solid transparent';
+      // Card-based row
+      contactRows += '<div onclick="showContactDetail(' + c.id + ')" style="margin:6px 10px;padding:16px 20px;border-radius:14px;cursor:pointer;transition:all 0.25s ease;background:' + (isOverdue ? 'linear-gradient(135deg, #ef444406, transparent 60%)' : 'transparent') + ';border:1px solid ' + (isOverdue ? '#ef444418' : 'transparent') + ';position:relative" ' +
+        'onmouseover="this.style.background=\'linear-gradient(135deg, ' + bgColor + '08, ' + bgColor + '03)\';this.style.border=\'1px solid ' + bgColor + '20\';this.style.boxShadow=\'0 4px 20px ' + bgColor + '10\';this.style.transform=\'translateY(-1px)\';this.querySelector(\'.c-acts\').style.opacity=\'1\'" ' +
+        'onmouseout="this.style.background=\'' + (isOverdue ? 'linear-gradient(135deg, #ef444406, transparent 60%)' : 'transparent') + '\';this.style.border=\'1px solid ' + (isOverdue ? '#ef444418' : 'transparent') + '\';this.style.boxShadow=\'none\';this.style.transform=\'translateY(0)\';this.querySelector(\'.c-acts\').style.opacity=\'0\'">' +
 
-      contactRows += '<div onclick="showContactDetail(' + c.id + ')" class="contact-row" style="display:grid;grid-template-columns:56px 1.8fr 1fr 170px 110px 80px;gap:16px;align-items:center;padding:14px 20px;cursor:pointer;transition:all 0.2s ease;' + rowBg + ';position:relative" ' +
-        'onmouseover="this.style.background=\'linear-gradient(90deg, ' + bgColor + '08 0%, #1e293b80 100%)\';this.style.borderLeftColor=\'' + bgColor + '\';this.querySelector(\'.c-acts\').style.opacity=\'1\'" ' +
-        'onmouseout="this.style.background=\'' + (isOverdue ? 'linear-gradient(90deg, #ef444408 0%, transparent 40%)' : 'transparent') + '\';this.style.borderLeftColor=\'' + (isOverdue ? '#ef4444' : 'transparent') + '\';this.querySelector(\'.c-acts\').style.opacity=\'0\'">' +
+        '<div style="display:grid;grid-template-columns:52px 1.6fr 1fr 180px 140px 70px;gap:16px;align-items:center">' +
 
         '<div style="position:relative">' +
-          '<img src="' + avatarUrl + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" style="width:44px;height:44px;border-radius:14px;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,0.25);border:2px solid ' + bgColor + '40;transition:transform 0.2s" onmouseover="this.style.transform=\'scale(1.08)\'" onmouseout="this.style.transform=\'scale(1)\'">' +
-          '<div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg, ' + bgColor + ', ' + bgColor + '88);display:none;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;box-shadow:0 4px 12px ' + bgColor + '25;letter-spacing:0.5px">' + esc(initials) + '</div>' +
+          '<img src="' + avatarUrl + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" style="width:48px;height:48px;border-radius:16px;object-fit:cover;box-shadow:0 4px 16px rgba(0,0,0,0.3),0 0 0 2px ' + bgColor + '30;transition:all 0.25s" onmouseover="this.style.transform=\'scale(1.1)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.4),0 0 0 2px ' + bgColor + '50\'" onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.3),0 0 0 2px ' + bgColor + '30\'">' +
+          '<div style="width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg, ' + bgColor + ', ' + bgColor + '80);display:none;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;box-shadow:0 4px 16px ' + bgColor + '25;letter-spacing:0.5px">' + esc(initials) + '</div>' +
+          (isOverdue ? '<div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #0f172a;box-shadow:0 0 6px #ef444480"></div>' : '') +
         '</div>' +
 
         '<div style="overflow:hidden;min-width:0">' +
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' +
-            '<span style="font-weight:600;font-size:14px;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em">' + esc(c.name || c.email) + '</span>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+            '<span style="font-weight:700;font-size:14px;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em">' + esc(c.name || c.email) + '</span>' +
             sourceBadge +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px">' +
             '<a href="mailto:' + esc(c.email) + '" onclick="event.stopPropagation()" style="color:#64748b;font-size:12px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color 0.15s" onmouseover="this.style.color=\'' + bgColor + '\'" onmouseout="this.style.color=\'#64748b\'">' + esc(c.email) + '</a>' +
-            '<span class="c-acts" style="opacity:0;transition:opacity 0.2s;display:inline-flex;gap:3px;flex-shrink:0">' +
-              (c.phone ? '<a href="tel:' + esc(c.phone) + '" onclick="event.stopPropagation()" title="Call" style="width:24px;height:24px;border-radius:8px;background:' + bgColor + '15;display:inline-flex;align-items:center;justify-content:center;font-size:12px;text-decoration:none;transition:all 0.15s;border:1px solid ' + bgColor + '20" onmouseover="this.style.background=\'' + bgColor + '30\'" onmouseout="this.style.background=\'' + bgColor + '15\'">📞</a>' : '') +
-              '<a href="mailto:' + esc(c.email) + '" onclick="event.stopPropagation()" title="Email" style="width:24px;height:24px;border-radius:8px;background:#3b82f615;display:inline-flex;align-items:center;justify-content:center;font-size:12px;text-decoration:none;transition:all 0.15s;border:1px solid #3b82f620" onmouseover="this.style.background=\'#3b82f630\'" onmouseout="this.style.background=\'#3b82f615\'">✉️</a>' +
+            '<span class="c-acts" style="opacity:0;transition:opacity 0.2s;display:inline-flex;gap:4px;flex-shrink:0">' +
+              (c.phone ? '<a href="tel:' + esc(c.phone) + '" onclick="event.stopPropagation()" title="Позвонить" style="width:26px;height:26px;border-radius:8px;background:' + bgColor + '12;display:inline-flex;align-items:center;justify-content:center;font-size:13px;text-decoration:none;transition:all 0.2s;border:1px solid ' + bgColor + '20" onmouseover="this.style.background=\'' + bgColor + '\';this.style.transform=\'scale(1.1)\'" onmouseout="this.style.background=\'' + bgColor + '12\';this.style.transform=\'scale(1)\'">📞</a>' : '') +
+              '<a href="mailto:' + esc(c.email) + '" onclick="event.stopPropagation()" title="Написать" style="width:26px;height:26px;border-radius:8px;background:#3b82f612;display:inline-flex;align-items:center;justify-content:center;font-size:13px;text-decoration:none;transition:all 0.2s;border:1px solid #3b82f620" onmouseover="this.style.background=\'#3b82f6\';this.style.transform=\'scale(1.1)\'" onmouseout="this.style.background=\'#3b82f612\';this.style.transform=\'scale(1)\'">✉️</a>' +
             '</span>' +
           '</div>' +
         '</div>' +
 
         '<div style="overflow:hidden;min-width:0">' +
-          '<div style="font-size:13px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">' + esc(c.company_name || '—') + '</div>' +
-          (c.role ? '<div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">' + esc(c.role) + '</div>' : '') +
+          (c.company_name ? '<div style="display:flex;align-items:center;gap:6px"><div style="width:22px;height:22px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">🏢</div><div style="overflow:hidden"><div style="font-size:13px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">' + esc(c.company_name) + '</div>' + (c.role ? '<div style="font-size:11px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.role) + '</div>' : '') + '</div></div>' : '<span style="color:#1e293b">—</span>') +
         '</div>' +
 
         '<div style="overflow:hidden">' + phoneDisplay + '</div>' +
         '<div>' + lastContactHtml + '</div>' +
         '<div style="text-align:center">' + actBadge + '</div>' +
-      '</div>';
 
-      // Subtle separator between rows
-      if (idx < contacts.length - 1) {
-        contactRows += '<div style="height:1px;margin:0 20px;background:linear-gradient(90deg, transparent, #1e293b 20%, #1e293b 80%, transparent)"></div>';
-      }
+        '</div></div>';
     });
   }
 
   el.innerHTML = `
     <div style="max-width:1400px;margin:0 auto">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
         <div>
-          <h1 style="font-size:26px;font-weight:800;color:#f8fafc;margin-bottom:6px;letter-spacing:-0.02em">${t('contacts_title')}</h1>
-          <p style="font-size:13px;color:#64748b;display:flex;align-items:center;gap:8px">
-            <span style="display:inline-flex;align-items:center;justify-content:center;background:#6366f118;color:#818cf8;padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px;border:1px solid #6366f125">${total || 0}</span>
-            ${t('contacts_title').toLowerCase()}
-          </p>
+          <h1 style="font-size:28px;font-weight:800;color:#f8fafc;margin-bottom:6px;letter-spacing:-0.03em">${t('contacts_title')}</h1>
+          <p style="font-size:13px;color:#64748b">Управление базой контактов</p>
         </div>
-        <button style="background:linear-gradient(135deg, #6366f1, #4f46e5);color:#fff;border:none;padding:11px 24px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px #6366f140;transition:all 0.2s;letter-spacing:0.02em" onclick="showContactModal()" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px #6366f150'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 14px #6366f140'">+ ${t('contacts_add')}</button>
+        <button style="background:linear-gradient(135deg, #6366f1, #4f46e5);color:#fff;border:none;padding:12px 28px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px #6366f140;transition:all 0.25s;letter-spacing:0.02em;display:flex;align-items:center;gap:8px" onclick="showContactModal()" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px #6366f150'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 14px #6366f140'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          ${t('contacts_add')}
+        </button>
       </div>
 
-      <div style="display:flex;gap:12px;margin-bottom:24px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1;min-width:280px;position:relative">
-          <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#475569" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="contactsSearch" style="width:100%;padding:11px 14px 11px 40px;background:#0f172a;border:1px solid #1e293b;border-radius:12px;color:#e2e8f0;font-size:13px;outline:none;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1)" placeholder="${t('contacts_search')}" oninput="onContactsSearch(this.value)" onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px #6366f118'" onblur="this.style.borderColor='#1e293b';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'">
+      <!-- Stats Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:linear-gradient(135deg, #6366f108, #6366f103);border:1px solid #6366f118;border-radius:14px;padding:16px 18px;transition:all 0.2s" onmouseover="this.style.borderColor='#6366f130';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='#6366f118';this.style.transform='translateY(0)'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Всего</span>
+            <div style="width:32px;height:32px;border-radius:10px;background:#6366f112;display:flex;align-items:center;justify-content:center;font-size:16px">👥</div>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em">${total || 0}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;background:#0f172a;padding:6px 14px;border-radius:12px;border:1px solid #1e293b">
-          <span style="color:#64748b;font-size:12px;white-space:nowrap">${t('sort_by')}:</span>
+        <div style="background:linear-gradient(135deg, #10b98108, #10b98103);border:1px solid #10b98118;border-radius:14px;padding:16px 18px;transition:all 0.2s" onmouseover="this.style.borderColor='#10b98130';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='#10b98118';this.style.transform='translateY(0)'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Активные</span>
+            <div style="width:32px;height:32px;border-radius:10px;background:#10b98112;display:flex;align-items:center;justify-content:center;font-size:16px">🟢</div>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:#10b981;letter-spacing:-0.02em">${totalActive}</div>
+        </div>
+        <div style="background:linear-gradient(135deg, #ef444408, #ef444403);border:1px solid #ef444418;border-radius:14px;padding:16px 18px;transition:all 0.2s" onmouseover="this.style.borderColor='#ef444430';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='#ef444418';this.style.transform='translateY(0)'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Без контакта 30+</span>
+            <div style="width:32px;height:32px;border-radius:10px;background:#ef444412;display:flex;align-items:center;justify-content:center;font-size:16px">🔴</div>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:#ef4444;letter-spacing:-0.02em">${totalOverdue}</div>
+        </div>
+        <div style="background:linear-gradient(135deg, #f59e0b08, #f59e0b03);border:1px solid #f59e0b18;border-radius:14px;padding:16px 18px;transition:all 0.2s" onmouseover="this.style.borderColor='#f59e0b30';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='#f59e0b18';this.style.transform='translateY(0)'">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">С активностью</span>
+            <div style="width:32px;height:32px;border-radius:10px;background:#f59e0b12;display:flex;align-items:center;justify-content:center;font-size:16px">📊</div>
+          </div>
+          <div style="font-size:24px;font-weight:800;color:#f59e0b;letter-spacing:-0.02em">${totalWithAct}</div>
+        </div>
+      </div>
+
+      <!-- Search & Sort -->
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:280px;position:relative">
+          <svg style="position:absolute;left:16px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#475569" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="contactsSearch" style="width:100%;padding:12px 16px 12px 44px;background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;color:#e2e8f0;font-size:13px;outline:none;transition:all 0.25s;box-shadow:inset 0 2px 4px rgba(0,0,0,0.1)" placeholder="${t('contacts_search')}" oninput="onContactsSearch(this.value)" onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px #6366f115,inset 0 2px 4px rgba(0,0,0,0.1)'" onblur="this.style.borderColor='#1e293b';this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.1)'">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:#0a0f1a;padding:8px 16px;border-radius:14px;border:1px solid #1e293b">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
           ${sortSelect(contactsSort, 'onContactsSort', sortOpts)}
         </div>
       </div>
 
-      <div style="background:linear-gradient(180deg, #0f172a 0%, #0a0f1a 100%);border:1px solid #1e293b;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.2)">
-        <div style="display:grid;grid-template-columns:56px 1.8fr 1fr 170px 110px 80px;gap:16px;align-items:center;padding:14px 20px;background:linear-gradient(180deg, #1e293b 0%, #151d2e 100%);border-bottom:1px solid #334155">
+      <!-- Contacts Table -->
+      <div style="background:linear-gradient(180deg, #0c1220 0%, #080d16 100%);border:1px solid #1e293b;border-radius:18px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
+        <!-- Table Header -->
+        <div style="display:grid;grid-template-columns:52px 1.6fr 1fr 180px 140px 70px;gap:16px;align-items:center;padding:16px 30px;background:linear-gradient(180deg, #151d2e, #111827);border-bottom:1px solid #1e293b">
           <div></div>
-          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">${t('contacts_col_name')}</div>
-          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">${t('contacts_col_company')}</div>
-          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">${t('contacts_col_phone')}</div>
-          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">${t('contacts_col_last')}</div>
-          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;text-align:center">${t('contacts_col_emails')}</div>
+          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_name')}</div>
+          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_company')}</div>
+          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_phone')}</div>
+          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_last')}</div>
+          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px;text-align:center">${t('contacts_col_emails')}</div>
         </div>
-        ${contactRows}
+        <!-- Rows -->
+        <div style="padding:4px 0">
+          ${contactRows}
+        </div>
       </div>
       ${renderPagination(total, state.contactsPage, 'onContactsPage')}
     </div>

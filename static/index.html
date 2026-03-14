@@ -3276,11 +3276,11 @@ async function renderHomeDashboard(el) {
   showLoading(el);
   try {
     const userName = localStorage.getItem('crm_user_name') || 'User';
-    const L = state.lang || 'en';
+    const L = currentLang;
     const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
 
     // Fetch data in parallel
-    const [{data:summary}, {data:ticketsStats}, {data:activities}, {data:tasks}, {data:notifications}, {data:deals}] = await Promise.all([
+    const [summaryR, ticketsR, activitiesR, tasksR, notifsR, dealsR] = await Promise.all([
       api.get('/api/analytics/summary'),
       api.get('/api/tickets/stats').catch(() => ({data:{total:0,open:0}})),
       api.get('/api/activities?limit=5').catch(() => ({data:[]})),
@@ -3289,133 +3289,124 @@ async function renderHomeDashboard(el) {
       api.get('/api/deals?limit=5').catch(() => ({data:[]}))
     ]);
 
+    const summary = summaryR.data || {};
+    const ticketsStats = ticketsR.data || {};
+    const activities = activitiesR.data || [];
+    const tasks = tasksR.data || [];
+    const notifications = notifsR.data || [];
+
     const deals_pipeline = summary.deals_active || 0;
     const deals_pipeline_value = summary.deals_value || 0;
     const companies_total = summary.clients_total || 0;
     const contacts_total = summary.contacts_total || 0;
-    const open_tickets = ticketsStats.open || 0;
+    const open_tickets = ticketsStats.open || ticketsStats.total || 0;
 
     // SVG circle progress function
-    const circleSVG = (value, max, label, color) => {
-      const percentage = Math.min(100, (value / Math.max(1, max)) * 100);
-      const circumference = 2 * Math.PI * 45;
-      const strokeDashoffset = circumference - (percentage / 100) * circumference;
-      return `
-        <div class="relative w-32 h-32 flex flex-col items-center justify-center">
-          <svg width="140" height="140" style="transform: rotate(-90deg)">
-            <circle cx="70" cy="70" r="45" fill="none" stroke="#334155" stroke-width="3" />
-            <circle cx="70" cy="70" r="45" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" style="transition: stroke-dashoffset 0.5s ease;" stroke-linecap="round" />
-          </svg>
-          <div class="absolute text-center">
-            <div class="text-2xl font-bold text-white">${value}</div>
-            <div class="text-xs text-slate-400">${label}</div>
-          </div>
-        </div>
-      `;
-    };
+    function circleSVG(value, max, label, color) {
+      var pct = Math.min(100, (value / Math.max(1, max)) * 100);
+      var circ = 2 * Math.PI * 45;
+      var offset = circ - (pct / 100) * circ;
+      return '<div style="position:relative;width:140px;height:140px;display:flex;align-items:center;justify-content:center;margin:0 auto">' +
+        '<svg width="140" height="140" style="transform:rotate(-90deg)">' +
+        '<circle cx="70" cy="70" r="45" fill="none" stroke="#334155" stroke-width="3"/>' +
+        '<circle cx="70" cy="70" r="45" fill="none" stroke="' + color + '" stroke-width="3" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '" stroke-linecap="round" style="transition:stroke-dashoffset 0.5s ease"/>' +
+        '</svg>' +
+        '<div style="position:absolute;text-align:center">' +
+        '<div style="font-size:1.5rem;font-weight:700;color:#fff">' + value + '</div>' +
+        '<div style="font-size:0.75rem;color:#94a3b8">' + label + '</div>' +
+        '</div></div>';
+    }
+
+    // Pre-build activities HTML
+    var activitiesHtml = '';
+    if (activities && activities.length > 0) {
+      activities.forEach(function(a) {
+        var icon = a.type === 'call' ? '☎️' : a.type === 'email' ? '📧' : a.type === 'meeting' ? '📅' : '📌';
+        var desc = esc(a.description || a.subject || 'Activity');
+        var dt = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
+        activitiesHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm">' +
+          '<span class="text-lg">' + icon + '</span>' +
+          '<div class="flex-1 min-w-0"><div class="font-medium truncate">' + desc + '</div>' +
+          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+      });
+    } else {
+      activitiesHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No recent records', 'Нет записей', 'Qeyd yoxdur') + '</div>';
+    }
+
+    // Pre-build tasks HTML
+    var tasksHtml = '';
+    if (tasks && tasks.length > 0) {
+      tasks.forEach(function(tk) {
+        var checked = tk.status === 'completed' ? ' checked' : '';
+        var strike = tk.status === 'completed' ? 'text-decoration:line-through;color:#64748b;' : '';
+        var title = esc(tk.title || tk.description || 'Task');
+        var dt = tk.due_date ? new Date(tk.due_date).toLocaleDateString() : '';
+        tasksHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded text-sm">' +
+          '<input type="checkbox" class="mt-0.5" style="cursor:pointer"' + checked + '>' +
+          '<div class="flex-1 min-w-0"><div class="font-medium truncate" style="' + strike + '">' + title + '</div>' +
+          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+      });
+    } else {
+      tasksHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No tasks', 'Нет задач', 'Tapşırıq yoxdur') + '</div>';
+    }
+
+    // Pre-build notifications HTML
+    var notifsHtml = '';
+    if (notifications && notifications.length > 0) {
+      notifications.forEach(function(n) {
+        var title = esc(n.title || n.message || 'Notification');
+        var dt = n.created_at ? new Date(n.created_at).toLocaleDateString() : '';
+        notifsHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm" style="border-left:3px solid ' + (n.severity === 'high' ? '#ef4444' : '#475569') + '">' +
+          '<div class="flex-1 min-w-0"><div class="font-medium truncate">' + title + '</div>' +
+          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+      });
+    } else {
+      notifsHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No notifications', 'Нет уведомлений', 'Bildiriş yoxdur') + '</div>';
+    }
+
+    var dateStr = new Date().toLocaleDateString(L === 'ru' ? 'ru-RU' : L === 'az' ? 'az-AZ' : 'en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
 
     el.innerHTML = `
       <div style="max-width:1400px;margin:0 auto;">
-        <!-- Welcome Section -->
         <div class="mb-8">
-          <h1 class="text-3xl font-bold mb-1">${_t('home_welcome', 'Добро пожаловать', 'Xoş gəldiniz')}, ${esc(userName)}!</h1>
-          <p class="text-slate-400">${new Date().toLocaleDateString(L === 'ru' ? 'ru-RU' : L === 'az' ? 'az-AZ' : 'en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</p>
+          <h1 class="text-3xl font-bold mb-1">${_t('Welcome', 'Добро пожаловать', 'Xoş gəldiniz')}, ${esc(userName)}!</h1>
+          <p class="text-slate-400">${dateStr}</p>
         </div>
-
-        <!-- Top Row: 4 Metric Circle Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <!-- Deals Pipeline Card -->
           <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/deals'">
-            ${circleSVG(deals_pipeline, Math.max(5, deals_pipeline), _t('home_deals_pipeline', 'Воронка сделок', 'Sövdələşmə xətti'), '#6366f1')}
-            <div class="text-xs text-slate-400 mt-4 text-center">${formatCurrency(deals_pipeline_value)}</div>
+            ${circleSVG(deals_pipeline, Math.max(5, deals_pipeline), _t('Deals', 'Сделки', 'Sövdələşmələr'), '#6366f1')}
+            <div class="text-xs text-slate-400 mt-3 text-center">${formatCurrency(deals_pipeline_value)}</div>
           </div>
-          <!-- Companies Card -->
           <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/clients'">
-            ${circleSVG(companies_total, Math.max(20, companies_total), _t('home_companies', 'Компании', 'Şirkətlər'), '#3b82f6')}
+            ${circleSVG(companies_total, Math.max(20, companies_total), _t('Companies', 'Компании', 'Şirkətlər'), '#3b82f6')}
           </div>
-          <!-- Contacts Card -->
           <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/contacts'">
-            ${circleSVG(contacts_total, Math.max(50, contacts_total), _t('home_contacts', 'Контакты', 'Kontaktlar'), '#10b981')}
+            ${circleSVG(contacts_total, Math.max(50, contacts_total), _t('Contacts', 'Контакты', 'Kontaktlar'), '#10b981')}
           </div>
-          <!-- Open Tickets Card -->
           <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/tickets'">
-            ${circleSVG(open_tickets, Math.max(10, open_tickets), _t('home_open_tickets', 'Открытые тикеты', 'Açıq tiketlər'), '#f59e0b')}
+            ${circleSVG(open_tickets, Math.max(10, open_tickets), _t('Tickets', 'Тикеты', 'Tiketlər'), '#f59e0b')}
           </div>
         </div>
-
-        <!-- Second Row: 4 Info Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <!-- Recent Records -->
           <div class="card p-5">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span>📝</span>${_t('home_recent_records', 'Последние записи', 'Son qeydlər')}
-            </h3>
-            <div class="space-y-3 max-h-80 overflow-y-auto">
-              ${activities && activities.length > 0
-                ? activities.map(a => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm">
-                    <span class="text-lg">\${a.type === 'call' ? '☎️' : a.type === 'email' ? '📧' : a.type === 'meeting' ? '📞' : '📌'}</span>
-                    <div class="flex-1 min-w-0">
-                      <div class="font-medium truncate">\${esc(a.description || 'Activity')}</div>
-                      <div class="text-xs text-slate-400">\${new Date(a.created_at).toLocaleDateString()}</div>
-                    </div>
-                  </div>\`).join('')
-                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_records', 'Нет записей', 'Qeyd yoxdur')}</div>\`}
-            </div>
+            <h3 class="text-lg font-semibold mb-4">📝 ${_t('Recent Records', 'Последние записи', 'Son qeydlər')}</h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">${activitiesHtml}</div>
           </div>
-
-          <!-- My Tasks -->
           <div class="card p-5">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span>✓</span>${_t('home_my_tasks', 'Мои задачи', 'Tapşırıqlarım')}
-            </h3>
-            <div class="space-y-3 max-h-80 overflow-y-auto">
-              ${tasks && tasks.length > 0
-                ? tasks.map(t => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded text-sm">
-                    <input type="checkbox" class="mt-0.5" \${t.status === 'completed' ? 'checked' : ''} style="cursor:pointer;">
-                    <div class="flex-1 min-w-0">
-                      <div class="font-medium \${t.status === 'completed' ? 'line-through text-slate-500' : ''} truncate">\${esc(t.title || t.description || 'Task')}</div>
-                      <div class="text-xs text-slate-400">\${t.due_date ? new Date(t.due_date).toLocaleDateString() : 'No date'}</div>
-                    </div>
-                  </div>\`).join('')
-                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_tasks', 'Нет задач', 'Tapşırıq yoxdur')}</div>\`}
-            </div>
+            <h3 class="text-lg font-semibold mb-4">✅ ${_t('My Tasks', 'Мои задачи', 'Tapşırıqlarım')}</h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">${tasksHtml}</div>
           </div>
-
-          <!-- Notifications -->
           <div class="card p-5">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span>🔔</span>${_t('home_notifications', 'Уведомления', 'Bildirişlər')}
-            </h3>
-            <div class="space-y-3 max-h-80 overflow-y-auto">
-              ${notifications && notifications.length > 0
-                ? notifications.map(n => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm border-l-3 \${n.severity === 'high' ? 'border-red-500' : n.severity === 'medium' ? 'border-yellow-500' : 'border-slate-600'}">
-                    <div class="flex-1 min-w-0">
-                      <div class="font-medium truncate">\${esc(n.title)}</div>
-                      <div class="text-xs text-slate-400">\${new Date(n.created_at).toLocaleDateString()}</div>
-                    </div>
-                  </div>\`).join('')
-                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_notifications', 'Нет уведомлений', 'Bildiriş yoxdur')}</div>\`}
-            </div>
+            <h3 class="text-lg font-semibold mb-4">🔔 ${_t('Notifications', 'Уведомления', 'Bildirişlər')}</h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">${notifsHtml}</div>
           </div>
-
-          <!-- Quick Actions -->
           <div class="card p-5">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span>⚡</span>${_t('home_quick_actions', 'Быстрые действия', 'Sürətli əməliyyatlar')}
-            </h3>
+            <h3 class="text-lg font-semibold mb-4">⚡ ${_t('Quick Actions', 'Быстрые действия', 'Sürətli əməliyyatlar')}</h3>
             <div class="space-y-2">
-              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/deals'">
-                <span>📊</span>Go to Deals
-              </button>
-              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/tasks'">
-                <span>✓</span>Manage Tasks
-              </button>
-              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/contacts'">
-                <span>👥</span>Add Contact
-              </button>
-              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/analytics'">
-                <span>📈</span>View Reports
-              </button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/deals'">📊 ${_t('Go to Deals', 'Сделки', 'Sövdələşmələr')}</button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/tasks'">✅ ${_t('Manage Tasks', 'Задачи', 'Tapşırıqlar')}</button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/contacts'">👥 ${_t('Contacts', 'Контакты', 'Kontaktlar')}</button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/analytics'">📈 ${_t('View Reports', 'Отчёты', 'Hesabatlar')}</button>
             </div>
           </div>
         </div>
@@ -3423,7 +3414,7 @@ async function renderHomeDashboard(el) {
     `;
 
   } catch(e) {
-    el.innerHTML = \`<div class="card p-6 text-red-400">\${esc(e.message)}</div>\`;
+    el.innerHTML = '<div class="card p-6 text-red-400">' + esc(e.message) + '</div>';
   }
 }
 

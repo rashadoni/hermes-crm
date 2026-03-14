@@ -249,6 +249,7 @@
           <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
           <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
           <a href="#/email-log" data-page="email-log" data-i18n="email_log">Email Log</a>
+          <a href="#/currencies" data-page="currencies" data-i18n="cur_title">Currencies</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -372,8 +373,8 @@ const translations = {
     email_subject: 'Subject',
     email_body: 'Body',
     email_to: 'To',
-    email_sent: 'Email sent',
-    email_history: 'Email History',
+    email_sent: 'Email sent',    email_history: 'Email History',
+    cur_title: 'Currencies', cur_new: 'Add Currency', cur_code: 'Code', cur_name: 'Name', cur_symbol: 'Symbol', cur_rate: 'Exchange Rate', cur_base: 'Base', cur_convert: 'Convert',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1149,8 +1150,8 @@ const translations = {
     email_subject: 'Тема',
     email_body: 'Текст',
     email_to: 'Кому',
-    email_sent: 'Email отправлен',
-    email_history: 'История писем',
+    email_sent: 'Email отправлен',    email_history: 'История писем',
+    cur_title: 'Валюты', cur_new: 'Добавить валюту', cur_code: 'Код', cur_name: 'Название', cur_symbol: 'Символ', cur_rate: 'Курс', cur_base: 'Базовая', cur_convert: 'Конвертер',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1924,8 +1925,8 @@ const translations = {
     email_subject: 'Mövzu',
     email_body: 'Mətn',
     email_to: 'Kimə',
-    email_sent: 'E-poçt göndərildi',
-    email_history: 'Yazışma tarixçəsi',
+    email_sent: 'E-poçt göndərildi',    email_history: 'Yazışma tarixçəsi',
+    cur_title: 'Valyutalar', cur_new: 'Valyuta əlavə et', cur_code: 'Kod', cur_name: 'Ad', cur_symbol: 'Simvol', cur_rate: 'Məzənnə', cur_base: 'Əsas', cur_convert: 'Çevirici',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3334,6 +3335,9 @@ async function renderPage(page) {
         break;
       case 'email-log':
         await renderEmailLogPage(app);
+        break;
+      case 'currencies':
+        if (isAdmin()) await renderCurrenciesPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14198,6 +14202,171 @@ async function updateCampaignDraft(id) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
+
+// ─── Multi-Currency ───────────────────────────────────────────
+async function renderCurrenciesPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let currencies = [];
+  try { const r = await api.get('/api/currencies/all'); currencies = r.data || r || []; } catch(e){}
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('cur_title')}</h1>
+        <button class="btn btn-primary" onclick="showCurrencyForm()">${t('cur_new')}</button>
+      </div>
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b border-slate-700">
+              <th class="p-2">${t('cur_code')}</th>
+              <th class="p-2">${t('cur_name')}</th>
+              <th class="p-2">${t('cur_symbol')}</th>
+              <th class="p-2">${t('cur_rate')}</th>
+              <th class="p-2">${t('cur_base')}</th>
+              <th class="p-2"></th>
+            </tr></thead>
+            <tbody>
+              ${currencies.map(c => `
+                <tr class="border-b border-slate-800">
+                  <td class="p-2 font-mono font-bold">${esc(c.code)}</td>
+                  <td class="p-2">${esc(c.name)}</td>
+                  <td class="p-2 text-lg">${esc(c.symbol)}</td>
+                  <td class="p-2">${c.is_base ? '1.0000' : parseFloat(c.exchange_rate).toFixed(4)}</td>
+                  <td class="p-2">${c.is_base ? '<span class="text-green-400 text-xs">✓ BASE</span>' : (c.is_active ? '<span class="text-slate-400 text-xs">Active</span>' : '<span class="text-red-400 text-xs">Off</span>')}</td>
+                  <td class="p-2 text-right">
+                    ${!c.is_base ? `
+                      <button class="text-xs text-indigo-400 hover:underline mr-1" onclick="showCurrencyEditForm(${c.id}, '${esc(c.code)}', '${esc(c.name)}', '${esc(c.symbol)}', ${c.exchange_rate}, ${c.is_active})">${_t('Edit','Ред.','Red.')}</button>
+                      <button class="text-xs text-red-400 hover:underline" onclick="deleteCurrency(${c.id})">${_t('Del','Уд.','Sil')}</button>
+                    ` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <h3 class="font-semibold mb-3">${t('cur_convert')}</h3>
+          <div class="space-y-3">
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <label class="text-xs text-slate-500">${_t('Amount','Сумма','Məbləğ')}</label>
+                <input type="number" id="convAmount" value="1000" step="any" class="w-full">
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">${_t('From','Из','Dan')}</label>
+                <select id="convFrom" class="text-sm">
+                  ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='AZN'?'selected':'')+'>'+c.code+'</option>').join('')}
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">${_t('To','В','A')}</label>
+                <select id="convTo" class="text-sm">
+                  ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='USD'?'selected':'')+'>'+c.code+'</option>').join('')}
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="doConvert()">=</button>
+            </div>
+            <div id="convResult" class="text-center text-xl font-bold text-indigo-400 py-4">—</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doConvert() {
+  const amount = document.getElementById('convAmount').value;
+  const from = document.getElementById('convFrom').value;
+  const to = document.getElementById('convTo').value;
+  try {
+    const r = await api.get('/api/currencies/convert?amount='+amount+'&from_code='+from+'&to_code='+to);
+    const data = r.data || r;
+    document.getElementById('convResult').textContent = parseFloat(amount).toLocaleString() + ' ' + from + ' = ' + data.result.toLocaleString() + ' ' + to;
+  } catch(e) { document.getElementById('convResult').textContent = 'Error'; }
+}
+
+async function showCurrencyForm() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+  modal.id = 'curModal';
+  modal.innerHTML = `
+    <div class="bg-slate-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border border-slate-700">
+      <h2 class="text-lg font-bold mb-4">${t('cur_new')}</h2>
+      <form onsubmit="saveCurrency(event)" class="space-y-3">
+        <div><label class="text-xs text-slate-500">${t('cur_code')} (3 letters)</label><input type="text" id="curCode" maxlength="3" required class="w-full" placeholder="GEL"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_name')}</label><input type="text" id="curName" required class="w-full" placeholder="Georgian Lari"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_symbol')}</label><input type="text" id="curSymbol" class="w-full" placeholder="₾"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_rate')} (to 1 AZN)</label><input type="number" id="curRate" step="any" value="1" class="w-full"></div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('curModal').remove()">${_t('Cancel','Отмена','Ləğv')}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveCurrency(e) {
+  e.preventDefault();
+  try {
+    await api.post('/api/currencies', {
+      code: document.getElementById('curCode').value.trim().toUpperCase(),
+      name: document.getElementById('curName').value.trim(),
+      symbol: document.getElementById('curSymbol').value.trim(),
+      exchange_rate: parseFloat(document.getElementById('curRate').value) || 1
+    });
+    document.getElementById('curModal')?.remove();
+    showToast('Created','success');
+    navigate('currencies');
+  } catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function showCurrencyEditForm(id, code, name, symbol, rate, isActive) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+  modal.id = 'curModal';
+  modal.innerHTML = `
+    <div class="bg-slate-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border border-slate-700">
+      <h2 class="text-lg font-bold mb-4">${code}</h2>
+      <form onsubmit="updateCurrency(event, ${id})" class="space-y-3">
+        <div><label class="text-xs text-slate-500">${t('cur_name')}</label><input type="text" id="curEditName" value="${name}" class="w-full"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_symbol')}</label><input type="text" id="curEditSymbol" value="${symbol}" class="w-full"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_rate')}</label><input type="number" id="curEditRate" step="any" value="${rate}" class="w-full"></div>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="curEditActive" ${isActive?'checked':''} class="accent-green-500"> Active</label>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('curModal').remove()">${_t('Cancel','Отмена','Ləğv')}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function updateCurrency(e, id) {
+  e.preventDefault();
+  try {
+    await api.put('/api/currencies/' + id, {
+      name: document.getElementById('curEditName').value.trim(),
+      symbol: document.getElementById('curEditSymbol').value.trim(),
+      exchange_rate: parseFloat(document.getElementById('curEditRate').value),
+      is_active: document.getElementById('curEditActive').checked
+    });
+    document.getElementById('curModal')?.remove();
+    showToast('Updated','success');
+    navigate('currencies');
+  } catch(e) { showToast(e.message||'Error','error'); }
+}
+
+async function deleteCurrency(id) {
+  if (!confirm('Delete?')) return;
+  try { await api.delete('/api/currencies/' + id); showToast('Deleted','success'); navigate('currencies'); }
+  catch(e) { showToast(e.message||'Error','error'); }
+}
 
 // ─── Email Integration ────────────────────────────────────────
 async function showSendEmailModal(toEmail, contactId, dealId, ticketId) {

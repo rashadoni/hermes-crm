@@ -318,6 +318,20 @@ async def startup_event():
                 """)
     except Exception as e:
         logger.warning("Phase 3 migration: %s", e)
+    # Seed currencies
+    try:
+        with get_db() as conn:
+            if conn.execute("SELECT COUNT(*) FROM currencies").fetchone()[0] == 0:
+                conn.executescript("""
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('AZN', 'Azerbaijani Manat', '₼', 1.0, 1, 1);
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('USD', 'US Dollar', '$', 0.5882, 0, 1);
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('EUR', 'Euro', '€', 0.5405, 0, 1);
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('RUB', 'Russian Ruble', '₽', 52.94, 0, 1);
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('TRY', 'Turkish Lira', '₺', 21.18, 0, 1);
+                    INSERT INTO currencies (code, name, symbol, exchange_rate, is_base, is_active) VALUES ('GBP', 'British Pound', '£', 0.4651, 0, 1);
+                """)
+    except Exception as e:
+        logger.warning("Currency seed: %s", e)
     # ─── Phase 4: Marketing Cloud tables ──────────────────────────
     try:
         with get_db() as conn:
@@ -397,6 +411,16 @@ async def startup_event():
                     entity_id INTEGER NOT NULL,
                     value TEXT DEFAULT '',
                     UNIQUE(field_id, entity_id)
+                );
+                CREATE TABLE IF NOT EXISTS currencies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    symbol TEXT NOT NULL DEFAULT '',
+                    exchange_rate REAL DEFAULT 1.0,
+                    is_base INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    updated_at TEXT DEFAULT (datetime('now'))
                 );
                 CREATE TABLE IF NOT EXISTS email_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6754,6 +6778,90 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Multi-Currency ──────────────────────────────────────────────
+
+@app.get("/api/currencies")
+async def list_currencies(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM currencies WHERE is_active=1 ORDER BY is_base DESC, code").fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM currencies LIMIT 0").description]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.get("/api/currencies/all")
+async def list_all_currencies(user=Depends(require_admin)):
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM currencies ORDER BY is_base DESC, code").fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM currencies LIMIT 0").description]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/currencies")
+async def create_currency(request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    code = data.get("code", "").upper().strip()
+    if not code or len(code) != 3:
+        _err("3-letter currency code required", 400)
+    with get_db() as conn:
+        try:
+            conn.execute(
+                "INSERT INTO currencies (code, name, symbol, exchange_rate, is_active) VALUES (?,?,?,?,1)",
+                [code, data.get("name", code), data.get("symbol", ""), float(data.get("exchange_rate", 1.0))]
+            )
+        except Exception:
+            _err("Currency already exists", 409)
+    log_audit(user["user_id"], "create_currency", "currency", 0, entity_name=code, ip=_get_ip(request))
+    return _ok({"created": True})
+
+
+@app.put("/api/currencies/{currency_id}")
+async def update_currency(currency_id: int, request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    allowed = {"name", "symbol", "exchange_rate", "is_active"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "exchange_rate" in updates:
+        updates["exchange_rate"] = float(updates["exchange_rate"])
+    if "is_active" in updates:
+        updates["is_active"] = 1 if updates["is_active"] else 0
+    if not updates:
+        _err("No fields", 400)
+    updates["updated_at"] = datetime.utcnow().isoformat()
+    parts = [f"{k}=?" for k in updates]
+    with get_db() as conn:
+        conn.execute(f"UPDATE currencies SET {','.join(parts)} WHERE id=?", list(updates.values()) + [currency_id])
+    log_audit(user["user_id"], "update_currency", "currency", currency_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/currencies/{currency_id}")
+async def delete_currency(currency_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        base = conn.execute("SELECT is_base FROM currencies WHERE id=?", [currency_id]).fetchone()
+        if base and base[0]:
+            _err("Cannot delete base currency", 400)
+        conn.execute("DELETE FROM currencies WHERE id=?", [currency_id])
+    return _ok({"deleted": True})
+
+
+@app.get("/api/currencies/convert")
+async def convert_currency(
+    amount: float = Query(...),
+    from_code: str = Query(...),
+    to_code: str = Query(...),
+    user=Depends(require_auth)
+):
+    """Convert amount between currencies via base currency (AZN)."""
+    with get_db() as conn:
+        from_cur = conn.execute("SELECT exchange_rate FROM currencies WHERE code=?", [from_code.upper()]).fetchone()
+        to_cur = conn.execute("SELECT exchange_rate FROM currencies WHERE code=?", [to_code.upper()]).fetchone()
+        if not from_cur or not to_cur:
+            _err("Currency not found", 404)
+        # Convert: amount in from_code → AZN → to_code
+        base_amount = amount / from_cur[0]  # to AZN
+        result = base_amount * to_cur[0]    # to target
+        return _ok({"from": from_code, "to": to_code, "amount": amount, "result": round(result, 2), "rate": round(to_cur[0] / from_cur[0], 6)})
 
 
 # ─── Email Integration (Send + Log) ──────────────────────────────

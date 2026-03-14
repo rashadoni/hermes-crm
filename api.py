@@ -867,6 +867,28 @@ async def list_contacts(
         query=q, company_id=company_id, source=source,
         limit=limit, offset=offset,
     )
+    # Enrich with activity counts and last activity date
+    if contacts:
+        contact_ids = [c["id"] for c in contacts if c.get("id")]
+        if contact_ids:
+            try:
+                with get_db() as conn:
+                    placeholders = ",".join(["?" for _ in contact_ids])
+                    rows = conn.execute(
+                        f"SELECT contact_id, COUNT(*) as act_count, MAX(timestamp) as last_act "
+                        f"FROM activities WHERE contact_id IN ({placeholders}) "
+                        f"GROUP BY contact_id",
+                        contact_ids
+                    ).fetchall()
+                    act_map = {r["contact_id"]: {"count": r["act_count"], "last": r["last_act"]} for r in rows}
+                    for c in contacts:
+                        info = act_map.get(c["id"])
+                        if info:
+                            c["activity_count"] = info["count"]
+                            if not c.get("last_contact") and info["last"]:
+                                c["last_contact"] = info["last"]
+            except Exception:
+                pass
     return _ok(contacts, total=Contact.count())
 
 

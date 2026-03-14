@@ -113,6 +113,12 @@
 
   /* Loading spinner */
   .spinner { border: 3px solid #334155; border-top: 3px solid #6366f1; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 40px auto; }
+
+  /* Contact Page Tabs */
+  .contact-tab-btn { cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .contact-tab-btn.active { color: #818cf8; border-bottom-color: #6366f1; }
+  .contact-tab-content { display: block; }
+  .contact-tab-content.hidden { display: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Focus visible outlines */
@@ -472,6 +478,22 @@ const translations = {
     contact_created: 'Contact created',
     contact_deleted: 'Deleted',
     contact_delete_confirm: 'Delete this contact?',
+    contact_page_title: 'Contact',
+    contact_tab_related: 'Related',
+    contact_tab_details: 'Details',
+    contact_tab_activity: 'Activity',
+    contact_deals: 'Deals',
+    contact_contracts: 'Contracts',
+    contact_activities_history: 'Activity History',
+    contact_no_deals: 'No deals found',
+    contact_no_contracts: 'No contracts found',
+    contact_field_source: 'Source',
+    contact_field_tags: 'Tags',
+    contact_field_notes: 'Notes',
+    contact_field_created: 'Created',
+    contact_field_updated: 'Last Updated',
+    contact_field_email_count: 'Total Emails',
+    contact_back: 'Back',
     btn_edit: 'Edit',
     btn_delete: 'Delete',
     btn_save: 'Save',
@@ -520,6 +542,7 @@ const translations = {
     contracts_col_status: 'Status',
     contracts_col_start: 'Start Date',
     contracts_col_end: 'End Date',
+    contracts_col_created: 'Created',
     contracts_none: 'No contracts found',
     contracts_expires_days: 'Expires in {days} days',
     contracts_detail_name: 'Contract Name',
@@ -582,6 +605,10 @@ const translations = {
     deal_new: 'New Deal',
     deal_edit: 'Edit Deal',
     deal_created: 'Deal created',
+    deals_col_name: 'Deal Name',
+    deals_col_amount: 'Amount',
+    deals_col_stage: 'Stage',
+    deals_col_close_date: 'Close Date',
 
     // Reports
     reports_title: 'Reports',
@@ -1156,6 +1183,22 @@ const translations = {
     contact_form_email: 'Email',
     contact_form_company: 'Компания',
     contact_form_role: 'Должность',
+    contact_page_title: 'Контакт',
+    contact_tab_related: 'Связанные',
+    contact_tab_details: 'Детали',
+    contact_tab_activity: 'Активность',
+    contact_deals: 'Сделки',
+    contact_contracts: 'Контракты',
+    contact_activities_history: 'История активности',
+    contact_no_deals: 'Сделки не найдены',
+    contact_no_contracts: 'Контракты не найдены',
+    contact_field_source: 'Источник',
+    contact_field_tags: 'Теги',
+    contact_field_notes: 'Заметки',
+    contact_field_created: 'Создан',
+    contact_field_updated: 'Обновлён',
+    contact_field_email_count: 'Всего писем',
+    contact_back: 'Назад',
     contact_form_phone: 'Телефон',
     contact_updated: 'Контакт обновлён',
     contact_created: 'Контакт создан',
@@ -1209,6 +1252,7 @@ const translations = {
     contracts_col_status: 'Статус',
     contracts_col_start: 'Дата начала',
     contracts_col_end: 'Дата конца',
+    contracts_col_created: 'Создан',
     contracts_none: 'Контракты не найдены',
     contracts_expires_days: 'Истекает через {days} дней',
     contracts_detail_name: 'Название контракта',
@@ -1271,6 +1315,10 @@ const translations = {
     deal_new: 'Новая сделка',
     deal_edit: 'Редактировать сделку',
     deal_created: 'Сделка создана',
+    deals_col_name: 'Название сделки',
+    deals_col_amount: 'Сумма',
+    deals_col_stage: 'Этап',
+    deals_col_close_date: 'Дата закрытия',
 
     // Reports
     reports_title: 'Отчёты',
@@ -1842,6 +1890,22 @@ const translations = {
     contact_form_email: 'Email',
     contact_form_company: 'Şirkət',
     contact_form_role: 'Vəzifə',
+    contact_page_title: 'Kontakt',
+    contact_tab_related: 'Əlaqəli',
+    contact_tab_details: 'Detallar',
+    contact_tab_activity: 'Fəaliyyət',
+    contact_deals: 'Sövdələşmələr',
+    contact_contracts: 'Müqavilələr',
+    contact_activities_history: 'Fəaliyyət tarixçəsi',
+    contact_no_deals: 'Sövdələşmə tapılmadı',
+    contact_no_contracts: 'Müqavilə tapılmadı',
+    contact_field_source: 'Mənbə',
+    contact_field_tags: 'Etiketlər',
+    contact_field_notes: 'Qeydlər',
+    contact_field_created: 'Yaradılıb',
+    contact_field_updated: 'Yenilənib',
+    contact_field_email_count: 'Ümumi email',
+    contact_back: 'Geri',
     contact_form_phone: 'Telefon',
     contact_updated: 'Əlaqə yeniləndi',
     contact_created: 'Əlaqə yaradıldı',
@@ -1895,6 +1959,7 @@ const translations = {
     contracts_col_status: 'Status',
     contracts_col_start: 'Başlama tarix',
     contracts_col_end: 'Bitmə tarix',
+    contracts_col_created: 'Yaradıldı',
     contracts_none: 'Müqavil tapılmadı',
     contracts_expires_days: '{days} günə müddə bitər',
     contracts_detail_name: 'Müqavilə adı',
@@ -1957,6 +2022,10 @@ const translations = {
     deal_new: 'Yeni sövdələşmə',
     deal_edit: 'Sövdələşməni redaktə et',
     deal_created: 'Sövdələşmə yaradıldı',
+    deals_col_name: 'Sövdələşmə adı',
+    deals_col_amount: 'Məbləğ',
+    deals_col_stage: 'Mərhələ',
+    deals_col_close_date: 'Bağlanış tarixi',
 
     // Reports
     reports_title: 'Hesabatlar',
@@ -3055,7 +3124,15 @@ async function renderPage(page) {
       case 'web-forms':
         await renderWebForms(app);
         break;
-      default: app.innerHTML = `<h2 class="text-xl">${t('error_page_not_found')}</h2>`;
+      default:
+        // Handle parameterized routes like contact/123
+        if (page.startsWith('contact/')) {
+          const contactId = parseInt(page.split('/')[1]);
+          if (contactId) await renderContactPage(app, contactId);
+          else app.innerHTML = `<h2 class="text-xl">${t('error_page_not_found')}</h2>`;
+        } else {
+          app.innerHTML = `<h2 class="text-xl">${t('error_page_not_found')}</h2>`;
+        }
     }
   } catch(e) { app.innerHTML = `<div class="card p-6"><h2 class="text-red-400">${t('error_title')}</h2><p class="text-slate-400 mt-2">${esc(e.message)}</p></div>`; }
 }
@@ -3908,34 +3985,308 @@ function onContactsPage(p) { state.contactsPage = p; renderPage('contacts'); }
 function showContactModal() { showContactDetail(null); }
 function showContactDetail(id) {
   if (id === null) { showContactForm(); return; }
-  api.get('/api/contacts/' + id).then(r => {
-    const c = r.data;
-    const acts = document.getElementById('modalContainer');
-    acts.innerHTML = `
-      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-        <div class="modal-content">
-          <h2 class="text-xl font-bold mb-4">${esc(c.name||c.email)}</h2>
-          <div class="space-y-2 mb-4">
-            <div class="info-row"><span class="label">${t('contacts_col_email')}:</span> ${esc(c.email)}</div>
-            <div class="info-row"><span class="label">${t('contacts_col_company')}:</span> <a href="#/companies" class="text-indigo-400 hover:underline" onclick="closeModal()">${esc(c.company_name||'')}</a></div>
-            <div class="info-row"><span class="label">${t('contacts_col_role')}:</span> ${esc(c.role||'')}</div>
-            <div class="info-row"><span class="label">${t('contacts_col_phone')}:</span> ${esc(c.phone||'')}</div>
-            <div class="info-row"><span class="label">${t('contacts_col_emails')}:</span> ${c.activity_count||0}</div>
-            ${c.last_contact ? `<div class="info-row"><span class="label">${t('contacts_col_last')}:</span> ${esc(c.last_contact)}</div>` : ''}
+  location.hash = '#/contact/' + id;
+}
+
+// ─── Contact Detail Page (Salesforce-inspired) ─────────────────
+async function renderContactPage(el, contactId) {
+  try {
+    const { data: contact } = await api.get('/api/contacts/' + contactId);
+
+    // Get additional data
+    let deals = [];
+    let contracts = [];
+    try {
+      const dealsResp = await api.get('/api/deals?contact_id=' + contactId);
+      deals = dealsResp.data || [];
+    } catch(e) {}
+    try {
+      if (contact.company_id) {
+        const contractsResp = await api.get('/api/contracts?company_id=' + contact.company_id);
+        contracts = contractsResp.data || [];
+      }
+    } catch(e) {}
+
+    // Prepare initials for avatar
+    const names = (contact.name || contact.email).split(' ');
+    const initials = (names[0]?.[0]||'') + (names[1]?.[0]||'').toUpperCase();
+
+    // Format dates
+    const createdDate = contact.created_at ? new Date(contact.created_at).toLocaleDateString() : '';
+    const updatedDate = contact.updated_at ? new Date(contact.updated_at).toLocaleDateString() : '';
+
+    // Render page
+    el.innerHTML = `
+      <div class="min-h-screen">
+        <!-- Header Bar -->
+        <div class="bg-slate-900 border-b border-slate-700 sticky top-0 z-30">
+          <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-4 flex-1">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-bold text-lg">
+                  ${esc(initials)}
+                </div>
+                <div>
+                  <p class="text-slate-400 text-sm">${t('contact_page_title')}</p>
+                  <h1 class="text-2xl font-bold">${esc(contact.name || contact.email)}</h1>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button class="btn btn-secondary" onclick="showContactForm(${contactId})">${t('btn_edit')}</button>
+                <button class="btn btn-danger" onclick="if(confirm('${t('contact_delete_confirm')}')) deleteContact(${contactId})">${t('btn_delete')}</button>
+                <button class="btn btn-secondary" onclick="location.hash='#/contacts'">${t('contact_back')}</button>
+              </div>
+            </div>
+
+            <!-- Quick Info Row -->
+            <div class="grid grid-cols-4 gap-6 text-sm">
+              <div>
+                <p class="text-slate-500 text-xs uppercase tracking-wide">${t('contacts_col_role')}</p>
+                <p class="text-slate-200 font-medium">${esc(contact.role || '—')}</p>
+              </div>
+              <div>
+                <p class="text-slate-500 text-xs uppercase tracking-wide">${t('contacts_col_company')}</p>
+                <p class="text-slate-200 font-medium"><a href="#/companies" class="text-indigo-400 hover:underline">${esc(contact.company_name || '—')}</a></p>
+              </div>
+              <div>
+                <p class="text-slate-500 text-xs uppercase tracking-wide">${t('contacts_col_phone')}</p>
+                <p class="text-slate-200 font-medium">${esc(contact.phone || '—')}</p>
+              </div>
+              <div>
+                <p class="text-slate-500 text-xs uppercase tracking-wide">${t('contacts_col_email')}</p>
+                <p class="text-slate-200 font-medium"><a href="mailto:${esc(contact.email)}" class="text-indigo-400 hover:underline">${esc(contact.email)}</a></p>
+              </div>
+            </div>
           </div>
-          <div class="border-t border-slate-700 pt-4 mb-4">
-            <h4 class="font-semibold mb-3">${t('contacts_activities')}</h4>
-            ${c.activities && c.activities.length > 0 ? `<div class="space-y-2">` + c.activities.slice(0,5).map(a=>`<div class="text-sm text-slate-400"><span class="text-slate-300">${esc(a.subject||a.activity_type)}</span><div class="text-xs text-slate-600">${esc(a.timestamp||'')}</div></div>`).join('') + '</div>' : `<p class="text-slate-500 text-sm">${t('contacts_no_activities')}</p>`}
-          </div>
-          <div class="flex gap-2">
-            <button class="btn btn-primary flex-1" onclick="showContactForm(${id})">${t('btn_edit')}</button>
-            <button class="btn btn-danger flex-1" onclick="deleteContact(${id})">${t('btn_delete')}</button>
-            <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('btn_cancel')}</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-6 py-8">
+          <div class="grid grid-cols-3 gap-6">
+            <!-- Left Column: Tabs -->
+            <div class="col-span-2">
+              <div class="card">
+                <!-- Tabs Navigation -->
+                <div class="flex border-b border-slate-700" style="padding: 0; margin: 0;">
+                  <button class="contact-tab-btn active flex-1 px-6 py-4 text-center text-sm font-medium border-b-2 border-indigo-500 text-indigo-400 transition-colors" data-tab="related">
+                    ${t('contact_tab_related')}
+                  </button>
+                  <button class="contact-tab-btn flex-1 px-6 py-4 text-center text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors" data-tab="details">
+                    ${t('contact_tab_details')}
+                  </button>
+                </div>
+
+                <!-- Related Tab -->
+                <div class="contact-tab-content p-6" data-tab="related">
+                  <!-- Deals Section -->
+                  <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span>💼</span> ${t('contact_deals')}
+                    </h3>
+                    ${deals.length > 0 ? `
+                      <div class="overflow-x-auto">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>${t('deals_col_name')}</th>
+                              <th>${t('deals_col_amount')}</th>
+                              <th>${t('deals_col_stage')}</th>
+                              <th>${t('deals_col_close_date')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${deals.slice(0, 5).map(d => `
+                              <tr onclick="showDealDetail(${d.id})" style="cursor:pointer;">
+                                <td><a href="#/deals" class="text-indigo-400 hover:underline">${esc(d.deal_name)}</a></td>
+                                <td>${formatCurrency(d.amount)}</td>
+                                <td><span class="stage-badge stage-${d.stage}">${esc(d.stage)}</span></td>
+                                <td>${d.close_date ? new Date(d.close_date).toLocaleDateString() : '—'}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    ` : `<p class="text-slate-500 text-sm py-4">${t('contact_no_deals')}</p>`}
+                  </div>
+
+                  <!-- Contracts Section -->
+                  <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span>📄</span> ${t('contact_contracts')}
+                    </h3>
+                    ${contracts.length > 0 ? `
+                      <div class="overflow-x-auto">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>${t('contracts_col_name')}</th>
+                              <th>${t('contracts_col_type')}</th>
+                              <th>${t('contracts_col_status')}</th>
+                              <th>${t('contracts_col_created')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${contracts.slice(0, 5).map(c => `
+                              <tr onclick="showContractDetail(${c.id})" style="cursor:pointer;">
+                                <td><a href="#/contracts" class="text-indigo-400 hover:underline">${esc(c.contract_name)}</a></td>
+                                <td><span class="ctype-badge ctype-${c.contract_type}">${getTypeLabel(c.contract_type)}</span></td>
+                                <td><span class="cstatus-${c.status}">${esc(c.status)}</span></td>
+                                <td>${c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    ` : `<p class="text-slate-500 text-sm py-4">${t('contact_no_contracts')}</p>`}
+                  </div>
+
+                  <!-- Activities Section -->
+                  <div>
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span>📋</span> ${t('contact_activities_history')}
+                    </h3>
+                    ${contact.activities && contact.activities.length > 0 ? `
+                      <div class="space-y-3">
+                        ${contact.activities.slice(0, 10).map(a => {
+                          const actType = a.activity_type || 'note';
+                          const actIcon = actType === 'email' ? '✉️' :
+                                        actType === 'call' ? '☎️' :
+                                        actType === 'meeting' ? '📅' : '📝';
+                          const timestamp = a.timestamp ? new Date(a.timestamp).toLocaleDateString() : '';
+                          return `
+                            <div class="flex gap-3 pb-3 border-b border-slate-700 last:border-0">
+                              <span class="text-lg">${actIcon}</span>
+                              <div class="flex-1 min-w-0">
+                                <p class="text-slate-200 font-medium">${esc(a.subject || actType)}</p>
+                                ${a.body ? `<p class="text-slate-400 text-sm mt-1">${esc(a.body)}</p>` : ''}
+                                <p class="text-slate-600 text-xs mt-1">${timestamp}</p>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    ` : `<p class="text-slate-500 text-sm py-4">${t('contacts_no_activities')}</p>`}
+                  </div>
+                </div>
+
+                <!-- Details Tab -->
+                <div class="contact-tab-content hidden p-6" data-tab="details">
+                  <div class="grid grid-cols-2 gap-6">
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_form_name')}</p>
+                      <p class="text-slate-200 font-medium">${esc(contact.name || '—')}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_form_email')}</p>
+                      <p class="text-slate-200 font-medium"><a href="mailto:${esc(contact.email)}" class="text-indigo-400 hover:underline">${esc(contact.email)}</a></p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_form_phone')}</p>
+                      <p class="text-slate-200 font-medium">${esc(contact.phone || '—')}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_form_company')}</p>
+                      <p class="text-slate-200 font-medium"><a href="#/companies" class="text-indigo-400 hover:underline">${esc(contact.company_name || '—')}</a></p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_form_role')}</p>
+                      <p class="text-slate-200 font-medium">${esc(contact.role || '—')}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_source')}</p>
+                      <p class="text-slate-200 font-medium">${esc(contact.source || '—')}</p>
+                    </div>
+                    ${contact.tags ? `
+                      <div class="col-span-2">
+                        <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_tags')}</p>
+                        <div class="flex flex-wrap gap-2">
+                          ${contact.tags.split(',').map(tag => `<span class="px-2 py-1 bg-slate-700 text-slate-200 rounded text-sm">${esc(tag.trim())}</span>`).join('')}
+                        </div>
+                      </div>
+                    ` : ''}
+                    ${contact.notes ? `
+                      <div class="col-span-2">
+                        <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_notes')}</p>
+                        <p class="text-slate-300 text-sm bg-slate-800 p-3 rounded">${esc(contact.notes)}</p>
+                      </div>
+                    ` : ''}
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_email_count')}</p>
+                      <p class="text-slate-200 font-medium">${contact.email_count || 0}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contacts_col_last')}</p>
+                      <p class="text-slate-200 font-medium">${contact.last_contact || '—'}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_created')}</p>
+                      <p class="text-slate-200 font-medium">${createdDate}</p>
+                    </div>
+                    <div>
+                      <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_updated')}</p>
+                      <p class="text-slate-200 font-medium">${updatedDate}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Activity Feed -->
+            <div>
+              <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4">${t('contact_tab_activity')}</h3>
+                ${contact.activities && contact.activities.length > 0 ? `
+                  <div class="space-y-4">
+                    ${contact.activities.slice(0, 15).map(a => {
+                      const actType = a.activity_type || 'note';
+                      const actIcon = actType === 'email' ? '✉️' :
+                                    actType === 'call' ? '☎️' :
+                                    actType === 'meeting' ? '📅' : '📝';
+                      const timestamp = a.timestamp ? new Date(a.timestamp).toLocaleDateString() : '';
+                      return `
+                        <div class="pb-4 border-b border-slate-700 last:border-0">
+                          <div class="flex items-start gap-3">
+                            <span class="text-lg flex-shrink-0">${actIcon}</span>
+                            <div class="flex-1 min-w-0">
+                              <p class="text-slate-200 font-medium text-sm truncate">${esc(a.subject || actType)}</p>
+                              <p class="text-slate-600 text-xs mt-1">${timestamp}</p>
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : `<p class="text-slate-500 text-sm py-4">${t('contacts_no_activities')}</p>`}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     `;
-  }).catch(e => showToast(e.message || 'Error loading contact', 'error'));
+
+    // Attach tab click handlers
+    setTimeout(() => {
+      document.querySelectorAll('.contact-tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const tabName = e.target.dataset.tab;
+          document.querySelectorAll('.contact-tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tabName);
+            b.classList.toggle('text-indigo-400', b.dataset.tab === tabName);
+            b.classList.toggle('border-indigo-500', b.dataset.tab === tabName);
+            b.classList.toggle('text-slate-400', b.dataset.tab !== tabName);
+            b.classList.toggle('border-transparent', b.dataset.tab !== tabName);
+          });
+          document.querySelectorAll('.contact-tab-content').forEach(c => {
+            c.classList.toggle('hidden', c.dataset.tab !== tabName);
+          });
+        });
+      });
+    }, 0);
+
+  } catch(e) {
+    console.error('Error loading contact:', e);
+    el.innerHTML = `<div class="card p-6 m-6"><h2 class="text-red-400">${t('error_title')}</h2><p class="text-slate-400 mt-2">${esc(e.message)}</p></div>`;
+  }
 }
 
 function showContactForm(id = null) {

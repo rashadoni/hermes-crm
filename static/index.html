@@ -13520,7 +13520,7 @@ function showCreateEmailTemplateModal() {
     <div class="space-y-3">
       <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full"></div>
       <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">\${getEmailEditorToolbarHTML()}</div></div>
+      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
           <select id="etCategory" class="form-input w-full">
@@ -13554,7 +13554,7 @@ function showEditEmailTemplateModal(id, name, subject, category, lang, isActive)
       <div class="space-y-3">
         <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full" value="${esc(name)}"></div>
         <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" value="${esc(subject)}"></div>
-        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">\${getEmailEditorToolbarHTML()}</div></div>
+        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
             <select id="etCategory" class="form-input w-full">

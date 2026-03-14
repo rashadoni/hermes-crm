@@ -4029,9 +4029,11 @@ async function renderContacts(el) {
       initials = initials.toUpperCase();
       var colors = ['#6366f1','#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#a855f7'];
       var bgColor = colors[(c.id || 0) % colors.length];
-      // Photo avatar from i.pravatar.cc (consistent per contact id)
-      var avatarId = ((c.id || 0) % 70) + 1;
-      var avatarUrl = 'https://i.pravatar.cc/80?img=' + avatarId;
+      // Photo avatar from local static files
+      var avatarIdx = (c.id || 0) % 70;
+      var avatarGender = avatarIdx < 35 ? 'men' : 'women';
+      var avatarNum = avatarIdx < 35 ? avatarIdx : avatarIdx - 35;
+      var avatarUrl = '/static/avatars/' + avatarGender + '_' + avatarNum + '.jpg';
       var lastD = c.last_contact ? daysSince(c.last_contact) : null;
       var lastLabel = lastD !== null ? (lastD === 0 ? t('contacts_col_last') + ': ' + t('sort_last_recent').split(' ')[0] : lastD + 'd') : '—';
       var silentClass = (lastD && lastD >= 30) ? 'background:#ef444415;border-left:3px solid #ef4444;' : '';
@@ -4183,7 +4185,7 @@ async function renderContactPage(el, contactId) {
           <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-start justify-between mb-4">
               <div class="flex items-center gap-4 flex-1">
-                <img src="https://i.pravatar.cc/96?img=${((contactId || 0) % 70) + 1}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:48px;height:48px;border-radius:50%;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid rgba(99,102,241,0.4)">
+                <img src="/static/avatars/${((contactId || 0) % 70) < 35 ? 'men' : 'women'}_${((contactId || 0) % 70) < 35 ? ((contactId || 0) % 70) : ((contactId || 0) % 70) - 35}.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:48px;height:48px;border-radius:50%;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid rgba(99,102,241,0.4)">
                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 items-center justify-center text-white font-bold text-lg" style="display:none">
                   ${esc(initials)}
                 </div>

@@ -3297,6 +3297,10 @@ async function renderHomeDashboard(el) {
     const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw.tasks || tasksRaw.items || []);
     const notifsRaw = notifsR.data || [];
     const notifications = Array.isArray(notifsRaw) ? notifsRaw : (notifsRaw.notifications || notifsRaw.items || []);
+    console.log('DASHBOARD DEBUG tasksR:', JSON.stringify(tasksR).substring(0,500));
+    console.log('DASHBOARD DEBUG tasks:', tasks.length, tasks.length > 0 ? JSON.stringify(tasks[0]) : 'empty');
+    console.log('DASHBOARD DEBUG notifsR:', JSON.stringify(notifsR).substring(0,500));
+    console.log('DASHBOARD DEBUG notifs:', notifications.length, notifications.length > 0 ? JSON.stringify(notifications[0]) : 'empty');
 
     const deals_pipeline = summary.deals_active || 0;
     const deals_pipeline_value = summary.deals_value || 0;
@@ -3342,34 +3346,41 @@ async function renderHomeDashboard(el) {
     // Pre-build tasks HTML
     var tasksHtml = '';
     if (tasks && tasks.length > 0) {
-      tasks.forEach(function(tk) {
-        var checked = tk.status === 'completed' ? ' checked' : '';
-        var strike = tk.status === 'completed' ? 'text-decoration:line-through;color:#64748b;' : '';
-        var title = esc(tk.title || tk.description || 'Task');
+      tasks.slice(0, 5).forEach(function(tk) {
+        var isDone = (tk.status === 'completed' || tk.status === 'done');
+        var checked = isDone ? ' checked' : '';
+        var titleColor = isDone ? 'color:#64748b;text-decoration:line-through;' : 'color:#e2e8f0;';
+        var title = esc(tk.title || tk.description || tk.name || 'Task');
         var dt = tk.due_date ? new Date(tk.due_date).toLocaleDateString() : '';
-        var assignee = tk.assigned_name ? ' <span style="color:#64748b;font-size:11px">— ' + esc(tk.assigned_name) + '</span>' : '';
-        tasksHtml += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:6px" class="hover:bg-slate-800">' +
-          '<input type="checkbox" style="cursor:pointer;margin-top:3px;flex-shrink:0"' + checked + '>' +
-          '<div style="flex:1;overflow:hidden"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' + strike + '">' + title + assignee + '</div>' +
+        var assignee = tk.assigned_name ? ' — ' + esc(tk.assigned_name) : '';
+        tasksHtml += '<div style="display:table;width:100%;padding:8px 0;border-bottom:1px solid #1e293b">' +
+          '<div style="display:table-cell;width:24px;vertical-align:top;padding-top:2px">' +
+          '<input type="checkbox" style="cursor:pointer"' + checked + '></div>' +
+          '<div style="display:table-cell;vertical-align:top;padding-left:8px">' +
+          '<div style="font-weight:500;font-size:14px;' + titleColor + '">' + title + '<span style="color:#64748b;font-size:11px">' + assignee + '</span></div>' +
           (dt ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + dt + '</div>' : '') +
           '</div></div>';
       });
     } else {
-      tasksHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No tasks', 'Нет задач', 'Tapşırıq yoxdur') + '</div>';
+      tasksHtml = '<div style="text-align:center;color:#64748b;padding:24px 0;font-size:14px">' + _t('No tasks', 'Нет задач', 'Tapşırıq yoxdur') + '</div>';
     }
 
     // Pre-build notifications HTML
     var notifsHtml = '';
     if (notifications && notifications.length > 0) {
-      notifications.forEach(function(n) {
+      notifications.slice(0, 5).forEach(function(n) {
         var title = esc(n.title || n.message || 'Notification');
+        var detail = esc(n.detail || '');
         var dt = n.created_at ? new Date(n.created_at).toLocaleDateString() : '';
-        notifsHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm" style="border-left:3px solid ' + (n.severity === 'high' ? '#ef4444' : '#475569') + '">' +
-          '<div class="flex-1 min-w-0"><div class="font-medium truncate">' + title + '</div>' +
-          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+        var borderColor = n.severity === 'high' ? '#ef4444' : (n.severity === 'medium' ? '#f59e0b' : '#475569');
+        notifsHtml += '<div style="border-left:3px solid ' + borderColor + ';padding:8px 12px;margin-bottom:6px;cursor:pointer">' +
+          '<div style="font-weight:500;font-size:14px;color:#e2e8f0">' + title + '</div>' +
+          (detail ? '<div style="font-size:12px;color:#94a3b8;margin-top:2px">' + detail + '</div>' : '') +
+          '<div style="font-size:11px;color:#64748b;margin-top:2px">' + dt + '</div>' +
+          '</div>';
       });
     } else {
-      notifsHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No notifications', 'Нет уведомлений', 'Bildiriş yoxdur') + '</div>';
+      notifsHtml = '<div style="text-align:center;color:#64748b;padding:24px 0;font-size:14px">' + _t('No notifications', 'Нет уведомлений', 'Bildiriş yoxdur') + '</div>';
     }
 
     var dateStr = new Date().toLocaleDateString(L === 'ru' ? 'ru-RU' : L === 'az' ? 'az-AZ' : 'en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});

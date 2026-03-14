@@ -1,0 +1,28 @@
+name: Deploy to Hetzner VDS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 178.156.249.177
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /opt/hermes_crm
+            cp api.py api.py.bak
+            cp static/index.html static/index.html.bak
+            git pull origin main
+            systemctl restart hermes-crm
+            sleep 2
+            systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

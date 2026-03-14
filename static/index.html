@@ -13687,19 +13687,14 @@ async function loadCampaignRecipientCount() {
   if (!countEl) return;
   countEl.textContent = '...';
   try {
-    var endpoint = '/api/contacts?limit=1';
-    if (targetType === 'leads') endpoint = '/api/leads?limit=1';
-    var resp = await api.get(endpoint);
-    var arr = resp.data || [];
-    // Try to get total from response
     if (targetType === 'all') {
-      var c1 = await api.get('/api/contacts?limit=10000');
-      var c2 = await api.get('/api/leads?limit=10000');
-      var total = (c1.data ? c1.data.length : 0) + (c2.data ? c2.data.length : 0);
+      var c1 = await api.get('/api/contacts?limit=1');
+      var c2 = await api.get('/api/leads?limit=1');
+      var total = (c1.total || c1.data.length || 0) + (c2.total || c2.data.length || 0);
       countEl.textContent = total;
     } else {
-      var r = await api.get('/api/' + targetType + '?limit=10000');
-      countEl.textContent = r.data ? r.data.length : 0;
+      var r = await api.get('/api/' + targetType + '?limit=1');
+      countEl.textContent = r.total || r.data.length || 0;
     }
   } catch(e) { countEl.textContent = '?'; }
 }

@@ -239,6 +239,145 @@ async def startup_event():
     """Load persistent token blacklist on startup."""
     _load_token_blacklist()
     init_api_tables()  # Create external API tables if needed
+    # Ensure lead_id and company_id columns exist on activities
+    try:
+        with get_db() as conn:
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(activities)").fetchall()]
+            if "lead_id" not in cols:
+                conn.execute("ALTER TABLE activities ADD COLUMN lead_id INTEGER DEFAULT NULL")
+            if "company_id" not in cols:
+                conn.execute("ALTER TABLE activities ADD COLUMN company_id INTEGER DEFAULT NULL")
+    except Exception:
+        pass
+    # ─── Phase 3: Service Cloud tables ─────────────────────────
+    try:
+        with get_db() as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS tickets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    status TEXT DEFAULT 'open',
+                    priority TEXT DEFAULT 'medium',
+                    category TEXT DEFAULT 'general',
+                    company_id INTEGER,
+                    contact_id INTEGER,
+                    assigned_to INTEGER,
+                    created_by INTEGER,
+                    sla_policy_id INTEGER,
+                    first_response_at TEXT,
+                    resolved_at TEXT,
+                    closed_at TEXT,
+                    sla_breach INTEGER DEFAULT 0,
+                    tags TEXT DEFAULT '[]',
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS ticket_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ticket_id INTEGER NOT NULL,
+                    user_id INTEGER,
+                    content TEXT DEFAULT '',
+                    is_internal INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS sla_policies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    priority TEXT DEFAULT 'medium',
+                    first_response_hours REAL DEFAULT 4,
+                    resolution_hours REAL DEFAULT 24,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS kb_articles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL DEFAULT '',
+                    content TEXT DEFAULT '',
+                    category TEXT DEFAULT 'general',
+                    tags TEXT DEFAULT '[]',
+                    status TEXT DEFAULT 'draft',
+                    views INTEGER DEFAULT 0,
+                    helpful_yes INTEGER DEFAULT 0,
+                    helpful_no INTEGER DEFAULT 0,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
+            """)
+            # Seed default SLA policies if empty
+            existing = conn.execute("SELECT COUNT(*) FROM sla_policies").fetchone()[0]
+            if existing == 0:
+                conn.executescript("""
+                    INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES ('Critical SLA', 'critical', 1, 4);
+                    INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES ('High SLA', 'high', 2, 8);
+                    INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES ('Medium SLA', 'medium', 4, 24);
+                    INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES ('Low SLA', 'low', 8, 48);
+                """)
+    except Exception as e:
+        logger.warning("Phase 3 migration: %s", e)
+    # ─── Phase 4: Marketing Cloud tables ──────────────────────────
+    try:
+        with get_db() as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS email_templates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    subject TEXT NOT NULL DEFAULT '',
+                    body_html TEXT DEFAULT '',
+                    category TEXT DEFAULT 'general',
+                    lang TEXT DEFAULT 'en',
+                    created_by INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS campaigns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    type TEXT DEFAULT 'email',
+                    status TEXT DEFAULT 'draft',
+                    template_id INTEGER,
+                    target_type TEXT DEFAULT 'all',
+                    target_filter TEXT DEFAULT '{}',
+                    scheduled_at TEXT,
+                    sent_at TEXT,
+                    total_recipients INTEGER DEFAULT 0,
+                    sent_count INTEGER DEFAULT 0,
+                    open_count INTEGER DEFAULT 0,
+                    click_count INTEGER DEFAULT 0,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS campaign_recipients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    campaign_id INTEGER NOT NULL,
+                    recipient_type TEXT DEFAULT 'contact',
+                    recipient_id INTEGER,
+                    email TEXT,
+                    status TEXT DEFAULT 'pending',
+                    sent_at TEXT,
+                    opened_at TEXT,
+                    clicked_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS web_forms (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    fields_config TEXT DEFAULT '[]',
+                    redirect_url TEXT DEFAULT '',
+                    is_active INTEGER DEFAULT 1,
+                    form_token TEXT UNIQUE NOT NULL,
+                    lead_source TEXT DEFAULT 'web_form',
+                    assign_to INTEGER,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+            """)
+    except Exception as e:
+        logger.warning("Phase 4 migration: %s", e)
     logger.info("Token blacklist loaded (%d tokens)", len(_token_blacklist_cache))
 
 
@@ -321,11 +460,11 @@ async def login(request: Request):
         _err("Email/username and password are required")
     user = User.authenticate(login_id, password)
     if not user:
-        log_audit(None, "login_failed", details=f"login_id={login_id}", ip=client_ip)
+        log_audit(None, "login_failed", entity_type="auth", details=f"login_id={login_id}", ip=client_ip)
         _err("Invalid credentials", 401)
 
     # Check 2FA
-    if user.get("totp_enabled") and HAS_2FA:
+    if str(user.get("totp_enabled", "0")) not in ("0", "", "None", "False") and HAS_2FA:
         if not totp_code:
             # Return requires_2fa flag — frontend shows code input
             return _ok({"requires_2fa": True, "user_id": user["id"]})
@@ -344,11 +483,11 @@ async def login(request: Request):
                         conn.execute("UPDATE users SET backup_codes = ? WHERE id = ?",
                                      (json.dumps(backup_codes), user["id"]))
                     else:
-                        log_audit(user["id"], "2fa_failed", ip=client_ip)
+                        log_audit(user["id"], "2fa_failed", entity_type="auth", details="Invalid 2FA code", ip=client_ip)
                         _err("Invalid 2FA code", 401)
 
     token = User.generate_token(user)
-    log_audit(user["id"], "login_success", ip=client_ip)
+    log_audit(user["id"], "login_success", entity_type="auth", details=user.get("email",""), ip=client_ip)
     return _ok({"token": token, "user": user})
 
 
@@ -372,7 +511,7 @@ async def change_password(request: Request, user=Depends(require_auth)):
         _err("Password must contain uppercase, lowercase, and a digit")
     if not User.change_password(user["user_id"], old_pw, new_pw):
         _err("Current password is incorrect", 401)
-    log_audit(user["user_id"], "change_password")
+    log_audit(user["user_id"], "change_password", entity_type="auth", details="Password changed")
     return _ok({"message": "Password changed successfully"})
 
 
@@ -382,7 +521,7 @@ async def logout_endpoint(request: Request, user=Depends(require_auth), authoriz
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
         _blacklist_token(token)
-    log_audit(user["user_id"], "logout", ip=_get_ip(request))
+    log_audit(user["user_id"], "logout", entity_type="auth", details="User logged out", ip=_get_ip(request))
     return _ok({"message": "Logged out"})
 
 
@@ -396,7 +535,7 @@ async def setup_2fa(user=Depends(require_auth)):
     uid = user["user_id"]
     with get_db() as conn:
         row = conn.execute("SELECT totp_enabled, email FROM users WHERE id = ?", (uid,)).fetchone()
-        if row and row["totp_enabled"]:
+        if row and str(row["totp_enabled"]) not in ("0", "", "None", "False"):
             _err("2FA is already enabled. Disable first to re-setup.")
         secret = pyotp.random_base32()
         conn.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (secret, uid))
@@ -432,7 +571,7 @@ async def verify_2fa_setup(request: Request, user=Depends(require_auth)):
         backup_codes = [secrets.token_hex(4).upper() for _ in range(10)]
         conn.execute("UPDATE users SET totp_enabled = 1, backup_codes = ? WHERE id = ?",
                      (json.dumps(backup_codes), uid))
-        log_audit(uid, "2fa_enabled")
+        log_audit(uid, "2fa_enabled", entity_type="auth", details="2FA enabled")
     return _ok({"message": "2FA enabled successfully", "backup_codes": backup_codes})
 
 
@@ -453,7 +592,7 @@ async def disable_2fa(request: Request, user=Depends(require_auth)):
         if not _bc.checkpw(password.encode(), row["password_hash"].encode()):
             _err("Invalid password", 401)
         conn.execute("UPDATE users SET totp_enabled = 0, totp_secret = '', backup_codes = '[]' WHERE id = ?", (uid,))
-        log_audit(uid, "2fa_disabled")
+        log_audit(uid, "2fa_disabled", entity_type="auth", details="2FA disabled")
     return _ok({"message": "2FA disabled"})
 
 
@@ -463,7 +602,7 @@ async def get_2fa_status(user=Depends(require_auth)):
     uid = user["user_id"]
     with get_db() as conn:
         row = conn.execute("SELECT totp_enabled FROM users WHERE id = ?", (uid,)).fetchone()
-        enabled = bool(row and row["totp_enabled"]) if row else False
+        enabled = (str(row["totp_enabled"]) not in ("0", "", "None", "False")) if row else False
     return _ok({"enabled": enabled, "available": HAS_2FA})
 
 
@@ -607,6 +746,19 @@ async def update_user(user_id: int, request: Request, user=Depends(require_admin
     """Update user (admin only)."""
     data = await request.json()
     u = User.update(user_id, data)
+    if not u:
+        _err("User not found", 404)
+    return _ok(u)
+
+
+@app.put("/api/users/me/profile")
+async def update_my_profile(request: Request, user=Depends(require_auth)):
+    """Update own profile (any authenticated user)."""
+    data = await request.json()
+    allowed = {k: v for k, v in data.items() if k in ('first_name', 'last_name', 'full_name')}
+    if not allowed:
+        _err("No valid fields to update", 400)
+    u = User.update(user["id"], allowed)
     if not u:
         _err("User not found", 404)
     return _ok(u)
@@ -1432,8 +1584,13 @@ async def create_task(request: Request, user=Depends(require_auth)):
                 user["user_id"],
             ]
         )
-        log_audit(user["user_id"], "create_task", "task", cur.lastrowid, ip=_get_ip(request))
-        return _ok({"id": cur.lastrowid, "message": "Task created"})
+        task_id = cur.lastrowid
+        assigned_to = body.get("assigned_to") or user["user_id"]
+        # Send notification for task assignment
+        if assigned_to and assigned_to != user["user_id"]:
+            send_notification(assigned_to, "task_assigned", f"Task assigned: {title}", "", "task", task_id)
+        log_audit(user["user_id"], "create_task", "task", task_id, ip=_get_ip(request))
+        return _ok({"id": task_id, "message": "Task created"})
 
 
 @app.put("/api/tasks/{task_id}")
@@ -1781,8 +1938,13 @@ async def create_deal(request: Request, user=Depends(require_auth)):
     _validate_length(data.get("title", ""), "Title", 300)
     _validate_length(data.get("notes", ""), "Notes", 5000)
     # Validate stage if provided
-    if data.get("stage") and data["stage"] not in PIPELINE_STAGES:
-        _err("Invalid stage. Must be one of: %s" % ", ".join(PIPELINE_STAGES))
+    if data.get("stage"):
+        with get_db() as conn:
+            valid_stages = [r[0] for r in conn.execute("SELECT name FROM pipeline_stages WHERE is_active=1").fetchall()]
+        if not valid_stages:
+            valid_stages = PIPELINE_STAGES
+        if data["stage"] not in valid_stages:
+            _err("Invalid stage. Must be one of: %s" % ", ".join(valid_stages))
     # Validate value_amount if provided
     if data.get("value_amount") is not None:
         try:
@@ -1821,11 +1983,36 @@ async def delete_deal(deal_id: int, user=Depends(require_admin)):
 async def move_deal_stage(deal_id: int, request: Request, user=Depends(require_auth)):
     data = await request.json()
     new_stage = data.get("stage", "")
-    if new_stage not in PIPELINE_STAGES:
-        _err("Invalid stage. Must be one of: %s" % ", ".join(PIPELINE_STAGES))
+    with get_db() as conn:
+        valid_stages = [r[0] for r in conn.execute("SELECT name FROM pipeline_stages WHERE is_active=1").fetchall()]
+    if not valid_stages:
+        valid_stages = PIPELINE_STAGES
+    if new_stage not in valid_stages:
+        _err("Invalid stage. Must be one of: %s" % ", ".join(valid_stages))
     deal = Deal.move_stage(deal_id, new_stage)
     if not deal:
         _err("Deal not found", 404)
+    # Send notification for stage change
+    try:
+        with get_db() as conn:
+            deal_row = conn.execute("SELECT title, assigned_to, value_amount FROM deals WHERE id=?", (deal_id,)).fetchone()
+            if deal_row:
+                deal_title = deal_row[0] or f"Deal #{deal_id}"
+                assigned_to = deal_row[1]
+                if new_stage == 'WON':
+                    # Notify all admins/managers about won deal
+                    users_to_notify = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+                    for u in users_to_notify:
+                        send_notification(u[0], "deal_won", f"Deal Won: {deal_title}", f"Value: {deal_row[2]}", "deal", deal_id)
+                elif new_stage == 'LOST':
+                    lost_reason = data.get("lost_reason", "")
+                    users_to_notify = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+                    for u in users_to_notify:
+                        send_notification(u[0], "deal_lost", f"Deal Lost: {deal_title}", lost_reason, "deal", deal_id)
+                elif assigned_to and assigned_to != user["user_id"]:
+                    send_notification(assigned_to, "deal_stage_changed", f"Deal moved to {new_stage}: {deal_title}", "", "deal", deal_id)
+    except Exception as e:
+        logger.warning("Notification error: %s", e)
     log_audit(user["user_id"], "move_deal_stage", "deal", deal_id, details=f"stage={new_stage}", ip=_get_ip(request))
     return _ok(deal)
 
@@ -1835,9 +2022,27 @@ async def move_deal_stage(deal_id: int, request: Request, user=Depends(require_a
 @app.get("/api/activities")
 async def list_activities(
     contact_id: Optional[int] = None,
+    lead_id: Optional[int] = None,
+    company_id: Optional[int] = None,
     limit: int = Query(50, ge=1, le=200),
     user=Depends(require_auth),
 ):
+    if lead_id:
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT * FROM activities WHERE lead_id=? ORDER BY timestamp DESC LIMIT ?",
+                (lead_id, limit)
+            ).fetchall()
+            cols = [d[0] for d in conn.execute("SELECT * FROM activities LIMIT 0").description]
+            return _ok([dict(zip(cols, r)) for r in rows], total=len(rows))
+    if company_id:
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT * FROM activities WHERE company_id=? ORDER BY timestamp DESC LIMIT ?",
+                (company_id, limit)
+            ).fetchall()
+            cols = [d[0] for d in conn.execute("SELECT * FROM activities LIMIT 0").description]
+            return _ok([dict(zip(cols, r)) for r in rows], total=len(rows))
     if contact_id:
         activities = Activity.get_for_contact(contact_id, limit=limit)
     else:
@@ -1848,9 +2053,32 @@ async def list_activities(
 @app.post("/api/activities")
 async def create_activity(request: Request, user=Depends(require_auth)):
     data = await request.json()
+    lead_id = data.pop("lead_id", None)
+    company_id = data.pop("company_id", None)
     activity = Activity.create(data)
-    log_audit(user["user_id"], "create_activity", "activity", activity.get("id"), ip=_get_ip(request))
+    act_id = activity.get("id")
+    # If linked to a lead, update the activity record and rescore
+    if lead_id and act_id:
+        with get_db() as conn:
+            conn.execute("UPDATE activities SET lead_id=? WHERE id=?", (lead_id, act_id))
+        calculate_lead_score(lead_id)
+    # If linked to a company, update the activity record
+    if company_id and act_id:
+        with get_db() as conn:
+            conn.execute("UPDATE activities SET company_id=? WHERE id=?", (company_id, act_id))
+    log_audit(user["user_id"], "create_activity", "activity", act_id, ip=_get_ip(request))
     return _ok(activity)
+
+
+@app.get("/api/activities/company-counts")
+async def activity_company_counts(user=Depends(require_auth)):
+    """Get activity counts grouped by company_id."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT company_id, COUNT(*) as cnt, MAX(timestamp) as last_activity FROM activities WHERE company_id IS NOT NULL GROUP BY company_id"
+        ).fetchall()
+        result = {r[0]: {"count": r[1], "last_activity": r[2]} for r in rows}
+        return _ok(result)
 
 
 # ─── Analytics ───────────────────────────────────────────────
@@ -2072,7 +2300,7 @@ async def company_contracts(company_id: int, user=Depends(require_auth)):
 @app.post("/api/sync")
 async def trigger_sync(user=Depends(require_auth)):
     """Trigger email sync in background thread (protected by lock)."""
-    log_audit(user["user_id"], "trigger_sync")
+    log_audit(user["user_id"], "trigger_sync", entity_type="system", details="Manual sync triggered")
 
     if _sync_state["running"]:
         return _ok({"status": "already_running"})
@@ -2656,7 +2884,11 @@ async def reports_export_csv(user=Depends(require_auth)):
 
 @app.get("/api/pipeline/stages")
 async def get_pipeline_stages(user=Depends(require_auth)):
-    """Return available pipeline stages."""
+    """Return available pipeline stages from DB."""
+    with get_db() as conn:
+        rows = conn.execute("SELECT name FROM pipeline_stages WHERE is_active=1 ORDER BY sort_order").fetchall()
+    if rows:
+        return _ok([r[0] for r in rows])
     return _ok(PIPELINE_STAGES)
 
 
@@ -2700,6 +2932,39 @@ def calculate_lead_score(lead_id):
             if matched:
                 total += points
                 details[f"{field}_{condition}_{value}"] = points
+
+        # Activity-based scoring
+        try:
+            act_count = conn.execute(
+                "SELECT COUNT(*) FROM activities WHERE lead_id=?", (lead_id,)
+            ).fetchone()[0]
+            if act_count > 0:
+                act_points = min(act_count * 5, 20)  # +5 per activity, max +20
+                total += act_points
+                details["activities_count"] = act_points
+            # Recent activity bonus (last 7 days)
+            recent = conn.execute(
+                "SELECT COUNT(*) FROM activities WHERE lead_id=? AND timestamp > datetime('now', '-7 days')",
+                (lead_id,)
+            ).fetchone()[0]
+            if recent > 0:
+                total += 10
+                details["recent_activity_7d"] = 10
+            # Decay: no activity for 30+ days
+            if act_count > 0:
+                last_act = conn.execute(
+                    "SELECT MAX(timestamp) FROM activities WHERE lead_id=?", (lead_id,)
+                ).fetchone()[0]
+                if last_act:
+                    from datetime import datetime as dt2
+                    try:
+                        days_since = (datetime.now() - dt2.fromisoformat(last_act.replace('Z',''))).days
+                        if days_since > 30:
+                            total -= 15
+                            details["inactive_30d"] = -15
+                    except: pass
+        except Exception:
+            pass
 
         total = max(0, min(100, total))
         now = datetime.now().isoformat()
@@ -5576,4 +5841,759 @@ async def web_lead_widget():
 }})();
 """
     return Response(content=js, media_type="application/javascript")
+
+
+# ─── Phase 3: Service Cloud ──────────────────────────────────
+
+def _ticket_row_to_dict(row, cols):
+    d = dict(zip(cols, row))
+    if isinstance(d.get("tags"), str):
+        try:
+            d["tags"] = __import__("json").loads(d["tags"])
+        except:
+            d["tags"] = []
+    return d
+
+
+@app.get("/api/tickets")
+async def list_tickets(
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    assigned_to: Optional[int] = None,
+    company_id: Optional[int] = None,
+    limit: int = Query(100, ge=1, le=500),
+    user=Depends(require_auth),
+):
+    with get_db() as conn:
+        where, params = [], []
+        if status:
+            where.append("t.status=?")
+            params.append(status)
+        if priority:
+            where.append("t.priority=?")
+            params.append(priority)
+        if assigned_to:
+            where.append("t.assigned_to=?")
+            params.append(assigned_to)
+        if company_id:
+            where.append("t.company_id=?")
+            params.append(company_id)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"""SELECT t.*, u.full_name as assigned_name, c.name as company_name,
+                       cr.full_name as creator_name
+                FROM tickets t
+                LEFT JOIN users u ON t.assigned_to=u.id
+                LEFT JOIN companies c ON t.company_id=c.id
+                LEFT JOIN users cr ON t.created_by=cr.id
+                {wc} ORDER BY t.created_at DESC LIMIT ?""",
+            params + [limit]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT t.*, u.full_name as assigned_name, c.name as company_name, cr.full_name as creator_name FROM tickets t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN companies c ON t.company_id=c.id LEFT JOIN users cr ON t.created_by=cr.id LIMIT 0"
+        ).description]
+        total = conn.execute(f"SELECT COUNT(*) FROM tickets t {wc}", params).fetchone()[0]
+        return _ok([_ticket_row_to_dict(r, cols) for r in rows], total=total)
+
+
+@app.post("/api/tickets")
+async def create_ticket(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    with get_db() as conn:
+        # Auto-assign SLA based on priority
+        priority = data.get("priority", "medium")
+        sla = conn.execute("SELECT id FROM sla_policies WHERE priority=? AND is_active=1 LIMIT 1", [priority]).fetchone()
+        sla_id = sla[0] if sla else None
+        tags = _json.dumps(data.get("tags", []))
+        cur = conn.execute(
+            """INSERT INTO tickets (subject, description, status, priority, category,
+               company_id, contact_id, assigned_to, created_by, sla_policy_id, tags)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            [data.get("subject",""), data.get("description",""), "open", priority,
+             data.get("category","general"), data.get("company_id"), data.get("contact_id"),
+             data.get("assigned_to"), user["user_id"], sla_id, tags]
+        )
+        tid = cur.lastrowid
+        _notify_assigned = data.get("assigned_to") and data["assigned_to"] != user["user_id"]
+        _notify_subject = data.get("subject", "")
+    # Notification OUTSIDE db block to avoid deadlock
+    if _notify_assigned:
+        send_notification(data["assigned_to"], "ticket_assigned",
+            f"New ticket #{tid}: {_notify_subject}", f"Ticket #{tid} assigned to you", "ticket", tid)
+    log_audit(user["user_id"], "create_ticket", "ticket", tid, ip=_get_ip(request))
+    return _ok({"id": tid})
+
+
+@app.get("/api/tickets/stats")
+async def ticket_stats(user=Depends(require_auth)):
+    with get_db() as conn:
+        # Run live SLA breach check on all open tickets
+        open_ids = conn.execute("SELECT id FROM tickets WHERE status NOT IN ('closed','resolved') AND sla_policy_id IS NOT NULL").fetchall()
+        for oid in open_ids:
+            _check_sla_breach(conn, oid[0])
+        stats = {}
+        for s in ["open", "in_progress", "waiting", "resolved", "closed"]:
+            stats[s] = conn.execute("SELECT COUNT(*) FROM tickets WHERE status=?", [s]).fetchone()[0]
+        stats["total"] = sum(stats.values())
+        stats["breached"] = conn.execute("SELECT COUNT(*) FROM tickets WHERE sla_breach=1").fetchone()[0]
+        stats["unassigned"] = conn.execute("SELECT COUNT(*) FROM tickets WHERE assigned_to IS NULL AND status NOT IN ('closed','resolved')").fetchone()[0]
+        return _ok(stats)
+
+
+@app.get("/api/tickets/{ticket_id}")
+async def get_ticket(ticket_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT t.*, u.full_name as assigned_name, c.name as company_name,
+                      cr.full_name as creator_name
+               FROM tickets t
+               LEFT JOIN users u ON t.assigned_to=u.id
+               LEFT JOIN companies c ON t.company_id=c.id
+               LEFT JOIN users cr ON t.created_by=cr.id
+               WHERE t.id=?""", [ticket_id]
+        ).fetchone()
+        if not row:
+            _err("Ticket not found", 404)
+        cols = [d[0] for d in conn.execute(
+            "SELECT t.*, u.full_name as assigned_name, c.name as company_name, cr.full_name as creator_name FROM tickets t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN companies c ON t.company_id=c.id LEFT JOIN users cr ON t.created_by=cr.id LIMIT 0"
+        ).description]
+        ticket = _ticket_row_to_dict(row, cols)
+        # Get comments
+        comments = conn.execute(
+            """SELECT tc.*, u.full_name as user_name FROM ticket_comments tc
+               LEFT JOIN users u ON tc.user_id=u.id WHERE tc.ticket_id=? ORDER BY tc.created_at""",
+            [ticket_id]
+        ).fetchall()
+        ccols = [d[0] for d in conn.execute(
+            "SELECT tc.*, u.full_name as user_name FROM ticket_comments tc LEFT JOIN users u ON tc.user_id=u.id LIMIT 0"
+        ).description]
+        ticket["comments"] = [dict(zip(ccols, c)) for c in comments]
+        # Live SLA breach check + SLA info
+        if ticket.get("sla_policy_id"):
+            _check_sla_breach(conn, ticket_id)
+            # Re-read breach status after check
+            ticket["sla_breach"] = conn.execute("SELECT sla_breach FROM tickets WHERE id=?", [ticket_id]).fetchone()[0]
+            sla = conn.execute("SELECT * FROM sla_policies WHERE id=?", [ticket["sla_policy_id"]]).fetchone()
+            if sla:
+                scols = [d[0] for d in conn.execute("SELECT * FROM sla_policies LIMIT 0").description]
+                ticket["sla"] = dict(zip(scols, sla))
+        return _ok(ticket)
+
+
+@app.put("/api/tickets/{ticket_id}")
+async def update_ticket(ticket_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    allowed = {"subject", "description", "status", "priority", "category",
+               "company_id", "contact_id", "assigned_to", "tags"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "tags" in updates and isinstance(updates["tags"], list):
+        updates["tags"] = _json.dumps(updates["tags"])
+    if not updates:
+        _err("No fields to update", 400)
+    # Track status changes
+    with get_db() as conn:
+        old = conn.execute("SELECT status, assigned_to FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if not old:
+            _err("Ticket not found", 404)
+        # Set timestamps for status transitions
+        new_status = updates.get("status")
+        if new_status and new_status != old[0]:
+            if new_status == "resolved":
+                updates["resolved_at"] = "datetime('now')"
+            elif new_status == "closed":
+                updates["closed_at"] = "datetime('now')"
+        # Check first response
+        if "assigned_to" in updates or new_status:
+            existing = conn.execute("SELECT first_response_at FROM tickets WHERE id=?", [ticket_id]).fetchone()
+            if existing and not existing[0]:
+                updates["first_response_at"] = "datetime('now')"
+        # Build SET clause
+        set_parts, vals = [], []
+        for k, v in updates.items():
+            if v == "datetime('now')":
+                set_parts.append(f"{k}=datetime('now')")
+            else:
+                set_parts.append(f"{k}=?")
+                vals.append(v)
+        set_parts.append("updated_at=datetime('now')")
+        conn.execute(f"UPDATE tickets SET {','.join(set_parts)} WHERE id=?", vals + [ticket_id])
+        # SLA breach check
+        if new_status in ("resolved", "closed"):
+            _check_sla_breach(conn, ticket_id)
+        # Prepare notification data (send OUTSIDE db block)
+        new_assigned = updates.get("assigned_to")
+        _notify_assign = False
+        _notify_subj = ""
+        if new_assigned and new_assigned != old[1] and new_assigned != user["user_id"]:
+            subj = conn.execute("SELECT subject FROM tickets WHERE id=?", [ticket_id]).fetchone()
+            _notify_assign = True
+            _notify_subj = subj[0] if subj else ""
+    # Notification OUTSIDE db block to avoid deadlock
+    if _notify_assign:
+        send_notification(new_assigned, "ticket_assigned",
+            f"Ticket #{ticket_id}: {_notify_subj}", f"Ticket #{ticket_id} assigned to you", "ticket", ticket_id)
+    log_audit(user["user_id"], "update_ticket", "ticket", ticket_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+def _check_sla_breach(conn, ticket_id):
+    """Check if ticket breached SLA — covers both responded and no-response cases."""
+    row = conn.execute(
+        "SELECT sla_policy_id, created_at, first_response_at, resolved_at, status FROM tickets WHERE id=?",
+        [ticket_id]
+    ).fetchone()
+    if not row or not row[0]:
+        return False
+    sla = conn.execute("SELECT first_response_hours, resolution_hours FROM sla_policies WHERE id=?", [row[0]]).fetchone()
+    if not sla:
+        return False
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    created = datetime.fromisoformat(row[1].replace("Z", ""))
+    breached = 0
+    status = row[4] or "open"
+    # First response breach: responded late OR no response and deadline passed
+    if row[2]:  # first_response_at exists
+        fr = datetime.fromisoformat(row[2].replace("Z", ""))
+        if (fr - created).total_seconds() > sla[0] * 3600:
+            breached = 1
+    elif status not in ("closed", "resolved"):
+        # No response yet — check if deadline passed
+        if (now - created).total_seconds() > sla[0] * 3600:
+            breached = 1
+    # Resolution breach: resolved late OR not resolved and deadline passed
+    if row[3]:  # resolved_at exists
+        res = datetime.fromisoformat(row[3].replace("Z", ""))
+        if (res - created).total_seconds() > sla[1] * 3600:
+            breached = 1
+    elif status not in ("closed", "resolved"):
+        if (now - created).total_seconds() > sla[1] * 3600:
+            breached = 1
+    conn.execute("UPDATE tickets SET sla_breach=? WHERE id=?", [breached, ticket_id])
+    return breached == 1
+
+
+@app.delete("/api/tickets/{ticket_id}")
+async def delete_ticket(ticket_id: int, request: Request, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM ticket_comments WHERE ticket_id=?", [ticket_id])
+        conn.execute("DELETE FROM tickets WHERE id=?", [ticket_id])
+    log_audit(user["user_id"], "delete_ticket", "ticket", ticket_id, ip=_get_ip(request))
+    return _ok({"deleted": True})
+
+
+@app.post("/api/tickets/{ticket_id}/comments")
+async def add_ticket_comment(ticket_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal) VALUES (?,?,?,?)",
+            [ticket_id, user["user_id"], data.get("content",""), 1 if data.get("is_internal") else 0]
+        )
+        # Mark first response if not yet set
+        conn.execute(
+            "UPDATE tickets SET first_response_at=datetime('now'), updated_at=datetime('now') WHERE id=? AND first_response_at IS NULL",
+            [ticket_id]
+        )
+    return _ok({"added": True})
+
+
+# ─── SLA Policies ────────────────────────────────────────────
+
+@app.get("/api/sla-policies")
+async def list_sla_policies(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM sla_policies ORDER BY first_response_hours").fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM sla_policies LIMIT 0").description]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/sla-policies")
+async def create_sla_policy(request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES (?,?,?,?)",
+            [data.get("name",""), data.get("priority","medium"),
+             data.get("first_response_hours", 4), data.get("resolution_hours", 24)]
+        )
+        return _ok({"id": cur.lastrowid})
+
+
+@app.put("/api/sla-policies/{policy_id}")
+async def update_sla_policy(policy_id: int, request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    allowed = {"name", "priority", "first_response_hours", "resolution_hours", "is_active"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if not updates:
+        _err("No fields", 400)
+    parts = [f"{k}=?" for k in updates]
+    with get_db() as conn:
+        conn.execute(f"UPDATE sla_policies SET {','.join(parts)} WHERE id=?", list(updates.values()) + [policy_id])
+    return _ok({"updated": True})
+
+
+@app.delete("/api/sla-policies/{policy_id}")
+async def delete_sla_policy(policy_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM sla_policies WHERE id=?", [policy_id])
+    return _ok({"deleted": True})
+
+
+# ─── Knowledge Base ──────────────────────────────────────────
+
+@app.get("/api/kb/articles")
+async def list_kb_articles(
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    user=Depends(require_auth),
+):
+    with get_db() as conn:
+        where, params = [], []
+        if category:
+            where.append("category=?")
+            params.append(category)
+        if status:
+            where.append("status=?")
+            params.append(status)
+        if q:
+            where.append("(title LIKE ? OR content LIKE ?)")
+            params.extend([f"%{q}%", f"%{q}%"])
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"SELECT a.*, u.full_name as author_name FROM kb_articles a LEFT JOIN users u ON a.created_by=u.id {wc} ORDER BY a.updated_at DESC",
+            params
+        ).fetchall()
+        cols = [d[0] for d in conn.execute("SELECT a.*, u.full_name as author_name FROM kb_articles a LEFT JOIN users u ON a.created_by=u.id LIMIT 0").description]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/kb/articles")
+async def create_kb_article(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO kb_articles (title, content, category, tags, status, created_by) VALUES (?,?,?,?,?,?)",
+            [data.get("title",""), data.get("content",""), data.get("category","general"),
+             _json.dumps(data.get("tags",[])), data.get("status","draft"), user["user_id"]]
+        )
+        return _ok({"id": cur.lastrowid})
+
+
+@app.get("/api/kb/articles/{article_id}")
+async def get_kb_article(article_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("UPDATE kb_articles SET views=views+1 WHERE id=?", [article_id])
+        row = conn.execute(
+            "SELECT a.*, u.full_name as author_name FROM kb_articles a LEFT JOIN users u ON a.created_by=u.id WHERE a.id=?",
+            [article_id]
+        ).fetchone()
+        if not row:
+            _err("Article not found", 404)
+        cols = [d[0] for d in conn.execute("SELECT a.*, u.full_name as author_name FROM kb_articles a LEFT JOIN users u ON a.created_by=u.id LIMIT 0").description]
+        return _ok(dict(zip(cols, row)))
+
+
+@app.put("/api/kb/articles/{article_id}")
+async def update_kb_article(article_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    import json as _json
+    allowed = {"title", "content", "category", "tags", "status"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "tags" in updates and isinstance(updates["tags"], list):
+        updates["tags"] = _json.dumps(updates["tags"])
+    if not updates:
+        _err("No fields", 400)
+    parts = [f"{k}=?" for k in updates]
+    parts.append("updated_at=datetime('now')")
+    with get_db() as conn:
+        conn.execute(f"UPDATE kb_articles SET {','.join(parts)} WHERE id=?", list(updates.values()) + [article_id])
+    return _ok({"updated": True})
+
+
+@app.delete("/api/kb/articles/{article_id}")
+async def delete_kb_article(article_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM kb_articles WHERE id=?", [article_id])
+    return _ok({"deleted": True})
+
+
+@app.post("/api/kb/articles/{article_id}/helpful")
+async def kb_article_helpful(article_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    col = "helpful_yes" if data.get("helpful") else "helpful_no"
+    with get_db() as conn:
+        conn.execute(f"UPDATE kb_articles SET {col}={col}+1 WHERE id=?", [article_id])
+    return _ok({"ok": True})
+
+
+# ─── PHASE 4: Marketing Cloud ─────────────────────────────────────
+
+# ─── Email Templates ──────────────────────────────────────────────
+@app.get("/api/email-templates")
+async def list_email_templates(
+    category: Optional[str] = None,
+    lang: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    user=Depends(require_auth),
+):
+    with get_db() as conn:
+        where, params = [], []
+        if category:
+            where.append("category=?")
+            params.append(category)
+        if lang:
+            where.append("lang=?")
+            params.append(lang)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"""SELECT t.*, u.full_name as creator_name FROM email_templates t
+               LEFT JOIN users u ON t.created_by=u.id
+               {wc} ORDER BY t.created_at DESC LIMIT ?""",
+            params + [limit]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT t.*, u.full_name as creator_name FROM email_templates t LEFT JOIN users u ON t.created_by=u.id LIMIT 0"
+        ).description]
+        total = conn.execute(f"SELECT COUNT(*) FROM email_templates {wc}", params).fetchone()[0]
+        return _ok([dict(zip(cols, r)) for r in rows], total=total)
+
+
+@app.post("/api/email-templates")
+async def create_email_template(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO email_templates (name, subject, body_html, category, lang, created_by, is_active)
+               VALUES (?,?,?,?,?,?,?)""",
+            [data.get("name",""), data.get("subject",""), data.get("body_html",""),
+             data.get("category","general"), data.get("lang","en"), user["user_id"], 1]
+        )
+        tid = cur.lastrowid
+    log_audit(user["user_id"], "create_email_template", "email_template", tid, ip=_get_ip(request))
+    return _ok({"id": tid})
+
+
+@app.get("/api/email-templates/{template_id}")
+async def get_email_template(template_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT t.*, u.full_name as creator_name FROM email_templates t
+               LEFT JOIN users u ON t.created_by=u.id WHERE t.id=?""",
+            [template_id]
+        ).fetchone()
+        if not row:
+            _err("Template not found", 404)
+        cols = [d[0] for d in conn.execute(
+            "SELECT t.*, u.full_name as creator_name FROM email_templates t LEFT JOIN users u ON t.created_by=u.id LIMIT 0"
+        ).description]
+        return _ok(dict(zip(cols, row)))
+
+
+@app.put("/api/email-templates/{template_id}")
+async def update_email_template(template_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    allowed = {"name", "subject", "body_html", "category", "lang", "is_active"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if not updates:
+        _err("No fields to update", 400)
+    parts = [f"{k}=?" for k in updates]
+    parts.append("updated_at=datetime('now')")
+    with get_db() as conn:
+        conn.execute(f"UPDATE email_templates SET {','.join(parts)} WHERE id=?", list(updates.values()) + [template_id])
+    log_audit(user["user_id"], "update_email_template", "email_template", template_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/email-templates/{template_id}")
+async def delete_email_template(template_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM email_templates WHERE id=?", [template_id])
+    return _ok({"deleted": True})
+
+
+# ─── Campaigns ────────────────────────────────────────────────────
+@app.get("/api/campaigns/stats")
+async def campaign_stats(user=Depends(require_auth)):
+    with get_db() as conn:
+        stats = {}
+        for s in ["draft", "scheduled", "sending", "sent", "cancelled"]:
+            stats[s] = conn.execute("SELECT COUNT(*) FROM campaigns WHERE status=?", [s]).fetchone()[0]
+        stats["total"] = sum(stats.values())
+        return _ok(stats)
+
+
+@app.get("/api/campaigns")
+async def list_campaigns(
+    status: Optional[str] = None,
+    type: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    user=Depends(require_auth),
+):
+    with get_db() as conn:
+        where, params = [], []
+        if status:
+            where.append("c.status=?")
+            params.append(status)
+        if type:
+            where.append("c.type=?")
+            params.append(type)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"""SELECT c.*, u.full_name as creator_name, t.name as template_name FROM campaigns c
+               LEFT JOIN users u ON c.created_by=u.id
+               LEFT JOIN email_templates t ON c.template_id=t.id
+               {wc} ORDER BY c.created_at DESC LIMIT ?""",
+            params + [limit]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT c.*, u.full_name as creator_name, t.name as template_name FROM campaigns c LEFT JOIN users u ON c.created_by=u.id LEFT JOIN email_templates t ON c.template_id=t.id LIMIT 0"
+        ).description]
+        total = conn.execute(f"SELECT COUNT(*) FROM campaigns c {wc}", params).fetchone()[0]
+        return _ok([dict(zip(cols, r)) for r in rows], total=total)
+
+
+@app.post("/api/campaigns")
+async def create_campaign(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO campaigns (name, description, type, status, template_id, target_type, target_filter, created_by)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            [data.get("name",""), data.get("description",""), data.get("type","email"),
+             "draft", data.get("template_id"), data.get("target_type","all"),
+             __import__("json").dumps(data.get("target_filter",{})), user["user_id"]]
+        )
+        cid = cur.lastrowid
+    log_audit(user["user_id"], "create_campaign", "campaign", cid, ip=_get_ip(request))
+    return _ok({"id": cid})
+
+
+@app.get("/api/campaigns/{campaign_id}")
+async def get_campaign(campaign_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT c.*, u.full_name as creator_name, t.name as template_name FROM campaigns c
+               LEFT JOIN users u ON c.created_by=u.id
+               LEFT JOIN email_templates t ON c.template_id=t.id WHERE c.id=?""",
+            [campaign_id]
+        ).fetchone()
+        if not row:
+            _err("Campaign not found", 404)
+        cols = [d[0] for d in conn.execute(
+            "SELECT c.*, u.full_name as creator_name, t.name as template_name FROM campaigns c LEFT JOIN users u ON c.created_by=u.id LEFT JOIN email_templates t ON c.template_id=t.id LIMIT 0"
+        ).description]
+        campaign = dict(zip(cols, row))
+        # Get recipients
+        recipients = conn.execute(
+            "SELECT * FROM campaign_recipients WHERE campaign_id=? ORDER BY sent_at DESC LIMIT 100",
+            [campaign_id]
+        ).fetchall()
+        rcols = [d[0] for d in conn.execute("SELECT * FROM campaign_recipients LIMIT 0").description]
+        campaign["recipients"] = [dict(zip(rcols, r)) for r in recipients]
+        return _ok(campaign)
+
+
+@app.put("/api/campaigns/{campaign_id}")
+async def update_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    allowed = {"name", "description", "type", "status", "template_id", "target_type", "target_filter", "scheduled_at"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "target_filter" in updates and isinstance(updates["target_filter"], dict):
+        updates["target_filter"] = __import__("json").dumps(updates["target_filter"])
+    if not updates:
+        _err("No fields to update", 400)
+    parts = [f"{k}=?" for k in updates]
+    parts.append("updated_at=datetime('now')")
+    with get_db() as conn:
+        conn.execute(f"UPDATE campaigns SET {','.join(parts)} WHERE id=?", list(updates.values()) + [campaign_id])
+    log_audit(user["user_id"], "update_campaign", "campaign", campaign_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM campaign_recipients WHERE campaign_id=?", [campaign_id])
+        conn.execute("DELETE FROM campaigns WHERE id=?", [campaign_id])
+    return _ok({"deleted": True})
+
+
+@app.post("/api/campaigns/{campaign_id}/send")
+async def send_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
+    """Simulated campaign send - marks recipients as sent with timestamps."""
+    with get_db() as conn:
+        campaign = conn.execute("SELECT * FROM campaigns WHERE id=?", [campaign_id]).fetchone()
+        if not campaign:
+            _err("Campaign not found", 404)
+
+        # Get template to populate recipients if not already done
+        if not conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]:
+            # Get contacts to send to
+            contacts = conn.execute("SELECT id, email FROM contacts WHERE email IS NOT NULL LIMIT 100").fetchall()
+            now = datetime.utcnow().isoformat() + "Z"
+            for contact_id, email in contacts:
+                conn.execute(
+                    """INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at)
+                       VALUES (?,?,?,?,?,?)""",
+                    [campaign_id, "contact", contact_id, email, "sent", now]
+                )
+
+        # Mark as sent
+        now = datetime.utcnow().isoformat() + "Z"
+        total_recipients = conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]
+        conn.execute(
+            """UPDATE campaigns SET status='sent', sent_at=?, sent_count=? WHERE id=?""",
+            [now, total_recipients, campaign_id]
+        )
+
+    log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
+    return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Web Forms ────────────────────────────────────────────────────
+@app.get("/api/web-forms")
+async def list_web_forms(
+    is_active: Optional[int] = None,
+    limit: int = Query(100, ge=1, le=500),
+    user=Depends(require_auth),
+):
+    with get_db() as conn:
+        where, params = [], []
+        if is_active is not None:
+            where.append("is_active=?")
+            params.append(is_active)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"""SELECT f.*, u.full_name as creator_name FROM web_forms f
+               LEFT JOIN users u ON f.created_by=u.id
+               {wc} ORDER BY f.created_at DESC LIMIT ?""",
+            params + [limit]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT f.*, u.full_name as creator_name FROM web_forms f LEFT JOIN users u ON f.created_by=u.id LIMIT 0"
+        ).description]
+        total = conn.execute(f"SELECT COUNT(*) FROM web_forms {wc}", params).fetchone()[0]
+        return _ok([dict(zip(cols, r)) for r in rows], total=total)
+
+
+@app.post("/api/web-forms")
+async def create_web_form(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    token = secrets.token_urlsafe(24)
+    with get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO web_forms (name, description, fields_config, redirect_url, is_active, form_token, lead_source, assign_to, created_by)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            [data.get("name",""), data.get("description",""), __import__("json").dumps(data.get("fields_config",[])),
+             data.get("redirect_url",""), 1, token, "web_form", data.get("assign_to"), user["user_id"]]
+        )
+        fid = cur.lastrowid
+    log_audit(user["user_id"], "create_web_form", "web_form", fid, ip=_get_ip(request))
+    return _ok({"id": fid, "token": token})
+
+
+@app.get("/api/web-forms/{form_id}")
+async def get_web_form(form_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT f.*, u.full_name as creator_name FROM web_forms f
+               LEFT JOIN users u ON f.created_by=u.id WHERE f.id=?""",
+            [form_id]
+        ).fetchone()
+        if not row:
+            _err("Form not found", 404)
+        cols = [d[0] for d in conn.execute(
+            "SELECT f.*, u.full_name as creator_name FROM web_forms f LEFT JOIN users u ON f.created_by=u.id LIMIT 0"
+        ).description]
+        form = dict(zip(cols, row))
+        if form.get("fields_config"):
+            form["fields_config"] = __import__("json").loads(form["fields_config"])
+        return _ok(form)
+
+
+@app.put("/api/web-forms/{form_id}")
+async def update_web_form(form_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    allowed = {"name", "description", "fields_config", "redirect_url", "is_active", "assign_to"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "fields_config" in updates and isinstance(updates["fields_config"], list):
+        updates["fields_config"] = __import__("json").dumps(updates["fields_config"])
+    if not updates:
+        _err("No fields to update", 400)
+    parts = [f"{k}=?" for k in updates]
+    with get_db() as conn:
+        conn.execute(f"UPDATE web_forms SET {','.join(parts)} WHERE id=?", list(updates.values()) + [form_id])
+    log_audit(user["user_id"], "update_web_form", "web_form", form_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/web-forms/{form_id}")
+async def delete_web_form(form_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM web_forms WHERE id=?", [form_id])
+    return _ok({"deleted": True})
+
+
+@app.post("/api/web-forms/submit/{token}")
+async def submit_web_form(token: str, request: Request):
+    """Public endpoint - no auth required. Creates a lead from web form submission."""
+    try:
+        data = await request.json()
+    except:
+        data = dict(await request.form())
+
+    with get_db() as conn:
+        form = conn.execute("SELECT * FROM web_forms WHERE form_token=? AND is_active=1", [token]).fetchone()
+        if not form:
+            _err("Form not found or inactive", 404)
+
+        # Extract form data based on fields_config
+        form_data = form[3]  # fields_config
+        try:
+            fields_config = __import__("json").loads(form_data) if isinstance(form_data, str) else []
+        except:
+            fields_config = []
+
+        # Create contact from form submission
+        email = data.get("email", "")
+        name = data.get("name", "")
+        company_name = data.get("company", "")
+        phone = data.get("phone", "")
+
+        if not email:
+            _err("Email is required", 400)
+
+        # Check if contact exists
+        existing_contact = conn.execute("SELECT id FROM contacts WHERE email=?", [email]).fetchone()
+        if existing_contact:
+            contact_id = existing_contact[0]
+        else:
+            # Create new contact
+            company_id = None
+            if company_name:
+                company = conn.execute("SELECT id FROM companies WHERE name=?", [company_name]).fetchone()
+                if company:
+                    company_id = company[0]
+
+            cur = conn.execute(
+                """INSERT INTO contacts (name, email, phone, company_id, created_at, updated_at)
+                   VALUES (?,?,?,?,datetime('now'),datetime('now'))""",
+                [name, email, phone, company_id]
+            )
+            contact_id = cur.lastrowid
+
+        # Store submission metadata as activity
+        submission_text = "Form: " + "; ".join([f"{k}={v}" for k,v in data.items() if k in ['name','email','phone','company']])
+        conn.execute(
+            """INSERT INTO activities (contact_id, type, description, created_at)
+               VALUES (?,?,?,datetime('now'))""",
+            [contact_id, "web_form_submission", submission_text]
+        )
+
+    return _ok({"created": True, "contact_id": contact_id})
 

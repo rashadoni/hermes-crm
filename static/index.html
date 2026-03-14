@@ -221,6 +221,22 @@
         </div>
       </div>
       <div class="nav-dropdown">
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_service_menu">Service</span>
+        <div class="nav-dropdown-menu">
+          <a href="#/tickets" data-page="tickets" data-i18n="nav_tickets">Tickets</a>
+          <a href="#/knowledge-base" data-page="knowledge-base" data-i18n="nav_kb">Knowledge Base</a>
+          <a href="#/sla-policies" data-page="sla-policies" data-i18n="nav_sla">SLA Policies</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_marketing_menu">Marketing</span>
+        <div class="nav-dropdown-menu">
+          <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
+          <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
+          <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
         <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_analytics_menu">Analytics</span>
         <div class="nav-dropdown-menu">
           <a href="#/cost-model" data-page="cost-model" data-i18n="nav_cost_model">Maya</a>
@@ -258,14 +274,8 @@
         </button>
         <div id="userDropdown" class="lang-dropdown" style="display:none;">
           <div class="lang-option font-medium text-indigo-300 cursor-default" id="userDropdownName" style="pointer-events:none;opacity:0.8;font-size:13px;padding-bottom:6px;border-bottom:1px solid #334155;margin-bottom:4px;">User</div>
-          <div id="usersNavLink" class="lang-option" onclick="location.hash='#/users';toggleUserMenu();" data-i18n="nav_users" style="display:none;">Users</div>
-          <div id="rolesNavLink" class="lang-option" onclick="location.hash='#/roles';toggleUserMenu();" style="display:none;">Roles</div>
-          <div id="auditNavLink" class="lang-option" onclick="location.hash='#/audit-log';toggleUserMenu();" style="display:none;">Audit Log</div>
-          <div id="scoringNavLink" class="lang-option" onclick="location.hash='#/scoring-rules';toggleUserMenu();" style="display:none;">Lead Scoring</div>
-          <div id="assignNavLink" class="lang-option" onclick="location.hash='#/assignment-rules';toggleUserMenu();" style="display:none;">Assignment Rules</div>
-          <div id="webLeadNavLink" class="lang-option" onclick="location.hash='#/web-to-lead';toggleUserMenu();" style="display:none;">Web-to-Lead</div>
-          <div class="lang-option" onclick="showChangePasswordModal()" data-i18n="change_password">Change Password</div>
-          <div class="lang-option" onclick="show2FASettingsModal()">🔐 2FA Settings</div>
+          <div class="lang-option" onclick="location.hash='#/user-management';toggleUserMenu();" data-i18n="nav_user_management">⚙️ User Management</div>
+          <div class="lang-option" onclick="showChangePasswordModal();toggleUserMenu();" data-i18n="change_password">Change Password</div>
           <div class="lang-option" onclick="logout()" data-i18n="logout">Logout</div>
         </div>
       </div>
@@ -297,6 +307,24 @@ const translations = {
     login_error: 'Invalid username or password',
     logout: 'Logout',
     nav_users: 'Users',
+    nav_roles: 'Roles',
+    nav_audit: 'Audit Log',
+    nav_scoring: 'Lead Scoring',
+    nav_assign: 'Assignment Rules',
+    nav_weblead: 'Web-to-Lead',
+    nav_pipeline_stages: 'Pipeline Stages',
+    nav_notifications_page: 'Notifications',
+    nav_notif_prefs: 'Notification Settings',
+    nav_user_management: 'User Management',
+    nav_service_menu: 'Service',
+    nav_tickets: 'Tickets',
+    nav_kb: 'Knowledge Base',
+    nav_sla: 'SLA Policies',
+    nav_marketing_menu: 'Marketing',
+    nav_email_templates: 'Email Templates',
+    nav_campaigns: 'Campaigns',
+    nav_web_forms: 'Web Forms',
+    nav_2fa: '🔐 2FA Settings',
 
     nav_dashboard: 'Dashboard',
     nav_clients: 'Leads',
@@ -866,6 +894,75 @@ const translations = {
     common_delete: 'Delete',
     common_edit: 'Edit',
     common_save: 'Save',
+
+    // Phase 4: Marketing Cloud
+    email_templates_title: 'Email Templates',
+    email_template_new: 'New Template',
+    email_template_edit: 'Edit Template',
+    email_template_name: 'Template Name',
+    email_template_subject: 'Email Subject',
+    email_template_body: 'Email Body (HTML)',
+    email_template_category: 'Category',
+    email_template_lang: 'Language',
+    email_template_is_active: 'Active',
+    email_template_created: 'Template created successfully',
+    email_template_updated: 'Template updated successfully',
+    email_template_deleted: 'Template deleted',
+
+    campaigns_title: 'Campaigns',
+    campaign_new: 'New Campaign',
+    campaign_edit: 'Edit Campaign',
+    campaign_name: 'Campaign Name',
+    campaign_description: 'Description',
+    campaign_type: 'Type',
+    campaign_type_email: 'Email',
+    campaign_type_sms: 'SMS',
+    campaign_status: 'Status',
+    campaign_status_draft: 'Draft',
+    campaign_status_scheduled: 'Scheduled',
+    campaign_status_sending: 'Sending',
+    campaign_status_sent: 'Sent',
+    campaign_status_cancelled: 'Cancelled',
+    campaign_template: 'Email Template',
+    campaign_target_type: 'Target Type',
+    campaign_target_all: 'All Contacts',
+    campaign_target_filter: 'Custom Filter',
+    campaign_scheduled_at: 'Schedule For',
+    campaign_send_btn: 'Send Campaign',
+    campaign_send_confirm: 'Send this campaign now?',
+    campaign_sent_count: 'Sent',
+    campaign_open_count: 'Opened',
+    campaign_click_count: 'Clicked',
+    campaign_total_recipients: 'Recipients',
+    campaign_created: 'Campaign created successfully',
+    campaign_updated: 'Campaign updated successfully',
+    campaign_sent: 'Campaign sent successfully',
+    campaign_deleted: 'Campaign deleted',
+
+    web_forms_title: 'Web Forms',
+    web_form_new: 'New Form',
+    web_form_edit: 'Edit Form',
+    web_form_name: 'Form Name',
+    web_form_description: 'Description',
+    web_form_fields: 'Form Fields',
+    web_form_redirect_url: 'Redirect URL',
+    web_form_is_active: 'Active',
+    web_form_embed_code: 'Embed Code',
+    web_form_copy_embed: 'Copy Embed Code',
+    web_form_token: 'Form Token',
+    web_form_lead_source: 'Lead Source',
+    web_form_assign_to: 'Assign To',
+    web_form_created: 'Form created successfully',
+    web_form_updated: 'Form updated successfully',
+    web_form_deleted: 'Form deleted',
+    web_form_add_field: 'Add Field',
+    web_form_field_name: 'Field Name',
+    web_form_field_type: 'Field Type',
+    web_form_field_required: 'Required',
+    web_form_field_text: 'Text',
+    web_form_field_email: 'Email',
+    web_form_field_phone: 'Phone',
+    web_form_field_textarea: 'Text Area',
 },
   ru: {
     // Auth
@@ -884,6 +981,24 @@ const translations = {
     login_error: 'Неверное имя пользователя или пароль',
     logout: 'Выход',
     nav_users: 'Пользователи',
+    nav_roles: 'Роли',
+    nav_audit: 'Журнал действий',
+    nav_scoring: 'Скоринг лидов',
+    nav_assign: 'Правила назначения',
+    nav_weblead: 'Форма с сайта',
+    nav_pipeline_stages: 'Стадии воронки',
+    nav_notifications_page: 'Уведомления',
+    nav_notif_prefs: 'Настройки уведомлений',
+    nav_user_management: 'Управление пользователем',
+    nav_service_menu: 'Поддержка',
+    nav_tickets: 'Тикеты',
+    nav_kb: 'База знаний',
+    nav_sla: 'SLA Политики',
+    nav_marketing_menu: 'Маркетинг',
+    nav_email_templates: 'Шаблоны Email',
+    nav_campaigns: 'Кампании',
+    nav_web_forms: 'Веб-формы',
+    nav_2fa: '🔐 2FA Настройки',
 
     nav_dashboard: 'Панель',
     nav_clients: 'Лиды',
@@ -1450,6 +1565,75 @@ const translations = {
     common_delete: 'Удалить',
     common_edit: 'Редактировать',
     common_save: 'Сохранить',
+
+    // Phase 4: Marketing Cloud
+    email_templates_title: 'Шаблоны Email',
+    email_template_new: 'Новый шаблон',
+    email_template_edit: 'Редактировать шаблон',
+    email_template_name: 'Название шаблона',
+    email_template_subject: 'Тема письма',
+    email_template_body: 'Тело письма (HTML)',
+    email_template_category: 'Категория',
+    email_template_lang: 'Язык',
+    email_template_is_active: 'Активный',
+    email_template_created: 'Шаблон успешно создан',
+    email_template_updated: 'Шаблон обновлен',
+    email_template_deleted: 'Шаблон удален',
+
+    campaigns_title: 'Кампании',
+    campaign_new: 'Новая кампания',
+    campaign_edit: 'Редактировать кампанию',
+    campaign_name: 'Название кампании',
+    campaign_description: 'Описание',
+    campaign_type: 'Тип',
+    campaign_type_email: 'Email',
+    campaign_type_sms: 'SMS',
+    campaign_status: 'Статус',
+    campaign_status_draft: 'Черновик',
+    campaign_status_scheduled: 'Запланирована',
+    campaign_status_sending: 'Отправляется',
+    campaign_status_sent: 'Отправлена',
+    campaign_status_cancelled: 'Отменена',
+    campaign_template: 'Email шаблон',
+    campaign_target_type: 'Целевая аудитория',
+    campaign_target_all: 'Все контакты',
+    campaign_target_filter: 'Фильтр',
+    campaign_scheduled_at: 'Запланировать на',
+    campaign_send_btn: 'Отправить кампанию',
+    campaign_send_confirm: 'Отправить эту кампанию сейчас?',
+    campaign_sent_count: 'Отправлено',
+    campaign_open_count: 'Открыто',
+    campaign_click_count: 'Нажато',
+    campaign_total_recipients: 'Получателей',
+    campaign_created: 'Кампания успешно создана',
+    campaign_updated: 'Кампания обновлена',
+    campaign_sent: 'Кампания успешно отправлена',
+    campaign_deleted: 'Кампания удалена',
+
+    web_forms_title: 'Веб-формы',
+    web_form_new: 'Новая форма',
+    web_form_edit: 'Редактировать форму',
+    web_form_name: 'Название формы',
+    web_form_description: 'Описание',
+    web_form_fields: 'Поля формы',
+    web_form_redirect_url: 'URL переадресации',
+    web_form_is_active: 'Активная',
+    web_form_embed_code: 'Код встраивания',
+    web_form_copy_embed: 'Скопировать код',
+    web_form_token: 'Токен формы',
+    web_form_lead_source: 'Источник лида',
+    web_form_assign_to: 'Назначить',
+    web_form_created: 'Форма успешно создана',
+    web_form_updated: 'Форма обновлена',
+    web_form_deleted: 'Форма удалена',
+    web_form_add_field: 'Добавить поле',
+    web_form_field_name: 'Название поля',
+    web_form_field_type: 'Тип поля',
+    web_form_field_required: 'Обязательное',
+    web_form_field_text: 'Текст',
+    web_form_field_email: 'Email',
+    web_form_field_phone: 'Телефон',
+    web_form_field_textarea: 'Текстовая область',
 },
   az: {
     // Auth
@@ -1468,6 +1652,24 @@ const translations = {
     login_error: 'Yanlış istifadəçi adı və ya parol',
     logout: 'Çıxış',
     nav_users: 'İstifadəçilər',
+    nav_roles: 'Rollar',
+    nav_audit: 'Əməliyyat jurnalı',
+    nav_scoring: 'Lid skorinqi',
+    nav_assign: 'Təyinat qaydaları',
+    nav_weblead: 'Saytdan lid',
+    nav_pipeline_stages: 'Pipeline Mərhələləri',
+    nav_notifications_page: 'Bildirişlər',
+    nav_notif_prefs: 'Bildiriş parametrləri',
+    nav_user_management: 'İstifadəçi idarəetməsi',
+    nav_service_menu: 'Xidmət',
+    nav_tickets: 'Tiketlər',
+    nav_kb: 'Bilik bazası',
+    nav_sla: 'SLA Siyasətləri',
+    nav_marketing_menu: 'Marketinq',
+    nav_email_templates: 'E-poçt şablonları',
+    nav_campaigns: 'Kampaniyalar',
+    nav_web_forms: 'Veb formalar',
+    nav_2fa: '🔐 2FA Tənzimləmələr',
 
     nav_dashboard: 'Panel',
     nav_clients: 'Lidlər',
@@ -2036,6 +2238,75 @@ const translations = {
     common_delete: 'Sil',
     common_edit: 'Redaktə et',
     common_save: 'Saxla',
+
+    // Phase 4: Marketing Cloud
+    email_templates_title: 'Email Şablonları',
+    email_template_new: 'Yeni Şablon',
+    email_template_edit: 'Şablonu Redaktə Et',
+    email_template_name: 'Şablon Adı',
+    email_template_subject: 'Email Mövzusu',
+    email_template_body: 'Email Məzmunu (HTML)',
+    email_template_category: 'Kateqoriya',
+    email_template_lang: 'Dil',
+    email_template_is_active: 'Aktiv',
+    email_template_created: 'Şablon uğurla yaradıldı',
+    email_template_updated: 'Şablon yeniləndi',
+    email_template_deleted: 'Şablon silindi',
+
+    campaigns_title: 'Kampaniyalar',
+    campaign_new: 'Yeni Kampaniya',
+    campaign_edit: 'Kampaniyaları Redaktə Et',
+    campaign_name: 'Kampaniya Adı',
+    campaign_description: 'Təsvir',
+    campaign_type: 'Tip',
+    campaign_type_email: 'Email',
+    campaign_type_sms: 'SMS',
+    campaign_status: 'Status',
+    campaign_status_draft: 'Qaralama',
+    campaign_status_scheduled: 'Cədvəldə',
+    campaign_status_sending: 'Göndərilir',
+    campaign_status_sent: 'Göndərildi',
+    campaign_status_cancelled: 'Ləğv edildi',
+    campaign_template: 'Email Şablonu',
+    campaign_target_type: 'Hədəf Kateqoriyası',
+    campaign_target_all: 'Bütün Əlaqələr',
+    campaign_target_filter: 'Fərdi Filtr',
+    campaign_scheduled_at: 'Cədvələ Əlavə Edin',
+    campaign_send_btn: 'Kampaniyany Göndər',
+    campaign_send_confirm: 'Bu kampaniyany indi göndərmək istəyirsiniz?',
+    campaign_sent_count: 'Göndərildi',
+    campaign_open_count: 'Açıldı',
+    campaign_click_count: 'Klikləndi',
+    campaign_total_recipients: 'Alıcılar',
+    campaign_created: 'Kampaniya uğurla yaradıldı',
+    campaign_updated: 'Kampaniya yeniləndi',
+    campaign_sent: 'Kampaniya uğurla göndərildi',
+    campaign_deleted: 'Kampaniya silindi',
+
+    web_forms_title: 'Veb Formalar',
+    web_form_new: 'Yeni Forma',
+    web_form_edit: 'Formanı Redaktə Et',
+    web_form_name: 'Forma Adı',
+    web_form_description: 'Təsvir',
+    web_form_fields: 'Forma Sahələri',
+    web_form_redirect_url: 'Yönləndirmə URL',
+    web_form_is_active: 'Aktiv',
+    web_form_embed_code: 'Kodu Daxil Et',
+    web_form_copy_embed: 'Kodu Kopyala',
+    web_form_token: 'Forma Tokeni',
+    web_form_lead_source: 'Lid Mənbəyi',
+    web_form_assign_to: 'Təyin Et',
+    web_form_created: 'Forma uğurla yaradıldı',
+    web_form_updated: 'Forma yeniləndi',
+    web_form_deleted: 'Forma silindi',
+    web_form_add_field: 'Sahə Əlavə Et',
+    web_form_field_name: 'Sahə Adı',
+    web_form_field_type: 'Sahə Tipi',
+    web_form_field_required: 'Tələb olunur',
+    web_form_field_text: 'Mətn',
+    web_form_field_email: 'Email',
+    web_form_field_phone: 'Telefon',
+    web_form_field_textarea: 'Mətn Sahəsi',
 }
 };
 
@@ -2099,32 +2370,17 @@ function toggleUserMenu() {
 
 function updateUserMenuVisibility() {
   const userMenu = document.getElementById('userMenuWrap');
-  const usersLink = document.getElementById('usersNavLink');
   if (isLoggedIn()) {
     if (userMenu) userMenu.style.display = 'block';
     if (state.user) {
       const displayName = state.user.full_name || state.user.username;
-      // Show initials on avatar tooltip
       const avatarBtn = document.getElementById('userAvatarBtn');
       if (avatarBtn) avatarBtn.title = displayName;
-      // Show full name inside dropdown header
       const dropdownName = document.getElementById('userDropdownName');
       if (dropdownName) dropdownName.textContent = displayName;
     }
-    if (usersLink) usersLink.style.display = isAdmin() ? 'block' : 'none';
-    const rolesLink = document.getElementById('rolesNavLink');
-    const auditLink = document.getElementById('auditNavLink');
-    const scoringLink = document.getElementById('scoringNavLink');
-    if (rolesLink) rolesLink.style.display = isAdmin() ? 'block' : 'none';
-    if (auditLink) auditLink.style.display = isAdmin() ? 'block' : 'none';
-    if (scoringLink) scoringLink.style.display = isAdmin() ? 'block' : 'none';
-    const assignLink = document.getElementById('assignNavLink');
-    const webLeadLink = document.getElementById('webLeadNavLink');
-    if (assignLink) assignLink.style.display = isAdmin() ? 'block' : 'none';
-    if (webLeadLink) webLeadLink.style.display = isAdmin() ? 'block' : 'none';
   } else {
     if (userMenu) userMenu.style.display = 'none';
-    if (usersLink) usersLink.style.display = 'none';
   }
 }
 
@@ -2362,7 +2618,8 @@ const api = {
     try {
       const text = await r.text();
       const j = JSON.parse(text);
-      return j.detail || j.message || j.error || text;
+      const d = j.detail || j.message || j.error || text;
+      return typeof d === 'string' ? d : Array.isArray(d) ? d.map(e => e.msg || JSON.stringify(e)).join('; ') : JSON.stringify(d);
     } catch(e) { return 'Server error (' + r.status + ')'; }
   }
 };
@@ -2372,6 +2629,7 @@ async function apiFetch(url) { return api.get(url); }
 
 // ─── State ───────────────────────────────────────────────────
 let state = { page:'dashboard', searchQuery:'', contactsPage:0, contractsPage:0, companiesQuery:'', lang:'en', token: null, user: null, allUsers: [] };
+Object.defineProperty(window, 'currentLang', { get() { return state.lang || 'en'; } });
 let contractsFilter = { type:'', status:'', q:'' };
 const PAGE_SIZE = 50;
 
@@ -2500,34 +2758,34 @@ async function show2FASettingsModal() {
     const status = await api.get('/api/auth/2fa/status');
     if (status.enabled) {
       showModal(`
-        <h2 class="text-xl font-bold mb-4">🔐 Two-Factor Authentication</h2>
+        <h2 class="text-xl font-bold mb-4">🔐 ${_i._g('tfa_title')}</h2>
         <div class="text-center mb-4">
-          <span class="inline-block px-3 py-1 rounded-full text-sm font-medium" style="background:#22c55e33;color:#22c55e;">✓ 2FA Enabled</span>
+          <span class="inline-block px-3 py-1 rounded-full text-sm font-medium" style="background:#22c55e33;color:#22c55e;">✓ ${_i._g('tfa_enabled')}</span>
         </div>
-        <p class="text-slate-400 text-sm mb-4">Your account is protected with 2FA. Enter your password to disable it.</p>
+        <p class="text-slate-400 text-sm mb-4">${_i._g('tfa_desc_dis')}</p>
         <form onsubmit="onDisable2FA(event)">
           <div class="mb-4">
-            <label class="text-xs text-slate-500">Password</label>
+            <label class="text-xs text-slate-500">${_i._g('tfa_password')}</label>
             <input type="password" id="disable2faPassword" class="w-full input-field" required>
           </div>
           <div class="flex gap-2">
-            <button type="submit" class="btn flex-1" style="background:#ef4444;color:white;">Disable 2FA</button>
-            <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+            <button type="submit" class="btn flex-1" style="background:#ef4444;color:white;">${_i._g('tfa_disable')}</button>
+            <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">${_i._g('sr_cancel')}</button>
           </div>
         </form>
       `);
     } else {
       showModal(`
-        <h2 class="text-xl font-bold mb-4">🔐 Enable Two-Factor Authentication</h2>
-        <p class="text-slate-400 text-sm mb-4">Protect your account with an authenticator app (Google Authenticator, Authy, etc.)</p>
+        <h2 class="text-xl font-bold mb-4">🔐 ${_i._g('tfa_enable_title')}</h2>
+        <p class="text-slate-400 text-sm mb-4">${_i._g('tfa_enable_desc')}</p>
         <div class="flex gap-2">
-          <button onclick="start2FASetup()" class="btn btn-primary flex-1">Enable 2FA</button>
-          <button onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+          <button onclick="start2FASetup()" class="btn btn-primary flex-1">${_i._g('tfa_enable_btn')}</button>
+          <button onclick="closeModal()" class="btn btn-secondary flex-1">${_i._g('sr_cancel')}</button>
         </div>
       `);
     }
   } catch(e) {
-    showToast('Failed to check 2FA status', 'error');
+    showToast(_i._g('tfa_fail_status'), 'error');
   }
 }
 
@@ -2535,30 +2793,30 @@ async function start2FASetup() {
   try {
     const result = await api.post('/api/auth/2fa/setup', {});
     showModal(`
-      <h2 class="text-xl font-bold mb-4">🔐 Scan QR Code</h2>
-      <p class="text-slate-400 text-sm mb-3">Scan this QR code with your authenticator app:</p>
+      <h2 class="text-xl font-bold mb-4">🔐 ${_i._g('tfa_scan')}</h2>
+      <p class="text-slate-400 text-sm mb-3">${_i._g('tfa_scan_desc')}</p>
       <div class="text-center mb-4">
         <img src="${result.qr_code}" alt="QR Code" style="width:200px;height:200px;margin:0 auto;image-rendering:pixelated;border-radius:8px;">
       </div>
-      <p class="text-xs text-slate-500 mb-1">Or enter manually:</p>
+      <p class="text-xs text-slate-500 mb-1">${_i._g('tfa_manual')}</p>
       <div class="mb-4" style="background:#1e293b;padding:8px 12px;border-radius:6px;font-family:monospace;font-size:13px;word-break:break-all;color:#94a3b8;">
         ${result.secret}
       </div>
       <form onsubmit="onVerify2FA(event)">
         <div class="mb-4">
-          <label class="text-xs text-slate-500">Enter 6-digit code from app</label>
+          <label class="text-xs text-slate-500">${_i._g('tfa_code')}</label>
           <input type="text" id="verify2faCode" class="w-full input-field text-center text-xl"
                  placeholder="000000" required maxlength="6" autocomplete="one-time-code"
                  style="letter-spacing:0.3em;font-family:monospace;">
         </div>
         <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary flex-1">Verify & Enable</button>
-          <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="submit" class="btn btn-primary flex-1">${_i._g('tfa_verify')}</button>
+          <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">${_i._g('sr_cancel')}</button>
         </div>
       </form>
     `);
   } catch(e) {
-    showToast('Failed to setup 2FA', 'error');
+    showToast(_i._g('tfa_fail_setup'), 'error');
   }
 }
 
@@ -2570,15 +2828,15 @@ async function onVerify2FA(event) {
     const result = await api.post('/api/auth/2fa/verify', {code});
     const codes = result.backup_codes || [];
     showModal(`
-      <h2 class="text-xl font-bold mb-4" style="color:#22c55e;">✓ 2FA Enabled Successfully!</h2>
-      <p class="text-slate-400 text-sm mb-3">Save these backup codes in a safe place. Each can be used once if you lose your authenticator:</p>
+      <h2 class="text-xl font-bold mb-4" style="color:#22c55e;">✓ ${_i._g('tfa_success')}</h2>
+      <p class="text-slate-400 text-sm mb-3">${_i._g('tfa_backup')}</p>
       <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:14px;columns:2;column-gap:16px;">
         ${codes.map((c,i) => `<div style="color:#f59e0b;margin-bottom:4px;">${i+1}. ${c}</div>`).join('')}
       </div>
-      <button onclick="closeModal()" class="btn btn-primary w-full mt-4">Done</button>
+      <button onclick="closeModal()" class="btn btn-primary w-full mt-4">${_i._g('tfa_done')}</button>
     `);
   } catch(e) {
-    showToast('Invalid code. Try again.', 'error');
+    showToast(_i._g('tfa_invalid_code'), 'error');
   }
 }
 
@@ -2588,9 +2846,9 @@ async function onDisable2FA(event) {
   try {
     await api.post('/api/auth/2fa/disable', {password});
     closeModal();
-    showToast('2FA disabled', 'success');
+    showToast(_i._g('tfa_disabled'), 'success');
   } catch(e) {
-    showToast('Invalid password', 'error');
+    showToast(_i._g('tfa_invalid_pw'), 'error');
   }
 }
 
@@ -2716,6 +2974,39 @@ async function renderPage(page) {
       case 'web-to-lead':
         if (isAdmin()) await renderWebToLead(app);
         else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'pipeline-stages':
+        if (isAdmin()) await renderPipelineStagesAdmin(app);
+        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'notifications':
+        await renderNotificationsPage(app);
+        break;
+      case 'notification-preferences':
+        if (isAdmin()) await renderNotificationPreferences(app);
+        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'user-management':
+        await renderUserManagement(app);
+        break;
+      case 'tickets':
+        await renderTicketsPage(app);
+        break;
+      case 'knowledge-base':
+        await renderKnowledgeBase(app);
+        break;
+      case 'sla-policies':
+        if (isAdmin()) await renderSLAPolicies(app);
+        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'email-templates':
+        await renderEmailTemplates(app);
+        break;
+      case 'campaigns':
+        await renderCampaigns(app);
+        break;
+      case 'web-forms':
+        await renderWebForms(app);
         break;
       default: app.innerHTML = `<h2 class="text-xl">${t('error_page_not_found')}</h2>`;
     }
@@ -3515,6 +3806,36 @@ function _leadSourceLabel(s) {
   return t('lead_source_'+(s||'other'));
 }
 
+function _leadTempBadge(score) {
+  if (!score) return '';
+  if (score >= 61) return `<span style="background:#7f1d1d;color:#fca5a5;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700">🔥 HOT</span>`;
+  if (score >= 31) return `<span style="background:#78350f;color:#fcd34d;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700">🌡️ WARM</span>`;
+  return `<span style="background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700">❄️ COLD</span>`;
+}
+
+function _companyTempScore(item) {
+  // Calculate temperature score for companies based on activity data
+  let score = 0;
+  const actCount = item.activityCount || 0;
+  const lastAct = item.lastActivity;
+  // Activity count: +10 per activity, max 40
+  score += Math.min(actCount * 10, 40);
+  // Has contracts: +15
+  if (item.contracts_count > 0) score += 15;
+  // Has contacts: +5 per 10 contacts, max 15
+  score += Math.min(Math.floor((item.contacts_count || 0) / 10) * 5, 15);
+  // Recent activity bonus
+  if (lastAct) {
+    const daysSince = Math.floor((Date.now() - new Date(lastAct).getTime()) / 86400000);
+    if (daysSince <= 7) score += 20;
+    else if (daysSince <= 30) score += 10;
+    else if (daysSince > 90) score -= 10;
+  }
+  // Has cost data (revenue): +10
+  if (item.costData) score += 10;
+  return Math.max(0, Math.min(100, score));
+}
+
 async function openLeadModal(leadId) {
   let lead = null;
   if (leadId) {
@@ -3586,42 +3907,255 @@ async function saveLead(leadId) {
 }
 
 async function openLeadDetail(leadId) {
-  let lead;
-  try { const r = await api.get(`/api/leads/${leadId}`); lead = r.data || r; }
+  let lead, activities = [];
+  try {
+    const r = await api.get(`/api/leads/${leadId}`); lead = r.data || r;
+    try { const a = await api.get(`/api/activities?lead_id=${leadId}&limit=20`); activities = a.data || []; } catch(e) {}
+  }
   catch(e) { showToast(esc(e.message),'error'); return; }
 
+  const lang = currentLang || 'en';
+  const tempBadge = _leadTempBadge(lead.score);
+  const daysSinceCreation = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000);
+  const convInfo = lead.converted_at ? `<div class="mt-3 p-3 rounded-lg" style="background:#14532d30;border:1px solid #22c55e40">
+    <div class="text-green-400 font-semibold text-sm mb-1">✅ ${_i._g('ld_converted_on')} ${new Date(lead.converted_at).toLocaleDateString()}</div>
+    ${lead.converted_company_id ? `<a href="#" onclick="event.preventDefault();this.closest('.modal-overlay').remove();showCompanyDetail(${lead.converted_company_id})" class="text-indigo-400 text-xs hover:underline">${_i._g('ld_view_company')}</a>` : ''}
+    ${lead.converted_deal_id ? ` · <a href="#" onclick="event.preventDefault();this.closest('.modal-overlay').remove();showDealDetail(${lead.converted_deal_id})" class="text-indigo-400 text-xs hover:underline">${_i._g('ld_view_deal')}</a>` : ''}
+  </div>` : '';
+
   const html = `<div class="modal-overlay active" onclick="if(event.target===this)this.remove()">
-    <div class="modal-content" style="max-width:500px">
+    <div class="modal-content" style="max-width:600px">
       <div class="flex justify-between items-start mb-4">
-        <h2 class="text-xl font-bold">${esc(lead.company_name)}</h2>
+        <div>
+          <h2 class="text-xl font-bold">${esc(lead.company_name)}</h2>
+          <div class="flex gap-2 mt-1 items-center">${_leadStatusBadge(lead.status)} ${_leadPriorityBadge(lead.priority)} ${tempBadge}</div>
+        </div>
         <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
-      <div class="space-y-2 text-sm">
-        <div class="flex gap-2">${_leadStatusBadge(lead.status)} ${_leadPriorityBadge(lead.priority)}</div>
-        ${lead.contact_name?`<p class="text-slate-300">${t('leads_contact')}: ${esc(lead.contact_name)}</p>`:''}
-        ${lead.email?`<p class="text-indigo-400">${esc(lead.email)}</p>`:''}
-        ${lead.phone?`<p class="text-slate-400">${esc(lead.phone)}</p>`:''}
-        ${lead.source?`<p class="text-slate-400">${t('leads_source')}: ${_leadSourceLabel(lead.source)}</p>`:''}
-        ${lead.estimated_value?`<p style="color:#fcd34d">${t('leads_value')}: ${lead.estimated_value.toLocaleString()} ₼</p>`:''}
-        ${lead.estimated_users?`<p class="text-slate-400">${t('leads_users')}: ${lead.estimated_users}</p>`:''}
-        ${lead.notes?`<p class="text-slate-400 mt-2">${esc(lead.notes)}</p>`:''}
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-4 border-b border-slate-700" id="ldTabsBar">
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400" onclick="switchLeadTab('details',this)">${_i._g('ld_tab_details')}</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300" onclick="switchLeadTab('activity',this)">${_i._g('ld_tab_activity')}</button>
+        ${lead.status!=='converted'?`<button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-green-400 hover:text-green-300" onclick="switchLeadTab('convert',this)">${_i._g('ld_tab_convert')}</button>`:''}
       </div>
-      <div class="flex justify-end gap-2 mt-5">
-        ${lead.status!=='converted'?`<button class="btn bg-green-600 hover:bg-green-700 text-sm" onclick="convertLead(${lead.id});this.closest('.modal-overlay').remove()">${t('leads_convert')}</button>`:''}
-        <button class="btn btn-secondary text-sm" onclick="this.closest('.modal-overlay').remove();openLeadModal(${lead.id})">${t('btn_edit')}</button>
-        <button class="btn bg-red-600 hover:bg-red-700 text-sm" onclick="deleteLead(${lead.id});this.closest('.modal-overlay').remove()">${t('btn_delete')}</button>
+
+      <!-- Tab: Details -->
+      <div id="ldTabDetails" class="ld-tab">
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span class="text-slate-500">${t('leads_contact')}:</span> <span class="text-slate-200">${esc(lead.contact_name||'—')}</span></div>
+          <div><span class="text-slate-500">Email:</span> <span class="text-indigo-400">${esc(lead.email||'—')}</span></div>
+          <div><span class="text-slate-500">${t('leads_source')}:</span> <span class="text-slate-200">${_leadSourceLabel(lead.source)}</span></div>
+          <div><span class="text-slate-500">${_i._g('ld_age')}:</span> <span class="text-slate-200">${daysSinceCreation} ${_i._g('ld_days')}</span></div>
+          ${lead.estimated_value?`<div><span class="text-slate-500">${t('leads_value')}:</span> <span style="color:#fcd34d">${lead.estimated_value.toLocaleString()} ₼</span></div>`:''}
+          ${lead.estimated_users?`<div><span class="text-slate-500">${t('leads_users')}:</span> <span class="text-slate-200">${lead.estimated_users}</span></div>`:''}
+          ${lead.phone?`<div><span class="text-slate-500">${_i._g('ld_phone')}:</span> <span class="text-slate-200">${esc(lead.phone)}</span></div>`:''}
+          ${lead.score?`<div><span class="text-slate-500">${_i._g('ld_score')}:</span> <span class="score-badge ${lead.score>=61?'score-high':lead.score>=31?'score-medium':'score-low'}">${lead.score}</span></div>`:''}
+          ${lead.assigned_to_name?`<div><span class="text-slate-500">${_i._g('ld_assigned')}:</span> <span class="text-slate-200">${esc(lead.assigned_to_name)}</span></div>`:''}
+          <div><span class="text-slate-500">${_i._g('ld_created')}:</span> <span class="text-slate-200">${lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}</span></div>
+        </div>
+        ${lead.notes?`<div class="mt-3 p-2 bg-slate-800 rounded text-sm text-slate-300">${esc(lead.notes)}</div>`:''}
+        ${convInfo}
+        <!-- Quick status change -->
+        ${lead.status!=='converted'?`<div class="mt-4 pt-3 border-t border-slate-700">
+          <span class="text-xs text-slate-500 mb-2 block">${_i._g('ld_change_status')}:</span>
+          <div class="flex gap-1 flex-wrap">
+            ${['new','contacted','qualified','unqualified'].map(s =>
+              `<button class="btn btn-sm ${lead.status===s?'btn-primary':'btn-secondary'}" onclick="changeLeadStatus(${lead.id},'${s}')">${t('lead_status_'+s)}</button>`
+            ).join('')}
+          </div>
+        </div>`:''}
+      </div>
+
+      <!-- Tab: Activity -->
+      <div id="ldTabActivity" class="ld-tab" style="display:none">
+        <div class="mb-3">
+          <button class="btn btn-sm btn-primary" onclick="showLogActivityModal(${lead.id})">+ ${_i._g('ld_log_activity')}</button>
+        </div>
+        ${activities.length ? `<div class="space-y-1">${activities.map(a => `
+          <div class="flex gap-3 py-2 border-b border-slate-700/50">
+            <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs flex-shrink-0">${a.activity_type==='CALL'?'📞':a.activity_type==='EMAIL'?'📧':a.activity_type==='MEETING'?'🤝':'📝'}</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2"><span class="text-xs font-semibold px-1.5 py-0.5 rounded bg-slate-700">${a.activity_type||'NOTE'}</span> <span class="text-sm">${esc(a.subject||'')}</span></div>
+              ${a.content ? `<div class="text-sm text-slate-400 mt-1">${esc(a.content)}</div>` : ''}
+              <div class="text-xs text-slate-600 mt-1">${a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        `).join('')}</div>` : `<div class="text-center text-slate-500 py-6">${_i._g('ld_no_activity')}<br><span class="text-xs">${_i._g('ld_no_activity_hint')}</span></div>`}
+      </div>
+
+      <!-- Tab: Convert -->
+      ${lead.status!=='converted'?`<div id="ldTabConvert" class="ld-tab" style="display:none">
+        <div class="space-y-3">
+          <p class="text-sm text-slate-400">${_i._g('ld_convert_desc')}</p>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvCompany" checked disabled> <span class="text-sm">${_i._g('ld_conv_company')}: <b>${esc(lead.company_name)}</b></span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvContact" checked> <span class="text-sm">${_i._g('ld_conv_contact')}: <b>${esc(lead.contact_name||'N/A')}</b></span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvDeal" checked> <span class="text-sm">${_i._g('ld_conv_deal')}</span></label>
+          </div>
+          <div id="ldConvDealFields">
+            <div class="grid grid-cols-2 gap-3 mt-2">
+              <div><label class="text-xs text-slate-500">${_i._g('ld_deal_title')}</label>
+                <input id="ldConvDealTitle" class="form-input w-full text-sm" value="${esc(lead.company_name)} — New Deal"></div>
+              <div><label class="text-xs text-slate-500">${t('leads_value')}</label>
+                <input id="ldConvDealValue" type="number" class="form-input w-full text-sm" value="${lead.estimated_value||0}"></div>
+            </div>
+          </div>
+          <button class="btn bg-green-600 hover:bg-green-700 w-full mt-3" onclick="convertLeadEnhanced(${lead.id})">
+            ✅ ${_i._g('ld_convert_now')}
+          </button>
+        </div>
+      </div>`:``}
+
+      <!-- Action buttons -->
+      <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-700">
+        <button class="btn btn-secondary text-sm" onclick="this.closest('.modal-overlay').remove();openLeadModal(${lead.id})">✏️ ${t('btn_edit')}</button>
+        <button class="btn bg-red-600/80 hover:bg-red-700 text-sm" onclick="deleteLead(${lead.id});this.closest('.modal-overlay').remove()">🗑️ ${t('btn_delete')}</button>
       </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
-async function convertLead(leadId) {
+function switchLeadTab(tab, btn) {
+  document.querySelectorAll('.ld-tab').forEach(t => t.style.display = 'none');
+  document.getElementById('ldTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+  document.querySelectorAll('#ldTabsBar button').forEach(b => { b.classList.remove('border-indigo-500','text-indigo-400','border-green-500','text-green-400'); b.classList.add('border-transparent','text-slate-400'); });
+  btn.classList.remove('border-transparent','text-slate-400');
+  btn.classList.add('border-indigo-500','text-indigo-400');
+}
+
+async function changeLeadStatus(leadId, newStatus) {
   try {
-    await api.post(`/api/leads/${leadId}/convert`);
-    showToast(t('leads_converted'));
+    await api.put(`/api/leads/${leadId}`, { status: newStatus });
+    showToast(_i._g('ld_status_changed'), 'success');
+    document.querySelector('.modal-overlay')?.remove();
     renderCompanyList(document.getElementById('app'), 'client');
-  } catch(e) { showToast(esc(e.message),'error'); }
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+async function convertLeadEnhanced(leadId) {
+  const payload = {};
+  const dealTitle = document.getElementById('ldConvDealTitle')?.value;
+  if (dealTitle) payload.deal_title = dealTitle;
+  const dealValue = document.getElementById('ldConvDealValue')?.value;
+  if (dealValue) payload.deal_value = parseFloat(dealValue);
+  try {
+    const r = await api.post(`/api/leads/${leadId}/convert`, payload);
+    showToast(t('leads_converted'), 'success');
+    document.querySelector('.modal-overlay')?.remove();
+    renderCompanyList(document.getElementById('app'), 'client');
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+function _buildActivityModalHTML(saveAction) {
+  const lang = currentLang || 'en';
+  const types = [
+    {value:'CALL', icon:'📞', color:'#3b82f6', bg:'rgba(59,130,246,0.15)', label:{en:'Call',ru:'Звонок',az:'Zəng'}},
+    {value:'EMAIL', icon:'📧', color:'#8b5cf6', bg:'rgba(139,92,246,0.15)', label:{en:'Email',ru:'Email',az:'Email'}},
+    {value:'MEETING', icon:'🤝', color:'#f59e0b', bg:'rgba(245,158,11,0.15)', label:{en:'Meeting',ru:'Встреча',az:'Görüş'}},
+    {value:'NOTE', icon:'📝', color:'#10b981', bg:'rgba(16,185,129,0.15)', label:{en:'Note',ru:'Заметка',az:'Qeyd'}},
+    {value:'DEMO', icon:'🖥️', color:'#ec4899', bg:'rgba(236,72,153,0.15)', label:{en:'Demo',ru:'Демо',az:'Demo'}},
+    {value:'PROPOSAL_SENT', icon:'📄', color:'#06b6d4', bg:'rgba(6,182,212,0.15)', label:{en:'Proposal',ru:'КП',az:'Təklif'}},
+  ];
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal-content" style="max-width:480px;border-radius:16px;padding:28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h2 style="font-size:20px;font-weight:700;margin:0;">${_i._g('ld_log_activity')}</h2>
+          <button onclick="closeModal()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:0;line-height:1;">&times;</button>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${_i._g('ld_act_type')}</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+            ${types.map((t,i) => `<label onclick="this.parentNode.querySelectorAll('label').forEach(l=>{l.style.borderColor='#334155';l.style.background='transparent'});this.style.borderColor='${t.color}';this.style.background='${t.bg}';"
+              style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:12px;cursor:pointer;border:2px solid ${i===0?t.color:'#334155'};background:${i===0?t.bg:'transparent'};transition:all 0.2s;">
+              <input type="radio" name="actType" value="${t.value}" ${i===0?'checked':''} style="display:none;">
+              <span style="font-size:28px;line-height:1;">${t.icon}</span>
+              <span style="font-size:12px;font-weight:600;color:${t.color};">${t.label[lang]||t.label.en}</span>
+            </label>`).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px;">${_i._g('ld_act_subject')}</label>
+          <input id="actSubject" class="form-input" style="width:100%;padding:10px 14px;border-radius:10px;background:#1e293b;border:1px solid #334155;font-size:14px;" placeholder="${_i._g('ld_act_subject_ph')}">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px;">${_i._g('ld_act_notes')}</label>
+          <textarea id="actContent" class="form-input" rows="3" style="width:100%;padding:10px 14px;border-radius:10px;background:#1e293b;border:1px solid #334155;font-size:14px;resize:vertical;" placeholder="${_i._g('ld_act_notes_ph')}"></textarea>
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px;">${_i._g('ld_act_direction')}</label>
+          <div style="display:flex;gap:8px;">
+            <label onclick="this.parentNode.querySelectorAll('label').forEach(l=>{l.style.borderColor='#334155';l.style.background='transparent';l.style.color='#94a3b8'});this.style.borderColor='#6366f1';this.style.background='rgba(99,102,241,0.15)';this.style.color='#a5b4fc';"
+              style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;cursor:pointer;border:2px solid #6366f1;background:rgba(99,102,241,0.15);color:#a5b4fc;font-size:13px;font-weight:600;transition:all 0.2s;">
+              <input type="radio" name="actDirection" value="OUTBOUND" checked style="display:none;">
+              <span>📤</span> ${_i._g('ld_act_outbound')}
+            </label>
+            <label onclick="this.parentNode.querySelectorAll('label').forEach(l=>{l.style.borderColor='#334155';l.style.background='transparent';l.style.color='#94a3b8'});this.style.borderColor='#6366f1';this.style.background='rgba(99,102,241,0.15)';this.style.color='#a5b4fc';"
+              style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;cursor:pointer;border:2px solid #334155;background:transparent;color:#94a3b8;font-size:13px;font-weight:600;transition:all 0.2s;">
+              <input type="radio" name="actDirection" value="INBOUND" style="display:none;">
+              <span>📥</span> ${_i._g('ld_act_inbound')}
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="${saveAction}" style="flex:1;padding:12px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${_i._g('c_save')}</button>
+          <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:10px;background:#1e293b;color:#94a3b8;border:1px solid #334155;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">${_i._g('c_cancel')}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showLogActivityModal(leadId) {
+  document.getElementById('modalContainer').innerHTML = _buildActivityModalHTML(`saveLeadActivity(${leadId})`);
+}
+
+async function saveLeadActivity(leadId) {
+  const actType = document.querySelector('input[name="actType"]:checked')?.value || 'NOTE';
+  const subject = document.getElementById('actSubject')?.value?.trim() || '';
+  const content = document.getElementById('actContent')?.value?.trim() || '';
+  const direction = document.querySelector('input[name="actDirection"]:checked')?.value || 'OUTBOUND';
+  if (!subject && !content) { showToast(_i._g('ld_act_empty'), 'error'); return; }
+  try {
+    await api.post('/api/activities', {
+      lead_id: leadId,
+      activity_type: actType,
+      subject: subject,
+      content: content,
+      direction: direction
+    });
+    closeModal();
+    showToast(_i._g('ld_act_saved'), 'success');
+    // Reopen lead detail to refresh activities
+    document.querySelector('.modal-overlay.active')?.remove();
+    openLeadDetail(leadId);
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+function showCompanyActivityModal(companyId) {
+  document.getElementById('modalContainer').innerHTML = _buildActivityModalHTML(`saveCompanyActivity(${companyId})`);
+}
+
+async function saveCompanyActivity(companyId) {
+  const actType = document.querySelector('input[name="actType"]:checked')?.value || 'NOTE';
+  const subject = document.getElementById('actSubject')?.value?.trim() || '';
+  const content = document.getElementById('actContent')?.value?.trim() || '';
+  const direction = document.querySelector('input[name="actDirection"]:checked')?.value || 'OUTBOUND';
+  if (!subject && !content) { showToast(_i._g('ld_act_empty'), 'error'); return; }
+  try {
+    await api.post('/api/activities', {
+      company_id: companyId,
+      activity_type: actType,
+      subject: subject,
+      content: content,
+      direction: direction
+    });
+    closeModal();
+    showToast(_i._g('ld_act_saved'), 'success');
+    // Reopen company detail to refresh
+    showCompanyDetail(companyId);
+  } catch(e) { showToast(esc(e.message), 'error'); }
 }
 
 async function deleteLead(leadId) {
@@ -3643,14 +4177,16 @@ async function renderCompanyList(el, mode) {
 
   if (mode === 'client') {
     // ─── UNIFIED LEADS PIPELINE VIEW ───
-    const _lf = window._leadsFilter || 'all';
-    const [{data:companies}, costRes, {data:leadsRes}, {data:leadStats}] = await Promise.all([
+    const _lf = window._leadsFilter || 'converted';
+    const [{data:companies}, costRes, {data:leadsRes}, {data:leadStats}, {data:actCounts}] = await Promise.all([
       api.get(`/api/companies?limit=500&q=`+encodeURIComponent(state.companiesQuery)),
       api.get('/api/cost-model/client-costs').catch(()=>({data:{clients:{}}})),
       api.get('/api/leads?limit=500'),
       api.get('/api/leads/stats').catch(()=>({data:{total:0,new:0,contacted:0,qualified:0,unqualified:0,converted:0}})),
+      api.get('/api/activities/company-counts').catch(()=>({data:{}})),
     ]);
     const costMap = costRes.data?.clients || {};
+    const activityCounts = actCounts || {};
     const leads = leadsRes.leads || [];
     const clients = companies.filter(c => c.category === 'client');
     const prospects = companies.filter(c => c.category === 'prospect');
@@ -3660,7 +4196,8 @@ async function renderCompanyList(el, mode) {
     let allItems = [];
     // Prospect companies → shown as "new" leads
     prospects.forEach(c => {
-      allItems.push({ type:'lead', id:'c_'+c.id, companyId:c.id, name:c.cost_code||c.name, status:'new', contact:'', email:'', phone:'', priority:'medium', source:'', value:0, users:c.user_count||0, notes:c.notes||'', created_at:c.created_at, isProspectCompany:true, domain:c.domain, group:c.group_name, contacts_count:c.contacts_count });
+      const ac = activityCounts[c.id] || {};
+      allItems.push({ type:'lead', id:'c_'+c.id, companyId:c.id, name:c.cost_code||c.name, status:'new', contact:'', email:'', phone:'', priority:'medium', source:'', value:0, users:c.user_count||0, notes:c.notes||'', created_at:c.created_at, isProspectCompany:true, domain:c.domain, group:c.group_name, contacts_count:c.contacts_count, activityCount:ac.count||0, lastActivity:ac.last_activity||null });
     });
     // Leads from leads table (not converted)
     leads.filter(l => l.status !== 'converted').forEach(l => {
@@ -3668,11 +4205,13 @@ async function renderCompanyList(el, mode) {
     });
     // Converted = active clients
     clients.forEach(c => {
-      allItems.push({ type:'company', id:c.id, name:c.cost_code||c.name, status:'converted', domain:c.domain, group:c.group_name, contacts_count:c.contacts_count, contracts_count:c.contracts_count, user_count:c.user_count, has_contracts:c.has_contracts, costData:costMap[c.id] });
+      const ac = activityCounts[c.id] || {};
+      allItems.push({ type:'company', id:c.id, name:c.cost_code||c.name, status:'converted', domain:c.domain, group:c.group_name, contacts_count:c.contacts_count, contracts_count:c.contracts_count, user_count:c.user_count, has_contracts:c.has_contracts, costData:costMap[c.id], activityCount:ac.count||0, lastActivity:ac.last_activity||null });
     });
     // Inactive
     inactive.forEach(c => {
-      allItems.push({ type:'company', id:c.id, name:c.cost_code||c.name, status:'inactive', domain:c.domain, group:c.group_name, contacts_count:c.contacts_count, contracts_count:c.contracts_count });
+      const ac = activityCounts[c.id] || {};
+      allItems.push({ type:'company', id:c.id, name:c.cost_code||c.name, status:'inactive', domain:c.domain, group:c.group_name, contacts_count:c.contacts_count, contracts_count:c.contracts_count, activityCount:ac.count||0, lastActivity:ac.last_activity||null });
     });
 
     // Save for incremental search updates
@@ -3704,12 +4243,32 @@ async function renderCompanyList(el, mode) {
       return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900':''}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._leadsFilter='${key}';renderCompanyList(document.getElementById('app'),'client')">${label} <span class="opacity-70">(${count})</span></button>`;
     };
 
+    // Calculate source stats for mini-analytics
+    const srcStats = {};
+    leads.forEach(l => { const s = l.source || 'other'; srcStats[s] = (srcStats[s]||0)+1; });
+    const srcTotal = leads.length || 1;
+    const srcColors = {website:'#3b82f6',linkedin:'#0077b5',referral:'#22c55e',cold_call:'#f59e0b',exhibition:'#a855f7',partner:'#ec4899',other:'#64748b'};
+
     el.innerHTML = `
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">${t('nav_clients')} <span class="text-slate-500 text-lg font-normal">(${filtered.length})</span></h1>
         <div class="flex gap-2">
+          <button class="btn btn-sm ${window._leadsView==='kanban'?'btn-primary':'btn-secondary'}" onclick="window._leadsView='kanban';renderCompanyList(document.getElementById('app'),'client')">☰ ${_i._g('ld_kanban')}</button>
+          <button class="btn btn-sm ${window._leadsView!=='kanban'?'btn-primary':'btn-secondary'}" onclick="window._leadsView='cards';renderCompanyList(document.getElementById('app'),'client')">▦ ${_i._g('ld_cards')}</button>
           <button class="btn btn-sm" style="background:#92400e;color:#fcd34d" onclick="openLeadModal()">+ ${t('leads_new')}</button>
           <button class="btn btn-sm" style="background:#1e3a5f;color:#60a5fa" onclick="openCreateGroupModal()">+ Qrup yarat</button>
+        </div>
+      </div>
+      <!-- Source mini-analytics bar -->
+      <div class="card mb-4 p-3">
+        <div class="flex items-center gap-3 text-xs">
+          <span class="text-slate-500 font-medium">${_i._g('ld_sources')}:</span>
+          <div class="flex-1 flex rounded overflow-hidden h-5">
+            ${Object.entries(srcStats).sort((a,b)=>b[1]-a[1]).map(([src,cnt]) =>
+              `<div style="width:${Math.max((cnt/srcTotal)*100,3)}%;background:${srcColors[src]||'#64748b'}" class="flex items-center justify-center text-white font-bold" title="${_leadSourceLabel(src)}: ${cnt}">${cnt>0?cnt:''}</div>`
+            ).join('')}
+          </div>
+          <span class="text-slate-600">${leads.length} ${_i._g('ld_total_leads')}</span>
         </div>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">
@@ -3723,11 +4282,34 @@ async function renderCompanyList(el, mode) {
       </div>
       <div class="card mb-4 p-3 flex gap-3 flex-wrap items-center">
         <input type="text" id="companiesSearch" placeholder="${t('companies_search')}" value="${esc(state.companiesQuery)}" oninput="onCompaniesSearch(this.value)" class="flex-1 min-w-[200px]">
+        <div style="display:flex;gap:4px;align-items:center;">
+          <span style="font-size:11px;color:#64748b;white-space:nowrap;">${currentLang==='ru'?'Теплота':currentLang==='az'?'İstilik':'Temp'}:</span>
+          <button class="btn btn-sm ${window._leadsSort==='hot'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='hot';renderCompanyList(document.getElementById('app'),'client')">🔥→❄️</button>
+          <button class="btn btn-sm ${window._leadsSort==='cold'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='cold';renderCompanyList(document.getElementById('app'),'client')">❄️→🔥</button>
+          ${window._leadsSort ? '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="window._leadsSort=null;renderCompanyList(document.getElementById(\'app\'),\'client\')">✕</button>' : ''}
+        </div>
       </div>
+      ${window._leadsView === 'kanban' ? _renderLeadsKanban(filtered) : `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="companyCardsGrid">
         ${filtered.length === 0 ? `<div class="col-span-full text-center text-slate-500 py-8">${t('nothing_found')}</div>` : ''}
-        ${filtered.map(item => _renderCompanyCard(item, 'client')).join('')}
-      </div>
+        ${(()=>{
+          let sorted = [...filtered];
+          if (window._leadsSort === 'hot') {
+            sorted.sort((a,b) => {
+              const sa = a.score || _companyTempScore(a);
+              const sb = b.score || _companyTempScore(b);
+              return sb - sa;
+            });
+          } else if (window._leadsSort === 'cold') {
+            sorted.sort((a,b) => {
+              const sa = a.score || _companyTempScore(a);
+              const sb = b.score || _companyTempScore(b);
+              return sa - sb;
+            });
+          }
+          return sorted.map(item => _renderCompanyCard(item, 'client')).join('');
+        })()}
+      </div>`}
     `;
     return;
   }
@@ -3793,11 +4375,15 @@ function _renderCompanyCard(item, mode) {
       </div>
       ${item.contact ? `<p class="text-slate-400 text-sm">${esc(item.contact)}</p>` : ''}
       ${item.email ? `<p class="text-indigo-400 text-sm">${esc(item.email)}</p>` : ''}
-      <div class="flex gap-2 mt-2 items-center">${pBadge} ${item.source ? '<span class="text-xs text-slate-500">'+_leadSourceLabel(item.source)+'</span>' : ''} ${item.score>0 ? '<span class="score-badge '+(item.score>=61?'score-high':item.score>=31?'score-medium':'score-low')+'">'+item.score+'</span>' : ''}</div>
+      <div class="flex gap-2 mt-2 items-center">${pBadge} ${item.source ? '<span class="text-xs text-slate-500">'+_leadSourceLabel(item.source)+'</span>' : ''} ${_leadTempBadge(item.score)} ${item.score>0 ? '<span class="score-badge '+(item.score>=61?'score-high':item.score>=31?'score-medium':'score-low')+'">'+item.score+'</span>' : ''}</div>
       <div class="flex justify-between mt-3 text-sm text-slate-400">
         ${item.value ? '<span style="color:#fcd34d">~'+item.value.toLocaleString()+' ₼</span>' : '<span>—</span>'}
         ${item.users ? '<span>&#128100; '+item.users+' ist.</span>' : ''}
       </div>
+      ${item.isProspectCompany ? '<div class="flex items-center gap-2 mt-2 text-xs">'
+        + (()=>{ const cs = _companyTempScore(item); return cs > 0 ? _leadTempBadge(cs) + ' <span class="score-badge '+(cs>=61?'score-high':cs>=31?'score-medium':'score-low')+'">'+cs+'</span>' : ''; })()
+        + (item.activityCount > 0 ? '<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:6px;font-weight:600;">📋 '+item.activityCount+'</span>' : '')
+        + '</div>' : ''}
     </div>`;
   } else {
     const statusBadge = item.status === 'converted'
@@ -3815,6 +4401,12 @@ function _renderCompanyCard(item, mode) {
       <div class="flex justify-between mt-3 text-sm text-slate-400">
         <span>${item.contacts_count||0} ${t('companies_contacts')}</span>
         <span>${item.contracts_count ? '<span style="color:#34d399;font-weight:600">'+item.contracts_count+' '+t('companies_contracts_cnt')+'</span>' : '<span style="color:#64748b">'+t('company_no_contract')+'</span>'}</span>
+      </div>
+      <div class="flex items-center gap-2 mt-2 text-xs">
+        ${(()=>{ const cs = _companyTempScore(item); return cs > 0 ? _leadTempBadge(cs) + ' <span class="score-badge '+(cs>=61?'score-high':cs>=31?'score-medium':'score-low')+'">'+cs+'</span>' : ''; })()}
+        ${item.activityCount > 0
+          ? '<span style="background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 8px;border-radius:6px;font-weight:600;">📋 '+item.activityCount+'</span>'
+          : '<span style="color:#475569;">—</span>'}
       </div>
       ${item.status==='converted' ? `<div class="mt-2 text-xs flex gap-2 flex-wrap" style="color:#818cf8">
         <span style="background:#312e81;padding:1px 7px;border-radius:4px;">&#128100; ${item.user_count||0} ist.</span>
@@ -3845,7 +4437,7 @@ function _updateCompanyGrid(grid) {
   const mode = state.page === 'partners' ? 'partner' : 'client';
   const allItems = window._lastCompanyItems || [];
   let filtered = allItems;
-  const _lf = window._leadsFilter || 'all';
+  const _lf = window._leadsFilter || 'converted';
   if (_lf !== 'all') filtered = filtered.filter(i => i.status === _lf);
   if (state.companiesQuery) {
     const sq = state.companiesQuery.toLowerCase();
@@ -3934,9 +4526,10 @@ function openClientDetails(id) {
 async function showCompanyDetail(id) {
   try {
     // Load company + contacts + contracts in parallel
-    const [{data:c}, contracts] = await Promise.all([
+    const [{data:c}, contracts, companyActivities] = await Promise.all([
       api.get('/api/companies/' + id),
-      api.get('/api/companies/' + id + '/contracts').then(r=>r.data).catch(()=>[])
+      api.get('/api/companies/' + id + '/contracts').then(r=>r.data).catch(()=>[]),
+      api.get('/api/activities?company_id=' + id).then(r=>r.data||[]).catch(()=>[])
     ]);
   const contacts = (c.contacts || []).sort((a,b) => (b.activity_count||0) - (a.activity_count||0));
   const keyPeople = contacts.slice(0, 5);
@@ -3984,6 +4577,22 @@ async function showCompanyDetail(id) {
         <span class="text-slate-300">${esc(ct.name||ct.email)}</span>
         <div class="flex items-center gap-3"><span class="text-slate-500 text-xs">${esc(ct.role)||''}</span><span class="text-indigo-400 text-xs font-semibold">${ct.activity_count||0} ${t('contacts_col_emails')}</span></div>
       </div>`).join('')}
+    </div>
+
+    <div class="mb-4" style="border-top:1px solid #334155;padding-top:12px;">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="font-semibold text-sm">${currentLang==='ru'?'Активность':currentLang==='az'?'Fəaliyyət':'Activity'} (${companyActivities.length})</h3>
+        <button onclick="showCompanyActivityModal(${id})" class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;">+ ${currentLang==='ru'?'Записать':currentLang==='az'?'Qeyd et':'Log'}</button>
+      </div>
+      <div class="space-y-1 max-h-40 overflow-y-auto" id="companyActivitiesList_${id}">
+        ${companyActivities.length === 0 ? '<p class="text-slate-500 text-sm">'+( currentLang==='ru'?'Нет активностей':currentLang==='az'?'Fəaliyyət yoxdur':'No activities')+'</p>' :
+          companyActivities.slice(0,5).map(a => {
+            const icons = {CALL:'📞',EMAIL:'📧',MEETING:'🤝',NOTE:'📝',DEMO:'🖥️',PROPOSAL_SENT:'📄'};
+            return '<div class="flex justify-between items-center text-sm py-1" style="border-bottom:1px solid #1e293b;">'+
+              '<div><span style="font-size:12px;">'+(icons[a.activity_type]||'📌')+'</span> <span class="text-xs font-semibold text-indigo-400">'+(a.activity_type||'')+'</span> <span class="text-slate-300">'+(esc(a.subject)||'')+'</span></div>'+
+              '<span class="text-slate-500 text-xs">'+(a.timestamp?a.timestamp.substring(0,10):'')+'</span></div>';
+          }).join('')}
+      </div>
     </div>
 
     <h3 class="font-semibold mb-2 text-sm">${t('companies_contracts')} (${contracts.length})</h3>
@@ -4818,7 +5427,11 @@ async function renderDeals(el) {
   showLoading(el);
   const {data:deals} = await api.get('/api/deals?limit=500');
 
-  const stages = ['LEAD', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'];
+  let stages = ['LEAD', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'];
+  try {
+    const {data:dbStages} = await api.get('/api/pipeline-stages');
+    if (dbStages && dbStages.length) stages = dbStages.map(s => s.name);
+  } catch(e) {}
   const columns = stages.map(s => deals.filter(d => d.stage === s));
 
   el.innerHTML = `
@@ -10057,24 +10670,21 @@ async function renderAuditLog(el) {
   const items = data.items || [];
   const total = data.total || 0;
 
-  const lang = currentLang || 'en';
-  const title = lang==='ru'?'Журнал действий':lang==='az'?'Əməliyyat jurnalı':'Audit Log';
-
   el.innerHTML = `
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${title} <span class="text-slate-500 text-lg font-normal">(${total})</span></h1>
+      <h1 class="text-2xl font-bold">${_i._g('al_title')} <span class="text-slate-500 text-lg font-normal">(${total})</span></h1>
     </div>
     <div class="card overflow-x-auto">
       <table class="w-full text-sm">
         <thead><tr class="text-left text-slate-500 border-b border-slate-700">
-          <th class="p-3">${lang==='ru'?'Время':'Vaxt'}</th>
-          <th class="p-3">${lang==='ru'?'Пользователь':'İstifadəçi'}</th>
-          <th class="p-3">${lang==='ru'?'Действие':'Əməliyyat'}</th>
-          <th class="p-3">${lang==='ru'?'Тип':'Tip'}</th>
-          <th class="p-3">${lang==='ru'?'Детали':'Detallar'}</th>
+          <th class="p-3">${_i._g('al_time')}</th>
+          <th class="p-3">${_i._g('al_user')}</th>
+          <th class="p-3">${_i._g('al_action')}</th>
+          <th class="p-3">${_i._g('al_type')}</th>
+          <th class="p-3">${_i._g('al_details')}</th>
         </tr></thead>
         <tbody>
-          ${items.length === 0 ? '<tr><td colspan="5" class="p-6 text-center text-slate-500">No audit records</td></tr>' : ''}
+          ${items.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-500">${_i._g('al_empty')}</td></tr>` : ''}
           ${items.map(a => `<tr class="border-b border-slate-800 hover:bg-slate-800/50">
             <td class="p-3 text-xs text-slate-400 whitespace-nowrap">${esc(a.created_at||'')}</td>
             <td class="p-3">${esc(a.user_name||'System')}</td>
@@ -10086,118 +10696,502 @@ async function renderAuditLog(el) {
       </table>
     </div>
     <div class="flex gap-2 mt-4 justify-center">
-      ${_auditPage > 0 ? `<button class="btn btn-sm btn-secondary" onclick="_auditPage--;renderAuditLog(document.getElementById('app'))">&laquo; Prev</button>` : ''}
+      ${_auditPage > 0 ? `<button class="btn btn-sm btn-secondary" onclick="_auditPage--;renderAuditLog(document.getElementById('app'))">&laquo; ${_i._g('al_prev')}</button>` : ''}
       <span class="text-slate-500 text-sm py-1">${_auditPage+1} / ${Math.ceil(total/limit)||1}</span>
-      ${offset+limit < total ? `<button class="btn btn-sm btn-secondary" onclick="_auditPage++;renderAuditLog(document.getElementById('app'))">Next &raquo;</button>` : ''}
+      ${offset+limit < total ? `<button class="btn btn-sm btn-secondary" onclick="_auditPage++;renderAuditLog(document.getElementById('app'))">${_i._g('al_next')} &raquo;</button>` : ''}
     </div>
   `;
 }
 
+// ─── Translations for new features ──────────────────────────
+const _i = {
+  _g(key) { return (this[key]||{})[currentLang] || (this[key]||{}).en || key; },
+  // Scoring Rules
+  sr_title: {en:'Lead Scoring Rules', ru:'Правила скоринга лидов', az:'Lid skorinq qaydaları'},
+  sr_subtitle: {en:'Each new lead gets points automatically based on these rules', ru:'Каждый новый лид получает баллы по этим правилам', az:'Hər yeni lid bu qaydalara görə avtomatik bal alır'},
+  sr_new: {en:'New Rule', ru:'Новое правило', az:'Yeni qayda'},
+  sr_active: {en:'Active', ru:'Активно', az:'Aktiv'},
+  sr_inactive: {en:'Inactive', ru:'Неактивно', az:'Deaktiv'},
+  sr_empty: {en:'No rules yet', ru:'Правил пока нет', az:'Hələ heç bir qayda yoxdur'},
+  sr_rescore: {en:'Rescore All Leads', ru:'Пересчитать все лиды', az:'Bütün lidləri yenidən hesabla'},
+  sr_edit_title: {en:'Edit Rule', ru:'Редактировать правило', az:'Qaydanı redaktə et'},
+  sr_add_title: {en:'New Scoring Rule', ru:'Новое правило скоринга', az:'Yeni skorinq qaydası'},
+  sr_edit_desc: {en:'Change rule parameters', ru:'Измените параметры правила', az:'Qaydanın parametrlərini dəyişin'},
+  sr_add_desc: {en:'Which lead attribute should give points?', ru:'По какому свойству лида начислять баллы?', az:'Lidin hansı xüsusiyyətinə görə bal verilsin?'},
+  sr_field: {en:'Field', ru:'Поле', az:'Sahə'},
+  sr_condition: {en:'Condition', ru:'Условие', az:'Şərt'},
+  sr_value: {en:'Value', ru:'Значение', az:'Dəyər'},
+  sr_points: {en:'Points', ru:'Баллы', az:'Bal'},
+  sr_points_help: {en:'Positive = good, Negative = bad', ru:'Положительные = хорошо, Отрицательные = плохо', az:'Müsbət = yaxşı, Mənfi = pis'},
+  sr_status: {en:'Status', ru:'Статус', az:'Status'},
+  sr_preview: {en:'Preview', ru:'Предпросмотр', az:'Önizləmə'},
+  sr_save: {en:'Save', ru:'Сохранить', az:'Yadda saxla'},
+  sr_update: {en:'Update', ru:'Обновить', az:'Yenilə'},
+  sr_cancel: {en:'Cancel', ru:'Отмена', az:'Ləğv et'},
+  sr_updated: {en:'Rule updated', ru:'Правило обновлено', az:'Qayda yeniləndi'},
+  sr_added: {en:'Rule added', ru:'Правило добавлено', az:'Qayda əlavə edildi'},
+  sr_rescored: {en:'Rescored {n} leads', ru:'Пересчитано {n} лидов', az:'{n} lid yenidən hesablandı'},
+  sr_del_confirm: {en:'Delete this rule?', ru:'Удалить это правило?', az:'Bu qaydanı silmək istəyirsiniz?'},
+  sr_deleted: {en:'Rule deleted', ru:'Правило удалено', az:'Qayda silindi'},
+  sr_pts: {en:'pts', ru:'б.', az:'bal'},
+  // Field labels
+  fl_source: {en:'Source', ru:'Источник', az:'Mənbə'},
+  fl_priority: {en:'Priority', ru:'Приоритет', az:'Prioritet'},
+  fl_status: {en:'Status', ru:'Статус', az:'Status'},
+  fl_email: {en:'E-mail', ru:'E-mail', az:'E-mail'},
+  fl_phone: {en:'Phone', ru:'Телефон', az:'Telefon'},
+  fl_company: {en:'Company name', ru:'Название компании', az:'Şirkət adı'},
+  // Field hints
+  fh_source: {en:'Where lead came from', ru:'Откуда пришёл лид', az:'Lidin haradan gəldiyi'},
+  fh_priority: {en:'Lead importance level', ru:'Уровень важности', az:'Lidin vaciblik dərəcəsi'},
+  fh_status: {en:'Current lead state', ru:'Текущее состояние', az:'Lidin cari vəziyyəti'},
+  fh_email: {en:'Has email address', ru:'Есть email', az:'E-mail ünvanı varmı'},
+  fh_phone: {en:'Has phone number', ru:'Есть телефон', az:'Telefon nömrəsi varmı'},
+  fh_company: {en:'Has company name', ru:'Указана компания', az:'Şirkət adı göstərilibmi'},
+  // Condition labels
+  cl_equals: {en:'Equals (=)', ru:'Равно (=)', az:'Bərabərdir (=)'},
+  cl_not_empty: {en:'Not empty', ru:'Заполнено', az:'Dolu (boş deyil)'},
+  cl_contains: {en:'Contains', ru:'Содержит', az:'Ehtiva edir'},
+  cl_greater: {en:'Greater than (>)', ru:'Больше (>)', az:'Böyükdür (>)'},
+  // Value labels
+  vl_referral: {en:'Referral', ru:'Реферал (рекомендация)', az:'Referral (tövsiyə)'},
+  vl_website: {en:'Website', ru:'Сайт', az:'Sayt'},
+  vl_cold_call: {en:'Cold call', ru:'Холодный звонок', az:'Soyuq zəng'},
+  vl_social: {en:'Social media', ru:'Соцсети', az:'Sosial media'},
+  vl_exhibition: {en:'Exhibition', ru:'Выставка', az:'Sərgi'},
+  vl_high: {en:'High', ru:'Высокий', az:'Yüksək'},
+  vl_medium: {en:'Medium', ru:'Средний', az:'Orta'},
+  vl_low: {en:'Low', ru:'Низкий', az:'Aşağı'},
+  vl_new: {en:'New', ru:'Новый', az:'Yeni'},
+  vl_contacted: {en:'Contacted', ru:'Связались', az:'Əlaqə qurulub'},
+  vl_qualified: {en:'Qualified', ru:'Квалифицирован', az:'Kvalifikasiya olunub'},
+  vl_lost: {en:'Lost', ru:'Потерян', az:'İtirilmiş'},
+  // Describe helpers
+  cd_equals: {en:'equals', ru:'равно', az:'bərabərdir'},
+  cd_not_empty: {en:'is filled', ru:'заполнено', az:'dolu'},
+  cd_contains: {en:'contains', ru:'содержит', az:'ehtiva edir'},
+  cd_greater: {en:'greater than', ru:'больше', az:'böyükdür'},
+  // Assignment Rules
+  ar_title: {en:'Assignment Rules', ru:'Правила назначения', az:'Təyinat qaydaları'},
+  ar_subtitle: {en:'New leads are automatically assigned to managers', ru:'Новые лиды автоматически распределяются менеджерам', az:'Yeni lidlər avtomatik menecerlərə paylanır'},
+  ar_new: {en:'New Rule', ru:'Новое правило', az:'Yeni qayda'},
+  ar_empty: {en:'No rules yet', ru:'Правил пока нет', az:'Hələ heç bir qayda yoxdur'},
+  ar_direct: {en:'Direct', ru:'Прямое', az:'Birbaşa'},
+  ar_round_robin: {en:'Round Robin', ru:'По очереди', az:'Round Robin'},
+  ar_all_leads: {en:'All leads', ru:'Все лиды', az:'Bütün lidlər'},
+  ar_cond: {en:'Condition', ru:'Условие', az:'Şərt'},
+  ar_rotates: {en:'Distributed in turns', ru:'Распределяется по очереди', az:'Növbə ilə paylanır'},
+  ar_priority: {en:'Priority', ru:'Приоритет', az:'Prioritet'},
+  ar_edit_title: {en:'Edit Rule', ru:'Редактировать правило', az:'Qaydanı redaktə et'},
+  ar_add_title: {en:'New Assignment Rule', ru:'Новое правило назначения', az:'Yeni təyinat qaydası'},
+  ar_edit_desc: {en:'Change rule parameters', ru:'Измените параметры правила', az:'Qaydanın parametrlərini dəyişin'},
+  ar_add_desc: {en:'Who should new leads be assigned to?', ru:'Кому назначать новые лиды?', az:'Yeni lid gələndə kimə təyin olunsun?'},
+  ar_name: {en:'Rule name', ru:'Название правила', az:'Qaydanın adı'},
+  ar_name_ph: {en:'E.g.: Website leads → Sales', ru:'Напр.: Лиды с сайта → Продажи', az:'Məs: Saytdan gələn lidlər → Azar'},
+  ar_cond_field: {en:'Condition field', ru:'Поле условия', az:'Şərt sahəsi'},
+  ar_cond_all: {en:'All (no condition)', ru:'Все (без условия)', az:'Hamısı (şərtsiz)'},
+  ar_cond_value: {en:'Condition value', ru:'Значение условия', az:'Şərt dəyəri'},
+  ar_method: {en:'Assignment method', ru:'Метод назначения', az:'Təyinat üsulu'},
+  ar_method_direct: {en:'Direct (specific manager)', ru:'Прямое (конкретный менеджер)', az:'Birbaşa (konkret menecerə)'},
+  ar_method_rr: {en:'Round Robin (by turns)', ru:'По очереди (round robin)', az:'Round Robin (növbə ilə)'},
+  ar_assign_to: {en:'Assign to', ru:'Назначить', az:'Kimə təyin olunsun'},
+  ar_prio_help: {en:'Higher = checked first', ru:'Выше = проверяется первым', az:'Yüksək = əvvəl yoxlanılır'},
+  ar_updated: {en:'Rule updated', ru:'Правило обновлено', az:'Qayda yeniləndi'},
+  ar_added: {en:'Rule added', ru:'Правило добавлено', az:'Qayda əlavə edildi'},
+  ar_del_confirm: {en:'Delete this rule?', ru:'Удалить это правило?', az:'Bu qaydanı silmək istəyirsiniz?'},
+  ar_deleted: {en:'Rule deleted', ru:'Правило удалено', az:'Qayda silindi'},
+  // Web-to-Lead
+  wl_title: {en:'Web-to-Lead Form', ru:'Форма заявки с сайта', az:'Saytdan lid forması'},
+  wl_embed: {en:'Embed Code', ru:'Код для вставки', az:'Yerləşdirmə kodu'},
+  wl_embed_desc: {en:'Add this script tag to your website to show a lead capture form:', ru:'Добавьте этот код на сайт для показа формы захвата лидов:', az:'Lid toplama formasını göstərmək üçün bu kodu saytınıza əlavə edin:'},
+  wl_copy: {en:'Copy to Clipboard', ru:'Копировать', az:'Kopyala'},
+  wl_copied: {en:'Copied!', ru:'Скопировано!', az:'Kopyalandı!'},
+  wl_api: {en:'API Endpoint', ru:'API Точка доступа', az:'API Nöqtəsi'},
+  wl_api_desc: {en:'For custom integrations, POST JSON to:', ru:'Для интеграций отправляйте POST JSON на:', az:'Xüsusi inteqrasiyalar üçün JSON POST edin:'},
+  wl_fields: {en:'Fields: company_name, contact_name, email, phone, message', ru:'Поля: company_name, contact_name, email, phone, message', az:'Sahələr: company_name, contact_name, email, phone, message'},
+  wl_rate: {en:'Rate limit: 5 per IP per hour', ru:'Лимит: 5 запросов/IP/час', az:'Limit: IP başına saatda 5'},
+  wl_preview: {en:'Preview', ru:'Предпросмотр', az:'Önizləmə'},
+  // 2FA
+  tfa_title: {en:'Two-Factor Authentication', ru:'Двухфакторная аутентификация', az:'İki faktorlu autentifikasiya'},
+  tfa_enabled: {en:'2FA Enabled', ru:'2FA Включена', az:'2FA Aktivdir'},
+  tfa_desc_dis: {en:'Your account is protected with 2FA. Enter your password to disable it.', ru:'Ваш аккаунт защищён 2FA. Введите пароль для отключения.', az:'Hesabınız 2FA ilə qorunur. Söndürmək üçün parolunuzu daxil edin.'},
+  tfa_password: {en:'Password', ru:'Пароль', az:'Parol'},
+  tfa_disable: {en:'Disable 2FA', ru:'Отключить 2FA', az:'2FA-nı söndür'},
+  tfa_enable_title: {en:'Enable Two-Factor Authentication', ru:'Включить двухфакторную аутентификацию', az:'İki faktorlu autentifikasiyanı aktivləşdir'},
+  tfa_enable_desc: {en:'Protect your account with an authenticator app (Google Authenticator, Authy, etc.)', ru:'Защитите аккаунт с помощью приложения-аутентификатора (Google Authenticator, Authy)', az:'Hesabınızı autentifikator tətbiqi ilə qoruyun (Google Authenticator, Authy və s.)'},
+  tfa_enable_btn: {en:'Enable 2FA', ru:'Включить 2FA', az:'2FA-nı aktivləşdir'},
+  tfa_scan: {en:'Scan QR Code', ru:'Сканируйте QR код', az:'QR Kodu skan edin'},
+  tfa_scan_desc: {en:'Scan this QR code with your authenticator app:', ru:'Сканируйте этот QR код в приложении-аутентификаторе:', az:'Bu QR kodu autentifikator tətbiqinizlə skan edin:'},
+  tfa_manual: {en:'Or enter manually:', ru:'Или введите вручную:', az:'Və ya əl ilə daxil edin:'},
+  tfa_code: {en:'Enter 6-digit code from app', ru:'Введите 6-значный код из приложения', az:'Tətbiqdən 6 rəqəmli kodu daxil edin'},
+  tfa_verify: {en:'Verify & Enable', ru:'Подтвердить и включить', az:'Yoxla və aktivləşdir'},
+  tfa_success: {en:'2FA Enabled Successfully!', ru:'2FA успешно включена!', az:'2FA uğurla aktivləşdirildi!'},
+  tfa_backup: {en:'Save these backup codes in a safe place. Each can be used once if you lose your authenticator:', ru:'Сохраните эти резервные коды. Каждый можно использовать один раз:', az:'Bu ehtiyat kodları yadda saxlayın. Hər biri bir dəfə istifadə oluna bilər:'},
+  tfa_done: {en:'Done', ru:'Готово', az:'Hazır'},
+  tfa_fail_setup: {en:'Failed to setup 2FA', ru:'Ошибка настройки 2FA', az:'2FA quraşdırma xətası'},
+  tfa_invalid_code: {en:'Invalid code. Try again.', ru:'Неверный код. Попробуйте снова.', az:'Yanlış kod. Yenidən cəhd edin.'},
+  tfa_disabled: {en:'2FA disabled', ru:'2FA отключена', az:'2FA söndürüldü'},
+  tfa_invalid_pw: {en:'Invalid password', ru:'Неверный пароль', az:'Yanlış parol'},
+  tfa_fail_status: {en:'Failed to check 2FA status', ru:'Ошибка проверки статуса 2FA', az:'2FA status yoxlama xətası'},
+  // Forecast
+  fc_title: {en:'Sales Forecast', ru:'Прогноз продаж', az:'Satış proqnozu'},
+  fc_3m: {en:'3 months', ru:'3 месяца', az:'3 ay'},
+  fc_6m: {en:'6 months', ru:'6 месяцев', az:'6 ay'},
+  fc_12m: {en:'12 months', ru:'12 месяцев', az:'12 ay'},
+  fc_pipeline: {en:'Pipeline Total', ru:'Воронка (итого)', az:'Pipeline Cəmi'},
+  fc_weighted: {en:'Weighted Forecast', ru:'Взвешенный прогноз', az:'Ağırlıqlı proqnoz'},
+  fc_active: {en:'Active Deals', ru:'Активных сделок', az:'Aktiv sövdələşmələr'},
+  fc_deals: {en:'Deals', ru:'Сделок', az:'Sövdələşmə'},
+  // Audit Log
+  al_title: {en:'Audit Log', ru:'Журнал действий', az:'Əməliyyat jurnalı'},
+  al_time: {en:'Time', ru:'Время', az:'Vaxt'},
+  al_user: {en:'User', ru:'Пользователь', az:'İstifadəçi'},
+  al_action: {en:'Action', ru:'Действие', az:'Əməliyyat'},
+  al_type: {en:'Type', ru:'Тип', az:'Tip'},
+  al_details: {en:'Details', ru:'Детали', az:'Detallar'},
+  al_empty: {en:'No audit records', ru:'Записей нет', az:'Qeyd yoxdur'},
+  al_prev: {en:'Prev', ru:'Назад', az:'Əvvəl'},
+  al_next: {en:'Next', ru:'Sonra', az:'Növbəti'},
+  // Deal Team
+  dt_add: {en:'Add Team Member', ru:'Добавить участника', az:'Komanda üzvü əlavə et'},
+  dt_user: {en:'User', ru:'Пользователь', az:'İstifadəçi'},
+  dt_role: {en:'Role', ru:'Роль', az:'Rol'},
+  dt_role_owner: {en:'Owner', ru:'Владелец', az:'Sahib'},
+  dt_role_se: {en:'Sales Engineer', ru:'Инженер по продажам', az:'Satış mühəndisi'},
+  dt_role_am: {en:'Account Manager', ru:'Аккаунт менеджер', az:'Hesab meneceri'},
+  dt_role_member: {en:'Member', ru:'Участник', az:'Üzv'},
+  dt_add_btn: {en:'Add', ru:'Добавить', az:'Əlavə et'},
+  dt_added: {en:'Team member added', ru:'Участник добавлен', az:'Komanda üzvü əlavə edildi'},
+  dt_removed: {en:'Removed', ru:'Удалён', az:'Silindi'},
+  // Common
+  c_cancel: {en:'Cancel', ru:'Отмена', az:'Ləğv et'},
+  c_save: {en:'Save', ru:'Сохранить', az:'Yadda saxla'},
+  c_update: {en:'Update', ru:'Обновить', az:'Yenilə'},
+  c_delete: {en:'Delete', ru:'Удалить', az:'Sil'},
+  c_active: {en:'Active', ru:'Активно', az:'Aktiv'},
+  // Lead Salesforce features
+  ld_kanban: {en:'Kanban', ru:'Канбан', az:'Kanban'},
+  ld_cards: {en:'Cards', ru:'Картон', az:'Kartlar'},
+  ld_sources: {en:'Sources', ru:'Источники', az:'Mənbələr'},
+  ld_total_leads: {en:'leads', ru:'лидов', az:'lid'},
+  ld_tab_details: {en:'Details', ru:'Детали', az:'Detallar'},
+  ld_tab_activity: {en:'Activity', ru:'Активность', az:'Fəaliyyət'},
+  ld_tab_convert: {en:'Convert', ru:'Конвертация', az:'Konvertasiya'},
+  ld_age: {en:'Age', ru:'Возраст', az:'Yaş'},
+  ld_days: {en:'days', ru:'дн.', az:'gün'},
+  ld_phone: {en:'Phone', ru:'Телефон', az:'Telefon'},
+  ld_score: {en:'Score', ru:'Скоринг', az:'Bal'},
+  ld_assigned: {en:'Assigned to', ru:'Назначен', az:'Təyin olunub'},
+  ld_created: {en:'Created', ru:'Создан', az:'Yaradılıb'},
+  ld_change_status: {en:'Quick status change', ru:'Быстрая смена статуса', az:'Sürətli status dəyişikliyi'},
+  ld_status_changed: {en:'Status updated', ru:'Статус обновлён', az:'Status yeniləndi'},
+  ld_no_activity: {en:'No activities yet', ru:'Нет активностей', az:'Hələ fəaliyyət yoxdur'},
+  ld_no_activity_hint: {en:'Activities will appear here when linked to this lead', ru:'Здесь появятся связанные активности', az:'Əlaqəli fəaliyyətlər burada görünəcək'},
+  ld_convert_desc: {en:'Convert this lead into a company, contact, and deal', ru:'Конвертировать лид в компанию, контакт и сделку', az:'Bu lidi şirkət, əlaqə və sövdələşməyə çevirin'},
+  ld_conv_company: {en:'Create Company', ru:'Создать компанию', az:'Şirkət yarat'},
+  ld_conv_contact: {en:'Create Contact', ru:'Создать контакт', az:'Əlaqə yarat'},
+  ld_conv_deal: {en:'Create Deal', ru:'Создать сделку', az:'Sövdələşmə yarat'},
+  ld_deal_title: {en:'Deal Title', ru:'Название сделки', az:'Sövdələşmə adı'},
+  ld_convert_now: {en:'Convert Now', ru:'Конвертировать', az:'İndi çevir'},
+  ld_converted_on: {en:'Converted on', ru:'Конвертирован', az:'Çevrildi'},
+  ld_view_company: {en:'View Company', ru:'Открыть компанию', az:'Şirkətə bax'},
+  ld_view_deal: {en:'View Deal', ru:'Открыть сделку', az:'Sövdələşməyə bax'},
+  ld_log_activity: {en:'Log Activity', ru:'Записать активность', az:'Fəaliyyət qeyd et'},
+  ld_act_type: {en:'Activity Type', ru:'Тип активности', az:'Fəaliyyət növü'},
+  ld_act_subject: {en:'Subject', ru:'Тема', az:'Mövzu'},
+  ld_act_subject_ph: {en:'E.g.: Discussed pricing', ru:'Напр.: Обсудили цены', az:'Məs.: Qiymətlər müzakirə olundu'},
+  ld_act_notes: {en:'Notes', ru:'Заметки', az:'Qeydlər'},
+  ld_act_notes_ph: {en:'Details about the interaction...', ru:'Подробности разговора...', az:'Əlaqənin detalları...'},
+  ld_act_direction: {en:'Direction', ru:'Направление', az:'İstiqamət'},
+  ld_act_outbound: {en:'Outbound (we initiated)', ru:'Исходящее (мы инициировали)', az:'Çıxış (biz başlatdıq)'},
+  ld_act_inbound: {en:'Inbound (they contacted us)', ru:'Входящее (они обратились)', az:'Giriş (onlar əlaqə saxladı)'},
+  ld_act_saved: {en:'Activity logged', ru:'Активность записана', az:'Fəaliyyət qeyd edildi'},
+  ld_act_empty: {en:'Please enter subject or notes', ru:'Введите тему или заметки', az:'Mövzu və ya qeyd daxil edin'},
+  // Pipeline Stages Admin
+  ps_title: {en:'Pipeline Stages', ru:'Стадии воронки', az:'Pipeline Mərhələləri'},
+  ps_subtitle: {en:'Customize your deal pipeline stages', ru:'Настройте стадии воронки сделок', az:'Sövdələşmə pipeline mərhələlərini tənzimləyin'},
+  ps_new: {en:'New Stage', ru:'Новая стадия', az:'Yeni mərhələ'},
+  ps_name: {en:'Stage Name', ru:'Название стадии', az:'Mərhələ adı'},
+  ps_display: {en:'Display Name', ru:'Отображаемое имя', az:'Görünən ad'},
+  ps_display_ru: {en:'Display Name (RU)', ru:'Отображаемое имя (RU)', az:'Görünən ad (RU)'},
+  ps_display_az: {en:'Display Name (AZ)', ru:'Отображаемое имя (AZ)', az:'Görünən ad (AZ)'},
+  ps_color: {en:'Color', ru:'Цвет', az:'Rəng'},
+  ps_probability: {en:'Probability %', ru:'Вероятность %', az:'Ehtimal %'},
+  ps_is_won: {en:'Is Won stage', ru:'Стадия выигрыша', az:'Qazanılmış mərhələ'},
+  ps_is_lost: {en:'Is Lost stage', ru:'Стадия проигрыша', az:'İtirilmiş mərhələ'},
+  ps_order: {en:'Sort Order', ru:'Порядок', az:'Sıra'},
+  ps_edit_title: {en:'Edit Stage', ru:'Редактировать стадию', az:'Mərhələni redaktə et'},
+  ps_add_title: {en:'New Pipeline Stage', ru:'Новая стадия воронки', az:'Yeni pipeline mərhələsi'},
+  ps_updated: {en:'Stage updated', ru:'Стадия обновлена', az:'Mərhələ yeniləndi'},
+  ps_added: {en:'Stage added', ru:'Стадия добавлена', az:'Mərhələ əlavə edildi'},
+  ps_deleted: {en:'Stage deactivated', ru:'Стадия деактивирована', az:'Mərhələ deaktiv edildi'},
+  ps_del_confirm: {en:'Deactivate this stage?', ru:'Деактивировать эту стадию?', az:'Bu mərhələni deaktiv etmək istəyirsiniz?'},
+  ps_empty: {en:'No stages configured', ru:'Стадии не настроены', az:'Mərhələ quraşdırılmayıb'},
+  // Notifications Page
+  np_title: {en:'Notifications', ru:'Уведомления', az:'Bildirişlər'},
+  np_all: {en:'All', ru:'Все', az:'Hamısı'},
+  np_unread: {en:'Unread', ru:'Непрочитанные', az:'Oxunmamış'},
+  np_mark_all: {en:'Mark All Read', ru:'Прочитать все', az:'Hamısını oxunmuş et'},
+  np_empty: {en:'No notifications', ru:'Нет уведомлений', az:'Bildiriş yoxdur'},
+  np_empty_desc: {en:'You\'re all caught up!', ru:'Всё прочитано!', az:'Hamısını oxumusunuz!'},
+  // Notification Preferences
+  npp_title: {en:'Notification Settings', ru:'Настройки уведомлений', az:'Bildiriş parametrləri'},
+  npp_subtitle: {en:'Choose which events you want to be notified about', ru:'Выберите о каких событиях получать уведомления', az:'Hansı hadisələr haqqında bildiriş almaq istədiyinizi seçin'},
+  npp_event: {en:'Event', ru:'Событие', az:'Hadisə'},
+  npp_web: {en:'In-app', ru:'В приложении', az:'Tətbiqdə'},
+  npp_email: {en:'Email', ru:'Email', az:'Email'},
+  npp_telegram: {en:'Telegram', ru:'Telegram', az:'Telegram'},
+  npp_saved: {en:'Preferences saved', ru:'Настройки сохранены', az:'Parametrlər yadda saxlanıldı'},
+  npp_lead_new: {en:'New lead created', ru:'Создан новый лид', az:'Yeni lid yaradılıb'},
+  npp_lead_assigned: {en:'Lead assigned to me', ru:'Лид назначен мне', az:'Lid mənə təyin olunub'},
+  npp_deal_stage: {en:'Deal stage changed', ru:'Стадия сделки изменена', az:'Sövdələşmə mərhələsi dəyişdi'},
+  npp_deal_won: {en:'Deal won', ru:'Сделка выиграна', az:'Sövdələşmə qazanıldı'},
+  npp_deal_lost: {en:'Deal lost', ru:'Сделка проиграна', az:'Sövdələşmə itirildi'},
+  npp_task_assigned: {en:'Task assigned to me', ru:'Задача назначена мне', az:'Tapşırıq mənə təyin olunub'},
+  npp_task_overdue: {en:'Task overdue', ru:'Задача просрочена', az:'Tapşırıq gecikib'},
+  npp_contract_exp: {en:'Contract expiring', ru:'Контракт истекает', az:'Müqavilə müddəti bitir'},
+  // Nav items
+  nav_pipeline_stages: {en:'Pipeline Stages', ru:'Стадии воронки', az:'Pipeline Mərhələləri'},
+  nav_notifications_page: {en:'Notifications', ru:'Уведомления', az:'Bildirişlər'},
+  nav_notif_prefs: {en:'Notification Settings', ru:'Настройки уведомлений', az:'Bildiriş parametrləri'},
+  nav_user_management: {en:'User Management', ru:'Управление пользователем', az:'İstifadəçi idarəetməsi'},
+  um_profile_section: {en:'Profile', ru:'Профиль', az:'Profil'},
+  um_display_name: {en:'Display Name', ru:'Отображаемое имя', az:'Göstərilən ad'},
+  um_first_name: {en:'First Name', ru:'Имя', az:'Ad'},
+  um_last_name: {en:'Last Name', ru:'Фамилия', az:'Soyad'},
+  um_save_profile: {en:'Save Profile', ru:'Сохранить профиль', az:'Profili yadda saxla'},
+  um_profile_saved: {en:'Profile saved successfully', ru:'Профиль сохранён', az:'Profil yadda saxlanıldı'},
+  um_admin_section: {en:'Administration', ru:'Администрирование', az:'İdarəetmə'},
+  um_security_section: {en:'Security', ru:'Безопасность', az:'Təhlükəsizlik'},
+};
+
 // ─── ADMIN: Lead Scoring Rules ──────────────────────────────
+function _srFL() { return {source:_i._g('fl_source'),priority:_i._g('fl_priority'),status:_i._g('fl_status'),email:_i._g('fl_email'),phone:_i._g('fl_phone'),company_name:_i._g('fl_company')}; }
+function _srCL() { return {equals:_i._g('cd_equals'),not_empty:_i._g('cd_not_empty'),contains:_i._g('cd_contains'),greater_than:_i._g('cd_greater')}; }
+function _srVL() { return {referral:_i._g('vl_referral'),website:_i._g('vl_website'),cold_call:_i._g('vl_cold_call'),social_media:_i._g('vl_social'),exhibition:_i._g('vl_exhibition'),high:_i._g('vl_high'),medium:_i._g('vl_medium'),low:_i._g('vl_low'),new:_i._g('vl_new'),contacted:_i._g('vl_contacted'),qualified:_i._g('vl_qualified'),lost:_i._g('vl_lost')}; }
+function _srDescribe(r) {
+  const f = _srFL()[r.field]||r.field;
+  const c = _srCL()[r.condition]||r.condition;
+  const v = _srVL()[r.value]||r.value;
+  if(r.condition==='not_empty') return `<b>${f}</b> ${c}`;
+  return `<b>${f}</b> ${c} <span style="color:#c084fc">${v}</span>`;
+}
+
 async function renderScoringRules(el) {
   showLoading(el);
   const {data: rules} = await api.get('/api/lead-scoring-rules');
 
-  const lang = currentLang || 'en';
-  const title = lang==='ru'?'Правила скоринга лидов':lang==='az'?'Lid skorinq qaydaları':'Lead Scoring Rules';
-
   el.innerHTML = `
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${title}</h1>
-      <button class="btn btn-primary btn-sm" onclick="showAddScoringRuleModal()">+ ${lang==='ru'?'Добавить правило':lang==='az'?'Qayda əlavə et':'Add Rule'}</button>
+      <div>
+        <h1 class="text-2xl font-bold">${_i._g('sr_title')}</h1>
+        <p class="text-slate-500 text-sm mt-1">${_i._g('sr_subtitle')}</p>
+      </div>
+      <button class="btn btn-primary" onclick="showAddScoringRuleModal()" style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:18px;">+</span> ${_i._g('sr_new')}
+      </button>
     </div>
-    <div class="card overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="text-left text-slate-500 border-b border-slate-700">
-          <th class="p-3">${lang==='ru'?'Поле':'Sahə'}</th>
-          <th class="p-3">${lang==='ru'?'Условие':'Şərt'}</th>
-          <th class="p-3">${lang==='ru'?'Значение':'Dəyər'}</th>
-          <th class="p-3">${lang==='ru'?'Баллы':'Bal'}</th>
-          <th class="p-3">${lang==='ru'?'Статус':'Status'}</th>
-          <th class="p-3"></th>
-        </tr></thead>
-        <tbody>
-          ${rules.map(r => `<tr class="border-b border-slate-800">
-            <td class="p-3 font-medium">${esc(r.field)}</td>
-            <td class="p-3 text-slate-400">${esc(r.condition)}</td>
-            <td class="p-3">${esc(r.value||'(any)')}</td>
-            <td class="p-3"><span class="font-bold ${r.points>=0?'text-green-400':'text-red-400'}">${r.points>=0?'+':''}${r.points}</span></td>
-            <td class="p-3">${r.is_active ? '<span style="color:#4ade80">Active</span>' : '<span style="color:#64748b">Inactive</span>'}</td>
-            <td class="p-3"><button class="btn btn-sm btn-danger" onclick="deleteScoringRule(${r.id})">✕</button></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
+    <div class="grid gap-3">
+      ${rules.map(r => {
+        const pts = r.points;
+        const color = pts >= 0 ? '#4ade80' : '#f87171';
+        const bg = pts >= 0 ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)';
+        const icon = pts >= 0 ? '▲' : '▼';
+        return `<div class="card" style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-left:3px solid ${color};background:${bg};">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;">
+            <div style="min-width:60px;text-align:center;">
+              <span style="font-size:20px;font-weight:700;color:${color};">${pts>=0?'+':''}${pts}</span>
+              <div style="font-size:10px;color:${color};opacity:0.7;">${icon} ${_i._g('sr_pts')}</div>
+            </div>
+            <div style="border-left:1px solid rgba(148,163,184,0.2);padding-left:12px;">
+              <div style="font-size:14px;color:#e2e8f0;">${_srDescribe(r)}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.is_active ? '● ' + _i._g('sr_active') : '○ ' + _i._g('sr_inactive')}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm" onclick="showEditScoringRuleModal(${r.id},'${r.field}','${r.condition}','${esc(r.value||'')}',${r.points},${r.is_active?1:0})" style="background:rgba(99,102,241,0.15);color:#818cf8;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;" title="Redaktə">✎</button>
+            <button class="btn btn-sm" onclick="deleteScoringRule(${r.id})" style="background:rgba(239,68,68,0.15);color:#f87171;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;" title="Sil">✕</button>
+          </div>
+        </div>`;
+      }).join('')}
+      ${rules.length===0 ? `<div class="text-center text-slate-500 py-8">${_i._g('sr_empty')}</div>` : ''}
     </div>
-    <div class="mt-4">
-      <button class="btn btn-secondary" onclick="rescoreAllLeads()">${lang==='ru'?'Пересчитать все лиды':lang==='az'?'Bütün lidləri yenidən hesabla':'Rescore All Leads'}</button>
+    <div class="mt-5">
+      <button class="btn btn-secondary" onclick="rescoreAllLeads()" style="display:flex;align-items:center;gap:6px;">
+        <span>🔄</span> ${_i._g('sr_rescore')}
+      </button>
     </div>
   `;
 }
 
-function showAddScoringRuleModal() {
-  const lang = currentLang || 'en';
-  const mc = document.getElementById('modalContainer');
-  mc.innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal-content" style="max-width:450px">
-        <h2 class="text-xl font-bold mb-4">${lang==='ru'?'Новое правило скоринга':lang==='az'?'Yeni skorinq qaydası':'New Scoring Rule'}</h2>
-        <div class="space-y-3">
-          <div>
-            <label class="text-sm text-slate-400">Field</label>
-            <select id="srField" class="form-input w-full">
-              <option value="source">source</option>
-              <option value="priority">priority</option>
-              <option value="status">status</option>
-              <option value="email">email</option>
-              <option value="phone">phone</option>
-              <option value="company_name">company_name</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-sm text-slate-400">Condition</label>
-            <select id="srCondition" class="form-input w-full">
-              <option value="equals">equals</option>
-              <option value="not_empty">not_empty</option>
-              <option value="contains">contains</option>
-              <option value="greater_than">greater_than</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-sm text-slate-400">Value</label>
-            <input id="srValue" class="form-input w-full" placeholder="e.g. referral, high...">
-          </div>
-          <div>
-            <label class="text-sm text-slate-400">Points</label>
-            <input id="srPoints" type="number" class="form-input w-full" value="10">
-          </div>
-        </div>
-        <div class="flex gap-2 mt-4">
-          <button class="btn btn-primary flex-1" onclick="saveScoringRule()">Save</button>
-          <button class="btn btn-secondary flex-1" onclick="closeModal()">Cancel</button>
+function showAddScoringRuleModal(editField, editCond, editValue, editPoints, editActive) {
+  const isEdit = editField !== undefined;
+  if (!isEdit) window._srEditId = null;
+  const _fieldOpts = [
+    {v:'source',l:_i._g('fl_source'),hint:_i._g('fh_source')},
+    {v:'priority',l:_i._g('fl_priority'),hint:_i._g('fh_priority')},
+    {v:'status',l:_i._g('fl_status'),hint:_i._g('fh_status')},
+    {v:'email',l:_i._g('fl_email'),hint:_i._g('fh_email')},
+    {v:'phone',l:_i._g('fl_phone'),hint:_i._g('fh_phone')},
+    {v:'company_name',l:_i._g('fl_company'),hint:_i._g('fh_company')}
+  ];
+  const _condOpts = [
+    {v:'equals',l:_i._g('cl_equals')},
+    {v:'not_empty',l:_i._g('cl_not_empty')},
+    {v:'contains',l:_i._g('cl_contains')},
+    {v:'greater_than',l:_i._g('cl_greater')}
+  ];
+  const _presets = {
+    source: ['referral|'+_i._g('vl_referral'),'website|'+_i._g('vl_website'),'cold_call|'+_i._g('vl_cold_call'),'social_media|'+_i._g('vl_social'),'exhibition|'+_i._g('vl_exhibition')],
+    priority: ['high|'+_i._g('vl_high'),'medium|'+_i._g('vl_medium'),'low|'+_i._g('vl_low')],
+    status: ['new|'+_i._g('vl_new'),'contacted|'+_i._g('vl_contacted'),'qualified|'+_i._g('vl_qualified'),'lost|'+_i._g('vl_lost')]
+  };
+
+  showModal(`
+    <h2 class="text-xl font-bold mb-1">${isEdit ? _i._g('sr_edit_title') : _i._g('sr_add_title')}</h2>
+    <p class="text-slate-500 text-sm mb-4">${isEdit ? _i._g('sr_edit_desc') : _i._g('sr_add_desc')}</p>
+    <div class="space-y-4">
+      <div>
+        <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_field')}</label>
+        <select id="srField" class="form-input w-full" onchange="window._srFieldChanged()" style="font-size:15px;padding:10px 12px;">
+          ${_fieldOpts.map(f=>`<option value="${f.v}" ${editField===f.v?'selected':''}>${f.l} — ${f.hint}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_condition')}</label>
+        <select id="srCondition" class="form-input w-full" onchange="window._srCondChanged()" style="font-size:15px;padding:10px 12px;">
+          ${_condOpts.map(c=>`<option value="${c.v}" ${editCond===c.v?'selected':''}>${c.l}</option>`).join('')}
+        </select>
+      </div>
+      <div id="srValueWrap">
+        <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_value')}</label>
+        <select id="srValueSelect" class="form-input w-full" style="font-size:15px;padding:10px 12px;">
+          ${(_presets.source||[]).map(p=>{const[v,l]=p.split('|');return`<option value="${v}">${l}</option>`;}).join('')}
+        </select>
+        <input id="srValueInput" class="form-input w-full" placeholder="${_i._g('sr_value')}..." style="display:none;font-size:15px;padding:10px 12px;margin-top:4px;">
+      </div>
+      <div>
+        <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_points')}</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" onclick="document.getElementById('srPoints').value=Math.max(-100,parseInt(document.getElementById('srPoints').value||0)-5)" style="background:#1e293b;border:1px solid #334155;color:#f87171;width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">−</button>
+          <input id="srPoints" type="number" class="form-input text-center" value="${isEdit ? editPoints : 10}" style="font-size:20px;font-weight:700;padding:8px;width:80px;">
+          <button type="button" onclick="document.getElementById('srPoints').value=Math.min(100,parseInt(document.getElementById('srPoints').value||0)+5)" style="background:#1e293b;border:1px solid #334155;color:#4ade80;width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">+</button>
+          <span class="text-slate-500 text-sm" style="margin-left:4px;">${_i._g('sr_points_help')}</span>
         </div>
       </div>
+      ${isEdit ? `<div style="display:flex;align-items:center;gap:10px;">
+        <label class="text-sm text-slate-400">${_i._g('sr_status')}:</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="srActive" ${editActive ? 'checked' : ''} style="width:18px;height:18px;accent-color:#4ade80;">
+          <span class="text-sm" style="color:#e2e8f0;">${_i._g('sr_active')}</span>
+        </label>
+      </div>` : ''}
+      <div id="srPreview" style="background:#1e293b;border-radius:8px;padding:12px 16px;margin-top:4px;">
+        <span class="text-xs text-slate-500">${_i._g('sr_preview')}:</span>
+        <div id="srPreviewText" style="color:#e2e8f0;font-size:14px;margin-top:4px;"></div>
+      </div>
     </div>
-  `;
+    <div class="flex gap-2 mt-5">
+      <button class="btn btn-primary flex-1" onclick="saveScoringRule()" style="padding:12px;font-size:15px;">${isEdit ? _i._g('sr_update') : _i._g('sr_save')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()" style="padding:12px;font-size:15px;">${_i._g('sr_cancel')}</button>
+    </div>
+  `);
+
+  const presets = _presets;
+
+  window._srFieldChanged = function() {
+    const field = document.getElementById('srField').value;
+    const sel = document.getElementById('srValueSelect');
+    const inp = document.getElementById('srValueInput');
+    const wrap = document.getElementById('srValueWrap');
+    const cond = document.getElementById('srCondition').value;
+    if (presets[field]) {
+      sel.innerHTML = presets[field].map(p=>{const[v,l]=p.split('|');return '<option value="'+v+'">'+l+'</option>';}).join('');
+      sel.style.display = cond==='not_empty' ? 'none' : '';
+      inp.style.display = 'none';
+    } else {
+      sel.style.display = 'none';
+      inp.style.display = cond==='not_empty' ? 'none' : '';
+    }
+    if(cond==='not_empty') wrap.style.display='none'; else wrap.style.display='';
+    window._srUpdatePreview();
+  };
+
+  window._srCondChanged = function() {
+    const cond = document.getElementById('srCondition').value;
+    const wrap = document.getElementById('srValueWrap');
+    if(cond==='not_empty') wrap.style.display='none'; else { wrap.style.display=''; window._srFieldChanged(); }
+    window._srUpdatePreview();
+  };
+
+  window._srUpdatePreview = function() {
+    const field = document.getElementById('srField');
+    const cond = document.getElementById('srCondition');
+    const sel = document.getElementById('srValueSelect');
+    const inp = document.getElementById('srValueInput');
+    const pts = document.getElementById('srPoints').value;
+    const fLabel = field.options[field.selectedIndex].text.split(' — ')[0];
+    const cLabel = cond.options[cond.selectedIndex].text;
+    let vLabel = '';
+    if(cond.value !== 'not_empty') {
+      vLabel = sel.style.display!=='none' ? sel.options[sel.selectedIndex]?.text||'' : inp.value;
+    }
+    const sign = pts>=0 ? '+' : '';
+    const color = pts>=0 ? '#4ade80' : '#f87171';
+    let desc = '<b>'+fLabel+'</b> '+cLabel;
+    if(vLabel) desc += ' <span style="color:#c084fc">'+vLabel+'</span>';
+    desc += ' → <span style="color:'+color+';font-weight:700;">'+sign+pts+' bal</span>';
+    document.getElementById('srPreviewText').innerHTML = desc;
+  };
+
+  document.getElementById('srPoints').addEventListener('input', window._srUpdatePreview);
+  // If editing, set the correct field/condition/value state
+  if (isEdit) {
+    window._srFieldChanged();
+    // Set the value in select or input
+    const sel = document.getElementById('srValueSelect');
+    const inp = document.getElementById('srValueInput');
+    if (editCond !== 'not_empty' && editValue) {
+      if (sel && sel.style.display !== 'none') {
+        for (let i=0; i<sel.options.length; i++) { if(sel.options[i].value===editValue) { sel.selectedIndex=i; break; } }
+      } else if (inp) { inp.value = editValue; }
+    }
+  }
+  window._srUpdatePreview();
+}
+
+function showEditScoringRuleModal(id, field, condition, value, points, isActive) {
+  window._srEditId = id;
+  showAddScoringRuleModal(field, condition, value, points, isActive);
 }
 
 async function saveScoringRule() {
   const field = document.getElementById('srField').value;
   const condition = document.getElementById('srCondition').value;
-  const value = document.getElementById('srValue').value;
+  const sel = document.getElementById('srValueSelect');
+  const inp = document.getElementById('srValueInput');
+  const value = condition==='not_empty' ? '' : (sel && sel.style.display!=='none' ? sel.value : (inp ? inp.value : ''));
   const points = parseInt(document.getElementById('srPoints').value) || 0;
+  const isActive = document.getElementById('srActive') ? (document.getElementById('srActive').checked ? 1 : 0) : 1;
   try {
-    await api.post('/api/lead-scoring-rules', { field, condition, value, points });
+    if (window._srEditId) {
+      await api.put('/api/lead-scoring-rules/' + window._srEditId, { field, condition, value, points, is_active: isActive });
+      showToast(_i._g('sr_updated'), 'success');
+    } else {
+      await api.post('/api/lead-scoring-rules', { field, condition, value, points });
+      showToast(_i._g('sr_added'), 'success');
+    }
+    window._srEditId = null;
     closeModal();
-    showToast('Rule added', 'success');
     renderScoringRules(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function deleteScoringRule(id) {
-  if (!await confirmDialog('Delete this rule?')) return;
+  if (!await confirmDialog(_i._g('sr_del_confirm'))) return;
   try {
     await api.delete('/api/lead-scoring-rules/' + id);
-    showToast('Rule deleted', 'success');
+    showToast(_i._g('sr_deleted'), 'success');
     renderScoringRules(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
 }
@@ -10205,94 +11199,185 @@ async function deleteScoringRule(id) {
 async function rescoreAllLeads() {
   try {
     const {data} = await api.post('/api/leads/rescore-all');
-    showToast(`Rescored ${data.rescored} leads`, 'success');
+    showToast(_i._g('sr_rescored').replace('{n}', data.rescored), 'success');
   } catch(e) { showToast(e.message, 'error'); }
 }
 
 // ─── Lead Assignment Rules Page ──────────────────────────────
+function _arCFL() { return {source:_i._g('fl_source'),priority:_i._g('fl_priority'),status:_i._g('fl_status'),company_name:_i._g('fl_company')}; }
+function _arCVL() { return {website:_i._g('vl_website'),referral:_i._g('vl_referral'),cold_call:_i._g('vl_cold_call'),social_media:_i._g('vl_social'),exhibition:_i._g('vl_exhibition'),high:_i._g('vl_high'),medium:_i._g('vl_medium'),low:_i._g('vl_low')}; }
+function _arDescribeConds(conds) {
+  const entries = Object.entries(typeof conds==='string' ? JSON.parse(conds||'{}') : (conds||{}));
+  if (!entries.length) return `<span class="text-slate-500">${_i._g('ar_all_leads')}</span>`;
+  return entries.map(([k,v]) => `<b>${_arCFL()[k]||k}</b> = <span style="color:#c084fc">${_arCVL()[v]||v}</span>`).join(', ');
+}
+
 async function renderAssignmentRules(el) {
   showLoading(el);
   try {
     const rules = await api.get('/api/lead-assignment-rules');
     const users = state.allUsers || [];
+    const rulesList = rules.data || rules || [];
+    window._arRules = {};
+    rulesList.forEach(r => { window._arRules[r.id] = {id:r.id,name:r.name,conditions:r.conditions,assign_to:r.assign_to,assign_method:r.assign_method,priority:r.priority,is_active:r.is_active}; });
     el.innerHTML = `
       <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">📋 Lead Assignment Rules</h1>
-        <button class="btn btn-primary" onclick="showAddAssignmentRuleModal()">+ Add Rule</button>
+        <div>
+          <h1 class="text-2xl font-bold">${_i._g('ar_title')}</h1>
+          <p class="text-slate-500 text-sm mt-1">${_i._g('ar_subtitle')}</p>
+        </div>
+        <button class="btn btn-primary" onclick="showAssignmentRuleModal()" style="display:flex;align-items:center;gap:6px;"><span style="font-size:18px;">+</span> ${_i._g('ar_new')}</button>
       </div>
-      <div class="card p-4">
-        <table>
-          <thead><tr><th>Name</th><th>Conditions</th><th>Method</th><th>Assign To</th><th>Priority</th><th>Active</th><th>Actions</th></tr></thead>
-          <tbody>
-          ${(rules.data||rules||[]).length === 0 ? '<tr><td colspan="7" class="text-center text-slate-500">No rules yet</td></tr>' :
-            (rules.data||rules||[]).map(r => {
-              const conds = typeof r.conditions === 'string' ? JSON.parse(r.conditions || '{}') : (r.conditions || {});
-              const condStr = Object.entries(conds).map(([k,v]) => `${esc(k)}=${esc(v)}`).join(', ') || '-';
-              const assignUser = users.find(u => u.id === r.assign_to);
-              return `<tr>
-                <td class="font-medium">${esc(r.name)}</td>
-                <td class="text-xs text-slate-400">${condStr}</td>
-                <td><span class="px-2 py-1 text-xs rounded" style="background:${r.assign_method==='round_robin'?'#f59e0b33':'#6366f133'};color:${r.assign_method==='round_robin'?'#f59e0b':'#6366f1'};">${r.assign_method}</span></td>
-                <td>${r.assign_method==='round_robin'?'Round Robin':(assignUser?esc(assignUser.full_name||assignUser.username):'-')}</td>
-                <td>${r.priority}</td>
-                <td>${r.is_active?'<span style="color:#22c55e">✓</span>':'<span style="color:#ef4444">✗</span>'}</td>
-                <td><button class="btn btn-sm" style="color:#ef4444" onclick="deleteAssignmentRule(${r.id})">Delete</button></td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="grid gap-3">
+        ${rulesList.length === 0 ? `<div class="text-center text-slate-500 py-8">${_i._g('ar_empty')}</div>` :
+          rulesList.map(r => {
+            const assignUser = users.find(u => u.id === r.assign_to);
+            const isRR = r.assign_method === 'round_robin';
+            const methodColor = isRR ? '#f59e0b' : '#6366f1';
+            const methodBg = isRR ? 'rgba(245,158,11,0.1)' : 'rgba(99,102,241,0.1)';
+            return `<div class="card" style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-left:3px solid ${methodColor};background:${methodBg};">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span class="font-semibold" style="font-size:15px;color:#e2e8f0;">${esc(r.name)}</span>
+                  <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${methodBg};color:${methodColor};border:1px solid ${methodColor}33;">${isRR ? _i._g('ar_round_robin') : _i._g('ar_direct')}</span>
+                  <span style="font-size:11px;color:${r.is_active?'#4ade80':'#64748b'};">${r.is_active ? '● ' + _i._g('c_active') : '○ ' + _i._g('sr_inactive')}</span>
+                </div>
+                <div style="font-size:13px;color:#94a3b8;">
+                  ${_i._g('ar_cond')}: ${_arDescribeConds(r.conditions)} →
+                  <span style="color:#60a5fa;font-weight:500;">${isRR ? _i._g('ar_rotates') : (assignUser ? esc(assignUser.full_name||assignUser.username) : '-')}</span>
+                  <span style="color:#64748b;margin-left:8px;">${_i._g('ar_priority')}: ${r.priority}</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm" onclick="showAssignmentRuleModal(window._arRules[${r.id}])" style="background:rgba(99,102,241,0.15);color:#818cf8;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;" title="Redaktə">✎</button>
+                <button class="btn btn-sm" onclick="deleteAssignmentRule(${r.id})" style="background:rgba(239,68,68,0.15);color:#f87171;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;" title="Sil">✕</button>
+              </div>
+            </div>`;
+          }).join('')}
       </div>
     `;
   } catch(e) { el.innerHTML = `<div class="text-red-400">${e.message}</div>`; }
 }
 
-function showAddAssignmentRuleModal() {
-  const users = state.allUsers || [];
+function showAssignmentRuleModal(editData) {
+  const isEdit = !!editData;
+  const users = (state.allUsers || []).filter(u => u.role !== 'viewer');
+  const condFields = [{v:'source',l:_i._g('fl_source')},{v:'priority',l:_i._g('fl_priority')},{v:'status',l:_i._g('fl_status')}];
+  const condPresets = {
+    source: [{v:'website',l:_i._g('vl_website')},{v:'referral',l:_i._g('vl_referral')},{v:'cold_call',l:_i._g('vl_cold_call')},{v:'social_media',l:_i._g('vl_social')},{v:'exhibition',l:_i._g('vl_exhibition')}],
+    priority: [{v:'high',l:_i._g('vl_high')},{v:'medium',l:_i._g('vl_medium')},{v:'low',l:_i._g('vl_low')}],
+    status: [{v:'new',l:_i._g('vl_new')},{v:'contacted',l:_i._g('vl_contacted')},{v:'qualified',l:_i._g('vl_qualified')}]
+  };
+  let editConds = {};
+  if (isEdit) { try { editConds = typeof editData.conditions==='string' ? JSON.parse(editData.conditions||'{}') : (editData.conditions||{}); } catch(e){} }
+  const editCondField = Object.keys(editConds)[0] || '';
+  const editCondValue = editConds[editCondField] || '';
+
   showModal(`
-    <h2 class="text-xl font-bold mb-4">Add Assignment Rule</h2>
+    <h2 class="text-xl font-bold mb-1">${isEdit ? _i._g('ar_edit_title') : _i._g('ar_add_title')}</h2>
+    <p class="text-slate-500 text-sm mb-4">${isEdit ? _i._g('ar_edit_desc') : _i._g('ar_add_desc')}</p>
     <form onsubmit="saveAssignmentRule(event)">
-      <div class="mb-3"><label class="text-xs text-slate-500">Rule Name</label><input id="arName" class="w-full input-field" required placeholder="e.g. Website leads to Sales"></div>
-      <div class="mb-3"><label class="text-xs text-slate-500">Method</label>
-        <select id="arMethod" class="w-full input-field" onchange="document.getElementById('arAssignTo').style.display=this.value==='direct'?'block':'none'">
-          <option value="direct">Direct (assign to specific user)</option>
-          <option value="round_robin">Round Robin (rotate among managers)</option>
-        </select>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_name')}</label>
+          <input id="arName" class="w-full input-field" required placeholder="${_i._g('ar_name_ph')}" value="${isEdit ? esc(editData.name) : ''}" style="font-size:15px;padding:10px 12px;">
+        </div>
+        <div>
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_cond_field')}</label>
+          <select id="arCondField" class="w-full input-field" onchange="window._arCondFieldChanged()" style="font-size:15px;padding:10px 12px;">
+            <option value="">${_i._g('ar_cond_all')}</option>
+            ${condFields.map(f=>`<option value="${f.v}" ${editCondField===f.v?'selected':''}>${f.l}</option>`).join('')}
+          </select>
+        </div>
+        <div id="arCondValueWrap" style="${editCondField?'':'display:none;'}">
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_cond_value')}</label>
+          <select id="arCondValue" class="w-full input-field" style="font-size:15px;padding:10px 12px;">
+            ${(condPresets[editCondField]||[]).map(v=>`<option value="${v.v}" ${editCondValue===v.v?'selected':''}>${v.l}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_method')}</label>
+          <select id="arMethod" class="w-full input-field" onchange="document.getElementById('arAssignToWrap').style.display=this.value==='direct'?'':'none'" style="font-size:15px;padding:10px 12px;">
+            <option value="direct" ${isEdit&&editData.assign_method==='direct'?'selected':''}>${_i._g('ar_method_direct')}</option>
+            <option value="round_robin" ${isEdit&&editData.assign_method==='round_robin'?'selected':''}>${_i._g('ar_method_rr')}</option>
+          </select>
+        </div>
+        <div id="arAssignToWrap" style="${isEdit&&editData.assign_method==='round_robin'?'display:none;':''}">
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_assign_to')}</label>
+          <select id="arUser" class="w-full input-field" style="font-size:15px;padding:10px 12px;">
+            ${users.map(u=>`<option value="${u.id}" ${isEdit&&editData.assign_to===u.id?'selected':''}>${esc(u.full_name||u.username)} (${u.role})</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_priority')}</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" id="arPriority" class="input-field text-center" value="${isEdit?editData.priority:5}" style="font-size:18px;font-weight:700;padding:8px;width:80px;">
+            <span class="text-slate-500 text-sm">${_i._g('ar_prio_help')}</span>
+          </div>
+        </div>
+        ${isEdit ? `<div style="display:flex;align-items:center;gap:10px;">
+          <label class="text-sm text-slate-400">${_i._g('sr_status')}:</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="arActive" ${editData.is_active?'checked':''} style="width:18px;height:18px;accent-color:#4ade80;">
+            <span class="text-sm" style="color:#e2e8f0;">${_i._g('sr_active')}</span>
+          </label>
+        </div>` : ''}
       </div>
-      <div class="mb-3" id="arAssignTo"><label class="text-xs text-slate-500">Assign To</label>
-        <select id="arUser" class="w-full input-field">${users.map(u => `<option value="${u.id}">${esc(u.full_name||u.username)}</option>`).join('')}</select>
-      </div>
-      <div class="mb-3"><label class="text-xs text-slate-500">Conditions (JSON)</label>
-        <textarea id="arConditions" class="w-full input-field" rows="2" placeholder='{"source": "website"}'></textarea>
-      </div>
-      <div class="mb-3"><label class="text-xs text-slate-500">Priority (higher = checked first)</label><input type="number" id="arPriority" class="w-full input-field" value="0"></div>
-      <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary flex-1">Save</button>
-        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+      <div class="flex gap-2 mt-5">
+        <button type="submit" class="btn btn-primary flex-1" style="padding:12px;font-size:15px;">${isEdit ? _i._g('sr_update') : _i._g('sr_save')}</button>
+        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1" style="padding:12px;font-size:15px;">${_i._g('sr_cancel')}</button>
       </div>
     </form>
   `);
+
+  window._arEditId = isEdit ? editData.id : null;
+  const _cp = {
+    source: [{v:'website',l:_i._g('vl_website')},{v:'referral',l:_i._g('vl_referral')},{v:'cold_call',l:_i._g('vl_cold_call')},{v:'social_media',l:_i._g('vl_social')},{v:'exhibition',l:_i._g('vl_exhibition')}],
+    priority: [{v:'high',l:_i._g('vl_high')},{v:'medium',l:_i._g('vl_medium')},{v:'low',l:_i._g('vl_low')}],
+    status: [{v:'new',l:_i._g('vl_new')},{v:'contacted',l:_i._g('vl_contacted')},{v:'qualified',l:_i._g('vl_qualified')}]
+  };
+  window._arCondFieldChanged = function() {
+    const f = document.getElementById('arCondField').value;
+    const wrap = document.getElementById('arCondValueWrap');
+    const sel = document.getElementById('arCondValue');
+    if (!f) { wrap.style.display='none'; return; }
+    wrap.style.display='';
+    sel.innerHTML = (_cp[f]||[]).map(v=>'<option value="'+v.v+'">'+v.l+'</option>').join('');
+  };
 }
 
 async function saveAssignmentRule(e) {
   e.preventDefault();
-  let conds = {};
-  try { conds = JSON.parse(document.getElementById('arConditions').value || '{}'); } catch(ex) { showToast('Invalid JSON', 'error'); return; }
-  await api.post('/api/lead-assignment-rules', {
+  const condField = document.getElementById('arCondField').value;
+  const condValue = document.getElementById('arCondValue').value;
+  const conds = condField ? {[condField]: condValue} : {};
+  const data = {
     name: document.getElementById('arName').value,
     assign_method: document.getElementById('arMethod').value,
-    assign_to: parseInt(document.getElementById('arUser').value) || null,
+    assign_to: document.getElementById('arMethod').value==='direct' ? parseInt(document.getElementById('arUser').value) : null,
     conditions: conds,
     priority: parseInt(document.getElementById('arPriority').value) || 0
-  });
-  closeModal();
-  showToast('Rule created', 'success');
-  renderAssignmentRules(document.getElementById('app'));
+  };
+  const activeEl = document.getElementById('arActive');
+  if (activeEl) data.is_active = activeEl.checked ? 1 : 0;
+  try {
+    if (window._arEditId) {
+      await api.put('/api/lead-assignment-rules/' + window._arEditId, data);
+      showToast(_i._g('ar_updated'), 'success');
+    } else {
+      await api.post('/api/lead-assignment-rules', data);
+      showToast(_i._g('ar_added'), 'success');
+    }
+    window._arEditId = null;
+    closeModal();
+    renderAssignmentRules(document.getElementById('app'));
+  } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function deleteAssignmentRule(id) {
-  if (!confirm('Delete this rule?')) return;
-  await api.delete(`/api/lead-assignment-rules/${id}`);
-  showToast('Rule deleted', 'success');
+  if (!confirm(_i._g('ar_del_confirm'))) return;
+  await api.delete('/api/lead-assignment-rules/' + id);
+  showToast(_i._g('ar_deleted'), 'success');
   renderAssignmentRules(document.getElementById('app'));
 }
 
@@ -10300,29 +11385,29 @@ async function deleteAssignmentRule(id) {
 async function renderWebToLead(el) {
   const baseUrl = window.location.origin;
   el.innerHTML = `
-    <h1 class="text-2xl font-bold mb-6">🌐 Web-to-Lead Form</h1>
+    <h1 class="text-2xl font-bold mb-6">🌐 ${_i._g('wl_title')}</h1>
     <div class="grid md:grid-cols-2 gap-6">
       <div class="card p-5">
-        <h3 class="text-lg font-semibold mb-3">Embed Code</h3>
-        <p class="text-sm text-slate-400 mb-3">Add this script tag to your website to show a lead capture form:</p>
+        <h3 class="text-lg font-semibold mb-3">${_i._g('wl_embed')}</h3>
+        <p class="text-sm text-slate-400 mb-3">${_i._g('wl_embed_desc')}</p>
         <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#94a3b8;word-break:break-all;">
           &lt;div id="hermes-lead-form"&gt;&lt;/div&gt;<br>
           &lt;script src="${baseUrl}/api/public/leads/widget.js"&gt;&lt;/script&gt;
         </div>
-        <button class="btn btn-primary mt-3" onclick="navigator.clipboard.writeText('<div id=\\'hermes-lead-form\\'></div>\\n<scr'+'ipt src=\\'${baseUrl}/api/public/leads/widget.js\\'></scr'+'ipt>');showToast('Copied!','success')">Copy to Clipboard</button>
+        <button class="btn btn-primary mt-3" onclick="navigator.clipboard.writeText('<div id=\\'hermes-lead-form\\'></div>\\n<scr'+'ipt src=\\'${baseUrl}/api/public/leads/widget.js\\'></scr'+'ipt>');showToast(_i._g('wl_copied'),'success')">${_i._g('wl_copy')}</button>
       </div>
       <div class="card p-5">
-        <h3 class="text-lg font-semibold mb-3">API Endpoint</h3>
-        <p class="text-sm text-slate-400 mb-3">For custom integrations, POST JSON to:</p>
+        <h3 class="text-lg font-semibold mb-3">${_i._g('wl_api')}</h3>
+        <p class="text-sm text-slate-400 mb-3">${_i._g('wl_api_desc')}</p>
         <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#94a3b8;">
           POST ${baseUrl}/api/public/leads
         </div>
-        <p class="text-sm text-slate-400 mt-3">Fields: company_name, contact_name, email, phone, message</p>
-        <p class="text-sm text-slate-400 mt-1">Rate limit: 5 per IP per hour</p>
+        <p class="text-sm text-slate-400 mt-3">${_i._g('wl_fields')}</p>
+        <p class="text-sm text-slate-400 mt-1">${_i._g('wl_rate')}</p>
       </div>
     </div>
     <div class="card p-5 mt-6">
-      <h3 class="text-lg font-semibold mb-3">Preview</h3>
+      <h3 class="text-lg font-semibold mb-3">${_i._g('wl_preview')}</h3>
       <div id="hermes-lead-form" style="max-width:400px;"></div>
     </div>
   `;
@@ -10345,22 +11430,22 @@ async function loadDealTeam(dealId) {
 async function addDealTeamMember(dealId) {
   const users = state.allUsers || [];
   showModal(`
-    <h2 class="text-xl font-bold mb-4">Add Team Member</h2>
+    <h2 class="text-xl font-bold mb-4">${_i._g('dt_add')}</h2>
     <form onsubmit="saveDealTeamMember(event, ${dealId})">
-      <div class="mb-3"><label class="text-xs text-slate-500">User</label>
+      <div class="mb-3"><label class="text-xs text-slate-500">${_i._g('dt_user')}</label>
         <select id="dtmUser" class="w-full input-field">${users.map(u => `<option value="${u.id}">${esc(u.full_name||u.username)}</option>`).join('')}</select>
       </div>
-      <div class="mb-3"><label class="text-xs text-slate-500">Role</label>
+      <div class="mb-3"><label class="text-xs text-slate-500">${_i._g('dt_role')}</label>
         <select id="dtmRole" class="w-full input-field">
-          <option value="owner">Owner</option>
-          <option value="sales_engineer">Sales Engineer</option>
-          <option value="account_manager">Account Manager</option>
-          <option value="member" selected>Member</option>
+          <option value="owner">${_i._g('dt_role_owner')}</option>
+          <option value="sales_engineer">${_i._g('dt_role_se')}</option>
+          <option value="account_manager">${_i._g('dt_role_am')}</option>
+          <option value="member" selected>${_i._g('dt_role_member')}</option>
         </select>
       </div>
       <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary flex-1">Add</button>
-        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+        <button type="submit" class="btn btn-primary flex-1">${_i._g('dt_add_btn')}</button>
+        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">${_i._g('sr_cancel')}</button>
       </div>
     </form>
   `);
@@ -10373,12 +11458,1333 @@ async function saveDealTeamMember(e, dealId) {
     role: document.getElementById('dtmRole').value
   });
   closeModal();
-  showToast('Team member added', 'success');
+  showToast(_i._g('dt_added'), 'success');
 }
 
 async function removeDealTeamMember(dealId, memberId) {
   await api.delete(`/api/deals/${dealId}/team/${memberId}`);
-  showToast('Removed', 'success');
+  showToast(_i._g('dt_removed'), 'success');
+}
+
+// ─── ADMIN: Pipeline Stages ──────────────────────────────────
+async function renderPipelineStagesAdmin(el) {
+  showLoading(el);
+  const {data: stages} = await api.get('/api/pipeline-stages');
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">${_i._g('ps_title')}</h1>
+        <p class="text-slate-400 text-sm mt-1">${_i._g('ps_subtitle')}</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="showPipelineStageModal()">${_i._g('ps_new')}</button>
+    </div>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left p-3">${_i._g('ps_order')}</th>
+            <th class="text-left p-3">${_i._g('ps_name')}</th>
+            <th class="text-left p-3">${_i._g('ps_display')}</th>
+            <th class="text-left p-3">${_i._g('ps_color')}</th>
+            <th class="text-left p-3">${_i._g('ps_probability')}</th>
+            <th class="text-left p-3">WON/LOST</th>
+            <th class="text-right p-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${!stages.length ? `<tr><td colspan="7" class="p-6 text-center text-slate-500">${_i._g('ps_empty')}</td></tr>` :
+            stages.map(s => `<tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
+              <td class="p-3 text-slate-400">${s.sort_order}</td>
+              <td class="p-3 font-mono font-semibold">${esc(s.name)}</td>
+              <td class="p-3">${esc(currentLang==='ru'?(s.display_name_ru||s.display_name):currentLang==='az'?(s.display_name_az||s.display_name):s.display_name)}</td>
+              <td class="p-3"><span class="inline-block w-6 h-6 rounded" style="background:${s.color}"></span> <span class="text-slate-400 text-xs">${s.color}</span></td>
+              <td class="p-3">${s.probability}%</td>
+              <td class="p-3">${s.is_won ? '<span class="text-green-400">WON</span>' : s.is_lost ? '<span class="text-red-400">LOST</span>' : '—'}</td>
+              <td class="p-3 text-right">
+                <button class="btn btn-sm btn-secondary" onclick="showPipelineStageModal(${s.id})">✏️</button>
+                <button class="btn btn-sm btn-danger ml-1" onclick="deletePipelineStage(${s.id})">🗑️</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function showPipelineStageModal(id) {
+  let stage = null;
+  if (id) {
+    const {data:stages} = await api.get('/api/pipeline-stages');
+    stage = stages.find(s => s.id === id);
+  }
+  const isEdit = !!stage;
+  const mc = document.getElementById('modalContainer');
+  mc.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal-content" style="max-width:500px">
+        <h2 class="text-xl font-bold mb-4">${isEdit ? _i._g('ps_edit_title') : _i._g('ps_add_title')}</h2>
+        <div class="space-y-3">
+          <div><label class="text-sm text-slate-400">${_i._g('ps_name')}</label>
+            <input id="psName" class="form-input w-full" value="${isEdit?esc(stage.name):''}" placeholder="e.g. QUALIFIED" ${isEdit?'readonly style="opacity:0.6"':''}></div>
+          <div><label class="text-sm text-slate-400">${_i._g('ps_display')} (EN)</label>
+            <input id="psDisplay" class="form-input w-full" value="${isEdit?esc(stage.display_name):''}"></div>
+          <div><label class="text-sm text-slate-400">${_i._g('ps_display_ru')}</label>
+            <input id="psDisplayRu" class="form-input w-full" value="${isEdit?esc(stage.display_name_ru||''):''}"></div>
+          <div><label class="text-sm text-slate-400">${_i._g('ps_display_az')}</label>
+            <input id="psDisplayAz" class="form-input w-full" value="${isEdit?esc(stage.display_name_az||''):''}"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-sm text-slate-400">${_i._g('ps_color')}</label>
+              <input id="psColor" type="color" class="form-input w-full h-10" value="${isEdit?stage.color:'#6366f1'}"></div>
+            <div><label class="text-sm text-slate-400">${_i._g('ps_probability')}</label>
+              <input id="psProb" type="number" class="form-input w-full" min="0" max="100" value="${isEdit?stage.probability:0}"></div>
+          </div>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2"><input type="checkbox" id="psIsWon" ${isEdit&&stage.is_won?'checked':''}> ${_i._g('ps_is_won')}</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="psIsLost" ${isEdit&&stage.is_lost?'checked':''}> ${_i._g('ps_is_lost')}</label>
+          </div>
+          ${!isEdit ? `<div><label class="text-sm text-slate-400">${_i._g('ps_order')}</label>
+            <input id="psOrder" type="number" class="form-input w-full" min="1" max="20" value="7"></div>` : ''}
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button class="btn btn-primary flex-1" onclick="savePipelineStage(${isEdit?stage.id:'null'})">${isEdit?_i._g('c_update'):_i._g('c_save')}</button>
+          <button class="btn btn-secondary flex-1" onclick="closeModal()">${_i._g('c_cancel')}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function savePipelineStage(id) {
+  const payload = {
+    name: document.getElementById('psName').value.trim().toUpperCase(),
+    display_name: document.getElementById('psDisplay').value.trim(),
+    display_name_ru: document.getElementById('psDisplayRu').value.trim(),
+    display_name_az: document.getElementById('psDisplayAz').value.trim(),
+    color: document.getElementById('psColor').value,
+    probability: parseInt(document.getElementById('psProb').value) || 0,
+    is_won: document.getElementById('psIsWon').checked ? 1 : 0,
+    is_lost: document.getElementById('psIsLost').checked ? 1 : 0,
+  };
+  if (!id) {
+    const orderEl = document.getElementById('psOrder');
+    if (orderEl) payload.sort_order = parseInt(orderEl.value) || 7;
+  }
+  if (!payload.name || !payload.display_name) {
+    showToast('Name and display name required', 'error'); return;
+  }
+  try {
+    if (id) {
+      await api.put('/api/pipeline-stages/' + id, payload);
+      showToast(_i._g('ps_updated'), 'success');
+    } else {
+      await api.post('/api/pipeline-stages', payload);
+      showToast(_i._g('ps_added'), 'success');
+    }
+    closeModal();
+    renderPipelineStagesAdmin(document.getElementById('app'));
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+async function deletePipelineStage(id) {
+  if (!confirm(_i._g('ps_del_confirm'))) return;
+  try {
+    await api.delete('/api/pipeline-stages/' + id);
+    showToast(_i._g('ps_deleted'), 'success');
+    renderPipelineStagesAdmin(document.getElementById('app'));
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+// ─── User Management Page ────────────────────────────────────
+async function renderUserManagement(el) {
+  const user = state.user || {};
+  const admin = isAdmin();
+
+  // Build admin links - these were previously in the user dropdown
+  const adminLinks = [
+    {hash:'#/users', icon:'👥', key:'nav_users', label:'Users'},
+    {hash:'#/roles', icon:'🔑', key:'nav_roles', label:'Roles'},
+    {hash:'#/audit-log', icon:'📋', key:'nav_audit', label:'Audit Log'},
+    {hash:'#/scoring-rules', icon:'📊', key:'nav_scoring', label:'Lead Scoring'},
+    {hash:'#/assignment-rules', icon:'📌', key:'nav_assign', label:'Assignment Rules'},
+    {hash:'#/web-to-lead', icon:'🌐', key:'nav_weblead', label:'Web-to-Lead'},
+    {hash:'#/pipeline-stages', icon:'🔄', key:'nav_pipeline_stages', label:'Pipeline Stages'},
+    {hash:'#/notifications', icon:'🔔', key:'nav_notifications_page', label:'Notifications'},
+    {hash:'#/notification-preferences', icon:'⚙️', key:'nav_notif_prefs', label:'Notification Settings'},
+    {hash:'#/sla-policies', icon:'⏱️', key:'nav_sla', label:'SLA Policies'},
+  ];
+
+  let adminHtml = '';
+  if (admin) {
+    const links = adminLinks.map(l =>
+      `<a href="${l.hash}" class="card p-4 flex items-center gap-3 hover:bg-slate-700/50 transition-colors cursor-pointer" style="text-decoration:none;color:inherit;">
+        <span style="font-size:24px;">${l.icon}</span>
+        <span class="font-medium">${t(l.key) || l.label}</span>
+      </a>`
+    ).join('');
+    adminHtml = `
+      <div class="card p-6 mt-6">
+        <h3 class="text-lg font-semibold mb-4">${_i._g('um_admin_section')}</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
+          ${links}
+        </div>
+      </div>`;
+  }
+
+  // Security section (available to all users)
+  const securityHtml = `
+    <div class="card p-6 mt-6">
+      <h3 class="text-lg font-semibold mb-4">${_i._g('um_security_section')}</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
+        <div class="card p-4 flex items-center gap-3 hover:bg-slate-700/50 transition-colors cursor-pointer" onclick="showChangePasswordModal()" style="cursor:pointer;">
+          <span style="font-size:24px;">🔒</span>
+          <span class="font-medium">${t('change_password')}</span>
+        </div>
+        <div class="card p-4 flex items-center gap-3 hover:bg-slate-700/50 transition-colors cursor-pointer" onclick="show2FASettingsModal()" style="cursor:pointer;">
+          <span style="font-size:24px;">🔐</span>
+          <span class="font-medium">${t('nav_2fa')}</span>
+        </div>
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <h2 class="text-2xl font-bold mb-6">${_i._g('nav_user_management')}</h2>
+
+    <div class="card p-6">
+      <h3 class="text-lg font-semibold mb-4">${_i._g('um_profile_section')}</h3>
+      <div style="max-width:500px;">
+        <label class="block text-sm text-slate-400 mb-1">${_i._g('um_display_name')}</label>
+        <input type="text" id="umDisplayName" class="form-input" value="${esc(user.full_name || '')}" placeholder="${_i._g('um_display_name')}">
+        <p class="text-xs text-slate-500 mt-1">Email: ${esc(user.email || user.username || '')}</p>
+      </div>
+      <button class="btn btn-primary mt-4" onclick="saveUserProfile()">${_i._g('um_save_profile')}</button>
+    </div>
+
+    ${securityHtml}
+    ${adminHtml}
+  `;
+
+}
+
+async function saveUserProfile() {
+  const fullName = (document.getElementById('umDisplayName')?.value || '').trim();
+  if (!fullName) { showToast('Name is required', 'error'); return; }
+  try {
+    await api.put('/api/users/me/profile', {
+      full_name: fullName
+    });
+    // Update local state
+    state.user.full_name = fullName;
+    updateUserMenuVisibility();
+    showToast(_i._g('um_profile_saved'), 'success');
+  } catch(e) {
+    showToast(e.message || 'Error', 'error');
+  }
+}
+
+// ─── Phase 3: Tickets Page ──────────────────────────────────
+async function renderTicketsPage(el) {
+  const _tf = window._ticketFilter || 'all';
+  const [{data:tickets}, {data:stats}] = await Promise.all([
+    api.get('/api/tickets' + (_tf !== 'all' ? '?status=' + _tf : '')),
+    api.get('/api/tickets/stats'),
+  ]);
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+
+  const statusColors = {open:'#3b82f6',in_progress:'#f59e0b',waiting:'#8b5cf6',resolved:'#22c55e',closed:'#64748b'};
+  const statusLabels = {open:_t('Open','Открыт','Açıq'), in_progress:_t('In Progress','В работе','İcrada'), waiting:_t('Waiting','Ожидание','Gözləmədə'), resolved:_t('Resolved','Решён','Həll olunub'), closed:_t('Closed','Закрыт','Bağlı')};
+  const prioColors = {critical:'#dc2626',high:'#f59e0b',medium:'#3b82f6',low:'#64748b'};
+  const prioLabels = {critical:'🔴 Critical',high:'🟠 High',medium:'🔵 Medium',low:'⚪ Low'};
+
+  const tabBtn = (key, label, count) => {
+    const active = _tf === key;
+    const color = statusColors[key] || '#6366f1';
+    return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900':''}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._ticketFilter='${key}';renderTicketsPage(document.getElementById('app'))">${label} <span class="opacity-70">(${count})</span></button>`;
+  };
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('nav_tickets')} <span class="text-slate-500 text-lg font-normal">(${stats.total||0})</span></h1>
+      <button class="btn btn-primary btn-sm" onclick="showCreateTicketModal()">+ ${_t('New Ticket','Новый тикет','Yeni tiket')}</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="card p-4 text-center"><div class="text-2xl font-bold text-blue-400">${stats.open||0}</div><div class="text-xs text-slate-400">${statusLabels.open}</div></div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold text-yellow-400">${stats.in_progress||0}</div><div class="text-xs text-slate-400">${statusLabels.in_progress}</div></div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold text-green-400">${stats.resolved||0}</div><div class="text-xs text-slate-400">${statusLabels.resolved}</div></div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold text-red-400">${stats.breached||0}</div><div class="text-xs text-slate-400">SLA ${_t('Breached','Нарушен','Pozuldu')}</div></div>
+    </div>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      ${tabBtn('all', _t('All','Все','Hamısı'), stats.total||0)}
+      ${tabBtn('open', statusLabels.open, stats.open||0)}
+      ${tabBtn('in_progress', statusLabels.in_progress, stats.in_progress||0)}
+      ${tabBtn('waiting', statusLabels.waiting, stats.waiting||0)}
+      ${tabBtn('resolved', statusLabels.resolved, stats.resolved||0)}
+      ${tabBtn('closed', statusLabels.closed, stats.closed||0)}
+    </div>
+    <div class="space-y-2">
+      ${tickets.length === 0 ? `<div class="card p-8 text-center text-slate-500">${_t('No tickets yet','Тикетов нет','Tiket yoxdur')}</div>` :
+        tickets.map(tk => `
+          <div class="card p-4 cursor-pointer hover:border-indigo-500 transition flex items-center gap-4" onclick="showTicketDetail(${tk.id})">
+            <div style="min-width:40px;text-align:center;">
+              <span style="font-size:10px;font-weight:700;color:${statusColors[tk.status]||'#64748b'};background:${statusColors[tk.status]||'#64748b'}20;padding:2px 8px;border-radius:6px;">${(statusLabels[tk.status]||tk.status).toUpperCase()}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold truncate">#${tk.id} ${esc(tk.subject)}</div>
+              <div class="text-xs text-slate-500 mt-1">
+                ${tk.company_name ? '<span>🏢 '+esc(tk.company_name)+'</span> · ' : ''}
+                ${tk.assigned_name ? '<span>👤 '+esc(tk.assigned_name)+'</span> · ' : '<span style="color:#ef4444">⚠ '+_t('Unassigned','Не назначен','Təyin edilməyib')+'</span> · '}
+                <span>${tk.created_at ? tk.created_at.substring(0,10) : ''}</span>
+              </div>
+            </div>
+            <div style="min-width:70px;text-align:right;">
+              <span style="font-size:11px;font-weight:600;color:${prioColors[tk.priority]||'#64748b'}">${prioLabels[tk.priority]||tk.priority}</span>
+              ${tk.sla_breach ? '<div style="font-size:10px;color:#ef4444;font-weight:700;margin-top:2px;">⚠ SLA</div>' : ''}
+            </div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+function showCreateTicketModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${_t('New Ticket','Новый тикет','Yeni tiket')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${_t('Subject','Тема','Mövzu')}</label>
+        <input id="tkSubject" class="form-input w-full" placeholder="${_t('Ticket subject','Тема тикета','Tiketin mövzusu')}"></div>
+      <div><label class="text-sm text-slate-400">${_t('Description','Описание','Təsvir')}</label>
+        <textarea id="tkDescription" class="form-input w-full" rows="4" placeholder="${_t('Describe the issue...','Опишите проблему...','Problemi təsvir edin...')}"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${_t('Priority','Приоритет','Prioritet')}</label>
+          <select id="tkPriority" class="form-input w-full">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select></div>
+        <div><label class="text-sm text-slate-400">${_t('Category','Категория','Kateqoriya')}</label>
+          <select id="tkCategory" class="form-input w-full">
+            <option value="general">${_t('General','Общее','Ümumi')}</option>
+            <option value="technical">${_t('Technical','Техническая','Texniki')}</option>
+            <option value="billing">${_t('Billing','Биллинг','Ödəniş')}</option>
+            <option value="feature_request">${_t('Feature Request','Запрос фичи','Yeni funksiya')}</option>
+          </select></div>
+      </div>
+      <div><label class="text-sm text-slate-400">${_t('Company','Компания','Şirkət')}</label>
+        <select id="tkCompanyId" class="form-input w-full">
+          <option value="">${_t('— Select company —','— Выберите компанию —','— Şirkət seçin —')}</option>
+        </select></div>
+      <div><label class="text-sm text-slate-400">${_t('Assign to','Назначить','Təyin et')}</label>
+        <select id="tkAssignedTo" class="form-input w-full">
+          <option value="">${_t('— Not assigned —','— Не назначен —','— Təyin edilməyib —')}</option>
+        </select></div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewTicket()">${_t('Create','Создать','Yarat')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${_t('Cancel','Отмена','Ləğv et')}</button>
+    </div>
+  `);
+  // Load companies dropdown
+  api.get('/api/companies?limit=500').then(({data}) => {
+    const sel = document.getElementById('tkCompanyId');
+    if (sel && data) data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.name + (c.industry ? ' (' + c.industry + ')' : '');
+      sel.appendChild(opt);
+    });
+  }).catch(()=>{});
+  // Load users dropdown
+  api.get('/api/users').then(({data}) => {
+    const sel = document.getElementById('tkAssignedTo');
+    if (sel && data) data.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id; opt.textContent = u.full_name || u.username;
+      sel.appendChild(opt);
+    });
+  }).catch(()=>{});
+}
+
+async function saveNewTicket() {
+  const subject = document.getElementById('tkSubject')?.value?.trim();
+  if (!subject) { showToast('Subject required', 'error'); return; }
+  try {
+    const compId = parseInt(document.getElementById('tkCompanyId')?.value) || null;
+    const assignId = parseInt(document.getElementById('tkAssignedTo')?.value) || null;
+    await api.post('/api/tickets', {
+      subject,
+      description: document.getElementById('tkDescription')?.value?.trim() || '',
+      priority: document.getElementById('tkPriority')?.value || 'medium',
+      category: document.getElementById('tkCategory')?.value || 'general',
+      company_id: compId,
+      assigned_to: assignId,
+    });
+    closeModal();
+    showToast('Ticket created', 'success');
+    renderTicketsPage(document.getElementById('app'));
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function showTicketDetail(ticketId) {
+  const {data: tk} = await api.get('/api/tickets/' + ticketId);
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const statusLabels = {open:_t('Open','Открыт','Açıq'), in_progress:_t('In Progress','В работе','İcrada'), waiting:_t('Waiting','Ожидание','Gözləmədə'), resolved:_t('Resolved','Решён','Həll olunub'), closed:_t('Closed','Закрыт','Bağlı')};
+  const statusColors = {open:'#3b82f6',in_progress:'#f59e0b',waiting:'#8b5cf6',resolved:'#22c55e',closed:'#64748b'};
+
+  const slaInfo = tk.sla ? `
+    <div style="background:#1e293b;border-radius:8px;padding:10px;margin-top:12px;">
+      <div class="text-xs text-slate-400 font-semibold mb-1">SLA: ${esc(tk.sla.name)}</div>
+      <div class="text-xs text-slate-500">${_t('First response','Первый ответ','İlk cavab')}: ${tk.sla.first_response_hours}h · ${_t('Resolution','Решение','Həll')}: ${tk.sla.resolution_hours}h</div>
+      ${tk.sla_breach ? '<div style="color:#ef4444;font-size:11px;font-weight:700;margin-top:4px;">⚠ SLA BREACHED</div>' : '<div style="color:#22c55e;font-size:11px;margin-top:4px;">✓ '+_t('Within SLA','В рамках SLA','SLA daxilində')+'</div>'}
+    </div>` : '';
+
+  const comments = (tk.comments || []).map(c => `
+    <div style="border-left:3px solid ${c.is_internal?'#f59e0b':'#6366f1'};padding:8px 12px;margin-bottom:8px;background:#1e293b;border-radius:0 8px 8px 0;">
+      <div class="flex justify-between text-xs text-slate-500 mb-1">
+        <span class="font-semibold" style="color:${c.is_internal?'#fcd34d':'#a5b4fc'}">${esc(c.user_name||'System')} ${c.is_internal?'('+_t('Internal','Внутр.','Daxili')+')':''}</span>
+        <span>${c.created_at?c.created_at.substring(0,16):''}</span>
+      </div>
+      <div class="text-sm">${esc(c.content)}</div>
+    </div>
+  `).join('');
+
+  showModal(`
+    <div class="flex justify-between items-start mb-4">
+      <div>
+        <h2 class="text-xl font-bold">#${tk.id} ${esc(tk.subject)}</h2>
+        <div class="flex gap-2 mt-1">
+          <span style="font-size:11px;font-weight:700;color:${statusColors[tk.status]||'#64748b'};background:${statusColors[tk.status]||'#64748b'}20;padding:2px 10px;border-radius:8px;">${statusLabels[tk.status]||tk.status}</span>
+          <span style="font-size:11px;color:#94a3b8;">${_t('by','от','tərəfindən')} ${esc(tk.creator_name||'—')} · ${tk.created_at?tk.created_at.substring(0,10):''}</span>
+        </div>
+      </div>
+      <button onclick="closeModal()" class="text-slate-500 hover:text-slate-300 text-xl">&times;</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+      <div><span class="text-slate-500">${_t('Company','Компания','Şirkət')}:</span> <span class="font-medium">${esc(tk.company_name||'—')}</span></div>
+      <div><span class="text-slate-500">${_t('Assigned','Назначен','Təyin')}: </span><span class="font-medium">${esc(tk.assigned_name||_t('Unassigned','Не назначен','Təyin edilməyib'))}</span></div>
+      <div><span class="text-slate-500">${_t('Priority','Приоритет','Prioritet')}:</span> <span class="font-medium">${tk.priority}</span></div>
+      <div><span class="text-slate-500">${_t('Category','Категория','Kateqoriya')}:</span> <span class="font-medium">${tk.category}</span></div>
+    </div>
+    ${tk.description ? `<div class="card p-3 mb-4 text-sm">${esc(tk.description)}</div>` : ''}
+    ${slaInfo}
+    <div class="mt-4">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="font-semibold text-sm">${_t('Comments','Комментарии','Şərhlər')} (${(tk.comments||[]).length})</h3>
+      </div>
+      <div class="max-h-60 overflow-y-auto mb-3">${comments || '<p class="text-slate-500 text-sm">'+_t('No comments','Нет комментариев','Şərh yoxdur')+'</p>'}</div>
+      <textarea id="tkComment" class="form-input w-full" rows="2" placeholder="${_t('Add a comment...','Добавить комментарий...','Şərh əlavə edin...')}"></textarea>
+      <div class="flex gap-2 mt-2">
+        <button class="btn btn-primary btn-sm" onclick="addTicketComment(${tk.id},false)">${_t('Reply','Ответить','Cavab')}</button>
+        <button class="btn btn-sm" style="background:#78350f;color:#fcd34d;" onclick="addTicketComment(${tk.id},true)">${_t('Internal Note','Внутр. заметка','Daxili qeyd')}</button>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4 flex-wrap" style="border-top:1px solid #334155;padding-top:12px;">
+      <select id="tkStatusChange" class="form-input" style="width:auto;">
+        ${['open','in_progress','waiting','resolved','closed'].map(s=>'<option value="'+s+'" '+(s===tk.status?'selected':'')+'>'+( statusLabels[s]||s)+'</option>').join('')}
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="updateTicketStatus(${tk.id})">${_t('Update Status','Обновить статус','Statusu yenilə')}</button>
+    </div>
+  `);
+}
+
+async function addTicketComment(ticketId, isInternal) {
+  const content = document.getElementById('tkComment')?.value?.trim();
+  if (!content) return;
+  try {
+    await api.post('/api/tickets/' + ticketId + '/comments', { content, is_internal: isInternal });
+    showTicketDetail(ticketId);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function updateTicketStatus(ticketId) {
+  const status = document.getElementById('tkStatusChange')?.value;
+  try {
+    await api.put('/api/tickets/' + ticketId, { status });
+    closeModal();
+    showToast('Status updated', 'success');
+    renderTicketsPage(document.getElementById('app'));
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Phase 3: Knowledge Base Page ───────────────────────────
+// Multi-language article helper: title "EN / RU / AZ", content "## EN:...\n## RU:...\n## AZ:..."
+function _kbLangTitle(title) {
+  const parts = (title || '').split(' / ');
+  const L = currentLang;
+  if (parts.length >= 3) return L==='ru'?parts[1]:L==='az'?parts[2]:parts[0];
+  if (parts.length === 2) return L==='ru'?parts[1]:parts[0];
+  return title;
+}
+function _kbLangContent(content) {
+  const L = currentLang;
+  const key = L==='ru'?'## RU:':L==='az'?'## AZ:':'## EN:';
+  const idx = (content||'').indexOf(key);
+  if (idx === -1) return content || '';
+  let text = content.substring(idx + key.length);
+  // Cut off at next ## XX: section
+  const nextMatch = text.match(/\n## (EN|RU|AZ):/);
+  if (nextMatch) text = text.substring(0, nextMatch.index);
+  return text.trim();
+}
+function _kbStatusLabel(status) {
+  const L = currentLang;
+  if (status === 'published') return L==='ru'?'опубликовано':L==='az'?'dərc olunub':'published';
+  return L==='ru'?'черновик':L==='az'?'qaralama':'draft';
+}
+function _kbCatLabel(cat) {
+  const L = currentLang;
+  const m = {
+    general: L==='ru'?'Общее':L==='az'?'Ümumi':'General',
+    technical: L==='ru'?'Техническое':L==='az'?'Texniki':'Technical',
+    faq: 'FAQ',
+    getting_started: L==='ru'?'Начало работы':L==='az'?'Başlanğıc':'Getting Started',
+    troubleshooting: L==='ru'?'Устранение неполадок':L==='az'?'Problemlərin həlli':'Troubleshooting',
+    tutorial: L==='ru'?'Руководство':L==='az'?'Dərslik':'Tutorial',
+    billing: L==='ru'?'Биллинг':L==='az'?'Ödəniş':'Billing'
+  };
+  return m[cat] || cat;
+}
+
+async function renderKnowledgeBase(el) {
+  const _kf = window._kbFilter || 'all';
+  const {data: articles} = await api.get('/api/kb/articles' + (_kf !== 'all' ? '?status=' + _kf : ''));
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const catIcons = {general:'📚',technical:'⚙️',billing:'💳',faq:'❓',tutorial:'📖',getting_started:'🚀',troubleshooting:'🔧'};
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('nav_kb')} <span class="text-slate-500 text-lg font-normal">(${articles.length})</span></h1>
+      ${isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="showCreateArticleModal()">+ ${_t('New Article','Новая статья','Yeni məqalə')}</button>` : ''}
+    </div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn btn-sm ${_kf==='all'?'btn-primary':'btn-secondary'}" onclick="window._kbFilter='all';renderKnowledgeBase(document.getElementById('app'))">${_t('All','Все','Hamısı')}</button>
+      <button class="btn btn-sm ${_kf==='published'?'btn-primary':'btn-secondary'}" onclick="window._kbFilter='published';renderKnowledgeBase(document.getElementById('app'))">${_t('Published','Опубликовано','Dərc olunub')}</button>
+      ${isAdmin() ? `<button class="btn btn-sm ${_kf==='draft'?'btn-primary':'btn-secondary'}" onclick="window._kbFilter='draft';renderKnowledgeBase(document.getElementById('app'))">${_t('Drafts','Черновики','Qaralamalar')}</button>` : ''}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      ${articles.length === 0 ? `<div class="col-span-full card p-8 text-center text-slate-500">${_t('No articles yet','Статей нет','Məqalə yoxdur')}</div>` :
+        articles.map(a => {
+          const lTitle = _kbLangTitle(a.title);
+          const lContent = _kbLangContent(a.content);
+          const preview = lContent.substring(0, 120).replace(/^#+\s*/g,'');
+          return `
+          <div class="card p-5 cursor-pointer hover:border-indigo-500 transition" onclick="showArticleDetail(${a.id})">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="font-semibold">${catIcons[a.category]||'📚'} ${esc(lTitle)}</h3>
+              <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:600;background:${a.status==='published'?'#14532d':'#78350f'};color:${a.status==='published'?'#4ade80':'#fcd34d'}">${_kbStatusLabel(a.status)}</span>
+            </div>
+            <div class="text-xs mb-2" style="color:#64748b">${_kbCatLabel(a.category)}</div>
+            <p class="text-sm text-slate-400 mt-1 line-clamp-2">${esc(preview)}${lContent.length>120?'...':''}</p>
+            <div class="flex justify-between mt-3 text-xs text-slate-500">
+              <span>👤 ${esc(a.author_name||'—')}</span>
+              <div class="flex gap-3">
+                <span>👁 ${a.views||0}</span>
+                <span>👍 ${a.helpful_yes||0}</span>
+                <span>👎 ${a.helpful_no||0}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+    </div>
+  `;
+}
+
+function showCreateArticleModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${_t('New Article','Новая статья','Yeni məqalə')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${_t('Title','Заголовок','Başlıq')}</label>
+        <input id="kbTitle" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${_t('Content','Содержание','Məzmun')}</label>
+        <textarea id="kbContent" class="form-input w-full" rows="8" placeholder="${_t('Article content (Markdown supported)...','Содержание статьи (Markdown)...','Məqalə məzmunu (Markdown)...')}"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${_t('Category','Категория','Kateqoriya')}</label>
+          <select id="kbCategory" class="form-input w-full">
+            <option value="general">${_t('General','Общее','Ümumi')}</option>
+            <option value="technical">${_t('Technical','Техническое','Texniki')}</option>
+            <option value="billing">${_t('Billing','Биллинг','Ödəniş')}</option>
+            <option value="faq">FAQ</option>
+            <option value="tutorial">${_t('Tutorial','Руководство','Dərslik')}</option>
+          </select></div>
+        <div><label class="text-sm text-slate-400">${_t('Status','Статус','Status')}</label>
+          <select id="kbStatus" class="form-input w-full">
+            <option value="draft">${_t('Draft','Черновик','Qaralama')}</option>
+            <option value="published">${_t('Published','Опубликовано','Dərc olunub')}</option>
+          </select></div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewArticle()">${_t('Save','Сохранить','Yadda saxla')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${_t('Cancel','Отмена','Ləğv et')}</button>
+    </div>
+  `);
+}
+
+async function saveNewArticle() {
+  const title = document.getElementById('kbTitle')?.value?.trim();
+  if (!title) { showToast('Title required', 'error'); return; }
+  try {
+    await api.post('/api/kb/articles', {
+      title, content: document.getElementById('kbContent')?.value || '',
+      category: document.getElementById('kbCategory')?.value || 'general',
+      status: document.getElementById('kbStatus')?.value || 'draft',
+    });
+    closeModal(); showToast('Article created', 'success');
+    renderKnowledgeBase(document.getElementById('app'));
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function showArticleDetail(articleId) {
+  const {data: a} = await api.get('/api/kb/articles/' + articleId);
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const lTitle = _kbLangTitle(a.title);
+  const lContent = _kbLangContent(a.content);
+  // Simple markdown rendering
+  const rendered = esc(lContent)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^\d+\.\s(.+)$/gm, '<div style="padding-left:16px;">• $1</div>')
+    .replace(/^- (.+)$/gm, '<div style="padding-left:16px;">• $1</div>');
+  showModal(`
+    <div class="flex justify-between items-start mb-4">
+      <div><h2 class="text-xl font-bold">${esc(lTitle)}</h2>
+        <div class="text-xs text-slate-500 mt-1">👤 ${esc(a.author_name||'—')} · ${a.created_at?a.created_at.substring(0,10):''} · 👁 ${a.views} ${_t('views','просмотров','baxış')} · ${_kbCatLabel(a.category)}</div>
+      </div>
+      <button onclick="closeModal()" class="text-slate-500 hover:text-slate-300 text-xl">&times;</button>
+    </div>
+    <div class="card p-4 mb-4 text-sm" style="max-height:400px;overflow-y:auto;line-height:1.8;">${rendered || _t('No content','Нет содержания','Məzmun yoxdur')}</div>
+    <div class="flex items-center gap-4 mb-4">
+      <span class="text-sm text-slate-400">${_t('Was this helpful?','Было ли полезно?','Faydalı oldu?')}</span>
+      <button class="btn btn-sm" style="background:#14532d;color:#4ade80" onclick="rateArticle(${a.id},true)">👍 ${_t('Yes','Да','Bəli')} (${a.helpful_yes||0})</button>
+      <button class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5" onclick="rateArticle(${a.id},false)">👎 ${_t('No','Нет','Xeyr')} (${a.helpful_no||0})</button>
+    </div>
+    ${isAdmin() ? `<div class="flex gap-2" style="border-top:1px solid #334155;padding-top:12px;">
+      <button class="btn btn-primary btn-sm" onclick="editArticle(${a.id})">${_t('Edit','Редактировать','Redaktə et')}</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteArticle(${a.id})">${_t('Delete','Удалить','Sil')}</button>
+    </div>` : ''}
+  `);
+}
+
+async function rateArticle(id, helpful) {
+  await api.post('/api/kb/articles/' + id + '/helpful', { helpful });
+  showArticleDetail(id);
+}
+
+async function deleteArticle(id) {
+  if (!confirm('Delete?')) return;
+  await api.remove('/api/kb/articles/' + id);
+  closeModal(); renderKnowledgeBase(document.getElementById('app'));
+}
+
+// ─── Phase 3: SLA Policies Page ─────────────────────────────
+async function renderSLAPolicies(el) {
+  const {data: policies} = await api.get('/api/sla-policies');
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('nav_sla')}</h1>
+      <button class="btn btn-primary btn-sm" onclick="showCreateSLAModal()">+ ${_t('New Policy','Новая политика','Yeni siyasət')}</button>
+    </div>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-slate-400 border-b border-slate-700">
+          <th class="p-3">${_t('Name','Название','Ad')}</th>
+          <th class="p-3">${_t('Priority','Приоритет','Prioritet')}</th>
+          <th class="p-3">${_t('First Response','Первый ответ','İlk cavab')}</th>
+          <th class="p-3">${_t('Resolution','Решение','Həll')}</th>
+          <th class="p-3">${_t('Status','Статус','Status')}</th>
+          <th class="p-3"></th>
+        </tr></thead>
+        <tbody>
+          ${policies.map(p => `<tr class="border-b border-slate-800 hover:bg-slate-800/50">
+            <td class="p-3 font-medium">${esc(p.name)}</td>
+            <td class="p-3"><span style="text-transform:capitalize">${p.priority}</span></td>
+            <td class="p-3">${p.first_response_hours}h</td>
+            <td class="p-3">${p.resolution_hours}h</td>
+            <td class="p-3">${p.is_active ? '<span style="color:#4ade80">Active</span>' : '<span style="color:#64748b">Inactive</span>'}</td>
+            <td class="p-3"><button class="text-indigo-400 text-xs hover:underline" onclick="editSLAPolicy(${p.id},'${escapeAttr(p.name)}',${p.first_response_hours},${p.resolution_hours})">${_t('Edit','Ред.','Red.')}</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function showCreateSLAModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${_t('New SLA Policy','Новая SLA политика','Yeni SLA siyasəti')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${_t('Name','Название','Ad')}</label><input id="slaName" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${_t('Priority','Приоритет','Prioritet')}</label>
+        <select id="slaPriority" class="form-input w-full"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${_t('First Response (hours)','Первый ответ (часы)','İlk cavab (saat)')}</label><input id="slaFR" type="number" class="form-input w-full" value="4"></div>
+        <div><label class="text-sm text-slate-400">${_t('Resolution (hours)','Решение (часы)','Həll (saat)')}</label><input id="slaRes" type="number" class="form-input w-full" value="24"></div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewSLA()">${_t('Create','Создать','Yarat')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${_t('Cancel','Отмена','Ləğv et')}</button>
+    </div>
+  `);
+}
+
+async function saveNewSLA() {
+  const name = document.getElementById('slaName')?.value?.trim();
+  if (!name) { showToast('Name required','error'); return; }
+  try {
+    await api.post('/api/sla-policies', {
+      name, priority: document.getElementById('slaPriority')?.value||'medium',
+      first_response_hours: parseFloat(document.getElementById('slaFR')?.value)||4,
+      resolution_hours: parseFloat(document.getElementById('slaRes')?.value)||24,
+    });
+    closeModal(); showToast('SLA created','success');
+    renderSLAPolicies(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+function editSLAPolicy(id, name, fr, res) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${_t('Edit SLA','Редактировать SLA','SLA Redaktə')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${_t('Name','Название','Ad')}</label><input id="slaName" class="form-input w-full" value="${esc(name)}"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${_t('First Response (h)','Первый ответ (ч)','İlk cavab (s)')}</label><input id="slaFR" type="number" class="form-input w-full" value="${fr}"></div>
+        <div><label class="text-sm text-slate-400">${_t('Resolution (h)','Решение (ч)','Həll (s)')}</label><input id="slaRes" type="number" class="form-input w-full" value="${res}"></div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="updateSLA(${id})">${_t('Save','Сохранить','Yadda saxla')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${_t('Cancel','Отмена','Ləğv et')}</button>
+    </div>
+  `);
+}
+
+async function updateSLA(id) {
+  try {
+    await api.put('/api/sla-policies/' + id, {
+      name: document.getElementById('slaName')?.value?.trim(),
+      first_response_hours: parseFloat(document.getElementById('slaFR')?.value)||4,
+      resolution_hours: parseFloat(document.getElementById('slaRes')?.value)||24,
+    });
+    closeModal(); showToast('Updated','success');
+    renderSLAPolicies(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── PHASE 4: Marketing Cloud ────────────────────────────────
+
+// ─── Email Templates ─────────────────────────────────────────
+async function renderEmailTemplates(el) {
+  const {data: templates} = await api.get('/api/email-templates');
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('email_templates_title')}</h1>
+      <button class="btn btn-primary btn-sm" onclick="showCreateEmailTemplateModal()">+ ${t('email_template_new')}</button>
+    </div>
+    ${!templates || templates.length === 0 ? `<div class="card p-8 text-center text-slate-500">${t('nothing_found')}</div>` :
+      `<div class="grid gap-4">
+        ${templates.map(tpl => `
+          <div class="card p-4 hover:border-indigo-500 transition cursor-pointer" onclick="showEditEmailTemplateModal(${tpl.id},'${escapeAttr(tpl.name)}','${escapeAttr(tpl.subject)}','${tpl.category}','${tpl.lang}',${tpl.is_active})">
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="font-semibold">${esc(tpl.name)}</div>
+                <div class="text-xs text-slate-400 mt-1">${esc(tpl.subject)}</div>
+                <div class="text-xs text-slate-500 mt-2">
+                  <span class="bg-indigo-900/30 px-2 py-1 rounded">${({general:_t('General','Общее','Ümumi'),welcome:_t('Welcome','Приветствие','Xoş gəldiniz'),follow_up:_t('Follow-up','Последующее','Təqib'),proposal:_t('Proposal','Предложение','Təklif'),newsletter:_t('Newsletter','Рассылка','Xəbər bülleteni')})[tpl.category]||tpl.category}</span>
+                  <span class="ml-2">${tpl.lang.toUpperCase()}</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <span style="color:${tpl.is_active ? '#4ade80' : '#64748b'}">${tpl.is_active ? _t('Active','Активен','Aktiv') : _t('Inactive','Неактивен','Deaktiv')}</span>
+                <div class="text-xs text-slate-500 mt-1">${tpl.creator_name || _t('Unknown','Неизвестно','Naməlum')}</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`}
+  `;
+}
+
+function showCreateEmailTemplateModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${t('email_template_new')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><textarea id="etBody" class="form-input w-full" rows="6"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
+          <select id="etCategory" class="form-input w-full">
+            <option value="general">${_t('General','Общее','Ümumi')}</option>
+            <option value="welcome">${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
+            <option value="follow_up">${_t('Follow-up','Последующее','Təqib')}</option>
+            <option value="proposal">${_t('Proposal','Предложение','Təklif')}</option>
+            <option value="newsletter">${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
+          </select></div>
+        <div><label class="text-sm text-slate-400">${t('email_template_lang')}</label>
+          <select id="etLang" class="form-input w-full">
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+            <option value="az">Azərbaycanca</option>
+          </select></div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewEmailTemplate()">${t('common_save')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+    </div>
+  `);
+}
+
+function showEditEmailTemplateModal(id, name, subject, category, lang, isActive) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  api.get('/api/email-templates/' + id).then(({data}) => {
+    showModal(`
+      <h2 class="text-xl font-bold mb-4">${t('email_template_edit')}</h2>
+      <div class="space-y-3">
+        <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full" value="${esc(name)}"></div>
+        <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" value="${esc(subject)}"></div>
+        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><textarea id="etBody" class="form-input w-full" rows="6">${esc(data.body_html||'')}</textarea></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
+            <select id="etCategory" class="form-input w-full">
+              <option value="general" ${category==='general'?'selected':''}>${_t('General','Общее','Ümumi')}</option>
+              <option value="welcome" ${category==='welcome'?'selected':''}>${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
+              <option value="follow_up" ${category==='follow_up'?'selected':''}>${_t('Follow-up','Последующее','Təqib')}</option>
+              <option value="proposal" ${category==='proposal'?'selected':''}>${_t('Proposal','Предложение','Təklif')}</option>
+              <option value="newsletter" ${category==='newsletter'?'selected':''}>${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
+            </select></div>
+          <div><label class="text-sm text-slate-400">${t('email_template_is_active')}</label>
+            <select id="etActive" class="form-input w-full">
+              <option value="1" ${isActive?'selected':''}>${_t('Active','Активен','Aktiv')}</option>
+              <option value="0" ${!isActive?'selected':''}>${_t('Inactive','Неактивен','Deaktiv')}</option>
+            </select></div>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button class="btn btn-primary flex-1" onclick="updateEmailTemplate(${id})">${t('common_save')}</button>
+        <button class="btn btn-danger flex-1" onclick="deleteEmailTemplate(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
+        <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+      </div>
+    `);
+  }).catch(e => showToast(e.message, 'error'));
+}
+
+async function saveNewEmailTemplate() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const name = document.getElementById('etName')?.value?.trim();
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
+  try {
+    await api.post('/api/email-templates', {
+      name, subject: document.getElementById('etSubject')?.value||'',
+      body_html: document.getElementById('etBody')?.value||'',
+      category: document.getElementById('etCategory')?.value||'general',
+      lang: document.getElementById('etLang')?.value||'en'
+    });
+    closeModal(); showToast(t('email_template_created'),'success');
+    renderEmailTemplates(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function updateEmailTemplate(id) {
+  try {
+    await api.put('/api/email-templates/' + id, {
+      name: document.getElementById('etName')?.value||'',
+      subject: document.getElementById('etSubject')?.value||'',
+      body_html: document.getElementById('etBody')?.value||'',
+      category: document.getElementById('etCategory')?.value||'general',
+      is_active: parseInt(document.getElementById('etActive')?.value||1)
+    });
+    closeModal(); showToast(t('email_template_updated'),'success');
+    renderEmailTemplates(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteEmailTemplate(id) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  if (!confirm(_t('Delete this template?','Удалить этот шаблон?','Bu şablon silinsin?'))) return;
+  try {
+    await api.remove('/api/email-templates/' + id);
+    closeModal(); showToast(t('email_template_deleted'),'success');
+    renderEmailTemplates(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── Campaigns ───────────────────────────────────────────────
+async function renderCampaigns(el) {
+  const [{data: campaigns}, {data: stats}] = await Promise.all([
+    api.get('/api/campaigns'),
+    api.get('/api/campaigns/stats')
+  ]);
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const statusColors = {draft:'#64748b',scheduled:'#f59e0b',sending:'#3b82f6',sent:'#22c55e',cancelled:'#ef4444'};
+  const statusLabels = {
+    draft: _t('Draft','Черновик','Qaralama'),
+    scheduled: _t('Scheduled','Запланирована','Planlaşdırılıb'),
+    sending: _t('Sending','Отправляется','Göndərilir'),
+    sent: _t('Sent','Отправлена','Göndərilib'),
+    cancelled: _t('Cancelled','Отменена','Ləğv edilib')
+  };
+  const typeLabels = {email: _t('Email','Email','E-poçt'), sms: 'SMS'};
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('campaigns_title')}</h1>
+      <button class="btn btn-primary btn-sm" onclick="showCreateCampaignModal()">+ ${t('campaign_new')}</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      ${['draft','scheduled','sending','sent','cancelled'].map(status =>
+        `<div class="card p-4 text-center">
+          <div class="text-xl font-bold" style="color:${statusColors[status]}">${stats[status]||0}</div>
+          <div class="text-xs text-slate-400 mt-1">${statusLabels[status]}</div>
+        </div>`
+      ).join('')}
+    </div>
+    ${!campaigns || campaigns.length === 0 ? `<div class="card p-8 text-center text-slate-500">${t('nothing_found')}</div>` :
+      `<div class="space-y-2">
+        ${campaigns.map(c => `
+          <div class="card p-4 cursor-pointer hover:border-indigo-500 transition" onclick="showCampaignDetail(${c.id})">
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="font-semibold">${esc(c.name)}</div>
+                ${c.description ? `<div class="text-xs text-slate-400 mt-1">${esc(c.description)}</div>` : ''}
+                <div class="text-xs text-slate-500 mt-2">
+                  <span style="color:${statusColors[c.status]||'#64748b'};font-weight:600">${statusLabels[c.status]||c.status}</span>
+                  <span class="ml-3">📧 ${typeLabels[c.type]||c.type}</span>
+                  <span class="ml-3">👥 ${c.total_recipients||0}</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-semibold">${c.sent_count||0}/${c.total_recipients||0}</div>
+                <div class="text-xs text-slate-500">${t('campaign_sent_count')}</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`}
+  `;
+}
+
+function showCreateCampaignModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${t('campaign_new')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="3"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm text-slate-400">${t('campaign_type')}</label>
+          <select id="campType" class="form-input w-full">
+            <option value="email">${t('campaign_type_email')}</option>
+            <option value="sms">${t('campaign_type_sms')}</option>
+          </select></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_template')}</label>
+          <select id="campTemplate" class="form-input w-full"></select></div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewCampaign()">${t('common_save')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+    </div>
+  `);
+  // Load templates
+  api.get('/api/email-templates?limit=100').then(({data}) => {
+    const sel = document.getElementById('campTemplate');
+    if (sel && data) data.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = esc(t.name);
+      sel.appendChild(opt);
+    });
+  }).catch(()=>{});
+}
+
+function showCampaignDetail(id) {
+  api.get('/api/campaigns/' + id).then(({data: campaign}) => {
+    const L = currentLang;
+    const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+    const statusColors = {draft:'#64748b',scheduled:'#f59e0b',sending:'#3b82f6',sent:'#22c55e',cancelled:'#ef4444'};
+
+    showModal(`
+      <h2 class="text-xl font-bold mb-4">${t('campaign_edit')}</h2>
+      <div class="space-y-3">
+        <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full" value="${esc(campaign.name)}"></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="3">${esc(campaign.description||'')}</textarea></div>
+        <div class="text-sm text-slate-400">
+          <span style="color:${statusColors[campaign.status]||'#64748b'};font-weight:600">${({draft:_t('Draft','Черновик','Qaralama'),scheduled:_t('Scheduled','Запланирована','Planlaşdırılıb'),sending:_t('Sending','Отправляется','Göndərilir'),sent:_t('Sent','Отправлена','Göndərilib'),cancelled:_t('Cancelled','Отменена','Ləğv edilib')})[campaign.status]||campaign.status}</span>
+          <span class="ml-3">📧 ${({email:_t('Email','Email','E-poçt'),sms:'SMS'})[campaign.type]||campaign.type}</span>
+          <span class="ml-3">👥 ${campaign.total_recipients||0}</span>
+          <span class="ml-3">📤 ${campaign.sent_count||0}</span>
+          <span class="ml-3">👁 ${campaign.open_count||0}</span>
+          <span class="ml-3">🔗 ${campaign.click_count||0}</span>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-4">
+        ${campaign.status === 'draft' ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
+        <button class="btn btn-danger flex-1" onclick="deleteCampaign(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
+        <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+      </div>
+    `);
+  }).catch(e => showToast(e.message, 'error'));
+}
+
+async function saveNewCampaign() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const name = document.getElementById('campName')?.value?.trim();
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
+  try {
+    await api.post('/api/campaigns', {
+      name, description: document.getElementById('campDesc')?.value||'',
+      type: document.getElementById('campType')?.value||'email',
+      template_id: parseInt(document.getElementById('campTemplate')?.value||0)
+    });
+    closeModal(); showToast(t('campaign_created'),'success');
+    renderCampaigns(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function sendCampaign(id) {
+  if (!confirm(t('campaign_send_confirm'))) return;
+  try {
+    await api.post('/api/campaigns/' + id + '/send', {});
+    showToast(t('campaign_sent'),'success');
+    closeModal();
+    renderCampaigns(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteCampaign(id) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  if (!confirm(_t('Delete this campaign?','Удалить эту кампанию?','Bu kampaniya silinsin?'))) return;
+  try {
+    await api.remove('/api/campaigns/' + id);
+    closeModal(); showToast(t('campaign_deleted'),'success');
+    renderCampaigns(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+// ─── Web Forms ───────────────────────────────────────────────
+async function renderWebForms(el) {
+  const {data: forms} = await api.get('/api/web-forms');
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+
+  el.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">${t('web_forms_title')}</h1>
+      <button class="btn btn-primary btn-sm" onclick="showCreateWebFormModal()">+ ${t('web_form_new')}</button>
+    </div>
+    ${!forms || forms.length === 0 ? `<div class="card p-8 text-center text-slate-500">${t('nothing_found')}</div>` :
+      `<div class="grid gap-4">
+        ${forms.map(f => `
+          <div class="card p-4 hover:border-indigo-500 transition cursor-pointer" onclick="showWebFormDetail(${f.id})">
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="font-semibold">${esc(f.name)}</div>
+                ${f.description ? `<div class="text-xs text-slate-400 mt-1">${esc(f.description)}</div>` : ''}
+                <div class="text-xs text-slate-500 mt-2">
+                  ${f.form_token ? `<span class="bg-indigo-900/30 px-2 py-1 rounded font-mono text-xs">${f.form_token.substring(0,12)}...</span>` : ''}
+                </div>
+              </div>
+              <div class="text-right">
+                <span style="color:${f.is_active ? '#4ade80' : '#64748b'}">${f.is_active ? _t('Active','Активна','Aktiv') : _t('Inactive','Неактивна','Deaktiv')}</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`}
+  `;
+}
+
+function showCreateWebFormModal() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">${t('web_form_new')}</h2>
+    <div class="space-y-3">
+      <div><label class="text-sm text-slate-400">${t('web_form_name')}</label><input id="wfName" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${t('web_form_description')}</label><textarea id="wfDesc" class="form-input w-full" rows="3"></textarea></div>
+      <div><label class="text-sm text-slate-400">${t('web_form_redirect_url')}</label><input id="wfRedirect" class="form-input w-full" placeholder="https://example.com/thank-you"></div>
+      <div><label class="text-sm text-slate-400">${t('web_form_assign_to')}</label>
+        <select id="wfAssignTo" class="form-input w-full"></select></div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary flex-1" onclick="saveNewWebForm()">${t('common_save')}</button>
+      <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+    </div>
+  `);
+  // Load users
+  api.get('/api/users').then(({data}) => {
+    const sel = document.getElementById('wfAssignTo');
+    if (sel && data) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '— ' + _t('Not assigned','Не назначен','Təyin edilməyib') + ' —';
+      sel.appendChild(opt);
+      data.forEach(u => {
+        const o = document.createElement('option');
+        o.value = u.id; o.textContent = u.full_name || u.username;
+        sel.appendChild(o);
+      });
+    }
+  }).catch(()=>{});
+}
+
+function showWebFormDetail(id) {
+  api.get('/api/web-forms/' + id).then(({data: form}) => {
+    const L = currentLang;
+    const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+    const embedCode = `<iframe src="${window.location.origin}/api/web-forms/submit/${form.form_token}?embed=1" width="100%" height="600" frameborder="0" style="border: 1px solid #ccc; border-radius: 8px;"></iframe>`;
+
+    showModal(`
+      <h2 class="text-xl font-bold mb-4">${t('web_form_edit')}</h2>
+      <div class="space-y-3">
+        <div><label class="text-sm text-slate-400">${t('web_form_name')}</label><input id="wfName" class="form-input w-full" value="${esc(form.name)}"></div>
+        <div><label class="text-sm text-slate-400">${t('web_form_token')}</label><input class="form-input w-full" value="${form.form_token}" readonly></div>
+        <div><label class="text-sm text-slate-400">${t('web_form_embed_code')}</label>
+          <textarea id="wfEmbed" class="form-input w-full font-mono text-xs" rows="3" readonly>${embedCode}</textarea>
+          <button class="btn btn-sm btn-secondary mt-2 w-full" onclick="copyToClipboard(document.getElementById('wfEmbed').value)">${t('web_form_copy_embed')}</button>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button class="btn btn-danger flex-1" onclick="deleteWebForm(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
+        <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+      </div>
+    `);
+  }).catch(e => showToast(e.message, 'error'));
+}
+
+async function saveNewWebForm() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const name = document.getElementById('wfName')?.value?.trim();
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
+  try {
+    await api.post('/api/web-forms', {
+      name, description: document.getElementById('wfDesc')?.value||'',
+      redirect_url: document.getElementById('wfRedirect')?.value||'',
+      assign_to: parseInt(document.getElementById('wfAssignTo')?.value||0) || null
+    });
+    closeModal(); showToast(t('web_form_created'),'success');
+    renderWebForms(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+async function deleteWebForm(id) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  if (!confirm(_t('Delete this form?','Удалить эту форму?','Bu forma silinsin?'))) return;
+  try {
+    await api.remove('/api/web-forms/' + id);
+    closeModal(); showToast(t('web_form_deleted'),'success');
+    renderWebForms(document.getElementById('app'));
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+function copyToClipboard(text) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  navigator.clipboard.writeText(text).then(() => showToast(_t('Copied!','Скопировано!','Kopyalandı!'),'success')).catch(() => showToast(_t('Copy failed','Ошибка копирования','Kopyalama xətası'),'error'));
+}
+
+// ─── Notifications Full Page ─────────────────────────────────
+async function renderNotificationsPage(el) {
+  showLoading(el);
+  let filter = 'all';
+  async function render(f) {
+    filter = f || filter;
+    const unreadOnly = filter === 'unread';
+    const {data} = await api.get('/api/notifications?limit=100' + (unreadOnly ? '&unread_only=true' : ''));
+    const items = data.items || [];
+    const unread = data.unread || 0;
+    const typeIcons = { lead_new:'🆕', lead_assigned:'👤', deal_stage_changed:'📊', deal_won:'🏆', deal_lost:'❌', task_assigned:'📋', task_overdue:'⚠️', task_due_today:'📅', contract_expiring:'⏰', contract_expired:'🔴', mention:'💬' };
+
+    el.innerHTML = `
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">${_i._g('np_title')} ${unread ? `<span class="text-sm bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">${unread}</span>` : ''}</h1>
+        <div class="flex gap-2">
+          ${unread ? `<button class="btn btn-sm btn-secondary" onclick="markAllNotifReadPage()">${_i._g('np_mark_all')}</button>` : ''}
+        </div>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <button class="btn btn-sm ${filter==='all'?'btn-primary':'btn-secondary'}" onclick="filterNotifPage('all')">${_i._g('np_all')}</button>
+        <button class="btn btn-sm ${filter==='unread'?'btn-primary':'btn-secondary'}" onclick="filterNotifPage('unread')">${_i._g('np_unread')} ${unread ? '('+unread+')' : ''}</button>
+      </div>
+      ${!items.length ? `<div class="card p-8 text-center"><p class="text-slate-500 text-lg">${_i._g('np_empty')}</p><p class="text-slate-600 text-sm mt-1">${_i._g('np_empty_desc')}</p></div>` :
+        `<div class="space-y-2">${items.map(n => {
+          const icon = typeIcons[n.type] || '🔔';
+          const isUnread = n.is_read === 0;
+          return `<div class="card p-4 cursor-pointer hover:bg-slate-800/50 transition ${isUnread ? 'border-l-4 border-l-indigo-500' : 'opacity-70'}" onclick="onNotifPageClick('${n.entity_type||''}',${n.entity_id||0},${n.id})">
+            <div class="flex items-start gap-3">
+              <span class="text-xl">${icon}</span>
+              <div class="flex-1">
+                <div class="font-medium">${esc(n.title)}</div>
+                ${n.message ? `<div class="text-sm text-slate-400 mt-1">${esc(n.message)}</div>` : ''}
+                <div class="text-xs text-slate-600 mt-2">${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+              </div>
+              ${isUnread ? '<span class="w-2 h-2 rounded-full bg-indigo-500 mt-2"></span>' : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>`}
+    `;
+  }
+  window.filterNotifPage = (f) => render(f);
+  window.markAllNotifReadPage = async () => {
+    await api.put('/api/notifications/read-all');
+    loadNotifications();
+    render(filter);
+  };
+  window.onNotifPageClick = async (type, id, notifId) => {
+    if (notifId) {
+      try { await api.put('/api/notifications/' + notifId + '/read'); loadNotifications(); } catch(e) {}
+    }
+    if (type === 'contact') showContactDetail(id);
+    else if (type === 'contract') showContractDetail(id);
+    else if (type === 'deal') showDealDetail(id);
+    else if (type === 'lead') openLeadDetail(id);
+    else if (type === 'task') { location.hash = '#/tasks'; }
+    else render(filter);
+  };
+  await render('all');
+}
+
+// ─── ADMIN: Notification Preferences ─────────────────────────
+async function renderNotificationPreferences(el) {
+  showLoading(el);
+  const {data: prefs} = await api.get('/api/notification-preferences');
+
+  const eventTypes = [
+    { type: 'lead_new', label: _i._g('npp_lead_new') },
+    { type: 'lead_assigned', label: _i._g('npp_lead_assigned') },
+    { type: 'deal_stage_changed', label: _i._g('npp_deal_stage') },
+    { type: 'deal_won', label: _i._g('npp_deal_won') },
+    { type: 'deal_lost', label: _i._g('npp_deal_lost') },
+    { type: 'task_assigned', label: _i._g('npp_task_assigned') },
+    { type: 'task_overdue', label: _i._g('npp_task_overdue') },
+    { type: 'contract_expiring', label: _i._g('npp_contract_exp') },
+  ];
+
+  const prefMap = {};
+  prefs.forEach(p => { prefMap[p.event_type] = p; });
+
+  el.innerHTML = `
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">${_i._g('npp_title')}</h1>
+      <p class="text-slate-400 text-sm mt-1">${_i._g('npp_subtitle')}</p>
+    </div>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left p-3">${_i._g('npp_event')}</th>
+            <th class="text-center p-3">${_i._g('npp_web')}</th>
+            <th class="text-center p-3">${_i._g('npp_email')}</th>
+            <th class="text-center p-3">${_i._g('npp_telegram')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eventTypes.map(ev => {
+            const p = prefMap[ev.type] || { channel_web: 1, channel_email: 0, channel_telegram: 0 };
+            return `<tr class="border-b border-slate-700/50">
+              <td class="p-3">${ev.label}</td>
+              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="web" ${p.channel_web ? 'checked' : ''}></td>
+              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="email" ${p.channel_email ? 'checked' : ''}></td>
+              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="telegram" ${p.channel_telegram ? 'checked' : ''}></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-4">
+      <button class="btn btn-primary" onclick="saveNotifPrefs()">${_i._g('c_save')}</button>
+    </div>
+  `;
+}
+
+async function saveNotifPrefs() {
+  const checkboxes = document.querySelectorAll('[data-event][data-channel]');
+  const prefMap = {};
+  checkboxes.forEach(cb => {
+    const ev = cb.dataset.event;
+    if (!prefMap[ev]) prefMap[ev] = { event_type: ev, channel_web: 0, channel_email: 0, channel_telegram: 0 };
+    if (cb.dataset.channel === 'web') prefMap[ev].channel_web = cb.checked ? 1 : 0;
+    if (cb.dataset.channel === 'email') prefMap[ev].channel_email = cb.checked ? 1 : 0;
+    if (cb.dataset.channel === 'telegram') prefMap[ev].channel_telegram = cb.checked ? 1 : 0;
+  });
+  try {
+    await api.put('/api/notification-preferences', { preferences: Object.values(prefMap) });
+    showToast(_i._g('npp_saved'), 'success');
+  } catch(e) { showToast(esc(e.message), 'error'); }
+}
+
+// ─── Leads Kanban View ───────────────────────────────────────
+function _renderLeadsKanban(items) {
+  const statuses = ['new','contacted','qualified','converted','unqualified'];
+  const statusColors = {new:'#3b82f6',contacted:'#8b5cf6',qualified:'#f59e0b',converted:'#22c55e',unqualified:'#ef4444'};
+  const columns = statuses.map(s => items.filter(i => i.status === s));
+
+  return `<div class="flex gap-3 overflow-x-auto pb-4">
+    ${statuses.map((status, idx) => `
+      <div class="kanban-col" style="min-width:230px;flex:1" data-lead-status="${status}">
+        <div class="font-semibold mb-3 pb-2 border-b text-sm" style="border-color:${statusColors[status]};color:${statusColors[status]}">
+          ${t('lead_status_'+status)} <span class="text-slate-500">${columns[idx].length}</span>
+        </div>
+        <div class="space-y-2 min-h-[100px]" ondrop="onLeadDrop(event,'${status}')" ondragover="event.preventDefault()">
+          ${columns[idx].map(item => {
+            if (item.type === 'company') {
+              return `<div class="kanban-card" onclick="showCompanyDetail(${item.id})">
+                <div class="font-semibold text-sm">${esc(item.name)}</div>
+                <div class="text-xs text-slate-500 mt-1">${esc(item.domain||'')}</div>
+              </div>`;
+            }
+            const clickFn = item.isProspectCompany ? `showCompanyDetail(${item.companyId})` : `openLeadDetail(${item.id})`;
+            return `<div class="kanban-card" draggable="${!item.isProspectCompany}" ondragstart="onLeadDragStart(event,${item.isProspectCompany?0:item.id})" onclick="${clickFn}">
+              <div class="font-semibold text-sm">${esc(item.name)}</div>
+              ${item.contact ? `<div class="text-xs text-slate-500 mt-1">${esc(item.contact)}</div>` : ''}
+              <div class="flex items-center gap-1 mt-1">${_leadTempBadge(item.score)} ${item.score>0?'<span class="score-badge '+(item.score>=61?'score-high':item.score>=31?'score-medium':'score-low')+'">'+item.score+'</span>':''}</div>
+              ${item.value ? `<div class="text-xs mt-1" style="color:#fcd34d">~${item.value.toLocaleString()} ₼</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+let _draggedLeadId = null;
+function onLeadDragStart(e, id) { _draggedLeadId = id; e.dataTransfer.effectAllowed = 'move'; }
+async function onLeadDrop(e, newStatus) {
+  e.preventDefault();
+  if (!_draggedLeadId) return;
+  try {
+    await api.put(`/api/leads/${_draggedLeadId}`, { status: newStatus });
+    showToast(_i._g('ld_status_changed'), 'success');
+    renderCompanyList(document.getElementById('app'), 'client');
+  } catch(err) { showToast(esc(err.message), 'error'); }
+  _draggedLeadId = null;
 }
 
 </script>

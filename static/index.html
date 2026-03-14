@@ -3370,11 +3370,13 @@ async function renderHomeDashboard(el) {
 
     // KPI Card builder
     function kpiCard(value, label, sublabel, color, icon, hash) {
-      return '<div style="background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);border:1px solid #334155;border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden" onclick="location.hash=\'' + hash + '\'" onmouseover="this.style.borderColor=\'' + color + '\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'#334155\';this.style.transform=\'none\'">' +
-        '<div style="position:absolute;top:-10px;right:-10px;font-size:48px;opacity:0.08">' + icon + '</div>' +
-        '<div style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">' + label + '</div>' +
-        '<div style="font-size:28px;font-weight:700;color:' + color + ';margin-bottom:4px">' + value + '</div>' +
-        (sublabel ? '<div style="font-size:12px;color:#64748b">' + sublabel + '</div>' : '') +
+      return '<div style="background:linear-gradient(135deg, ' + color + '08, ' + color + '03);border:1px solid ' + color + '18;border-radius:16px;padding:22px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden" onclick="location.hash=\'' + hash + '\'" onmouseover="this.style.borderColor=\'' + color + '40\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px ' + color + '12\'" onmouseout="this.style.borderColor=\'' + color + '18\';this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+        '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">' + label + '</div>' +
+        '<div style="width:36px;height:36px;border-radius:10px;background:' + color + '12;display:flex;align-items:center;justify-content:center;font-size:18px">' + icon + '</div>' +
+        '</div>' +
+        '<div style="font-size:32px;font-weight:800;color:' + color + ';letter-spacing:-0.03em;margin-bottom:2px">' + value + '</div>' +
+        (sublabel ? '<div style="font-size:12px;color:#64748b;font-weight:500">' + sublabel + '</div>' : '') +
         '</div>';
     }
 
@@ -3388,12 +3390,11 @@ async function renderHomeDashboard(el) {
         var desc = esc(a.subject || a.description || 'Activity');
         var dt = (a.timestamp || a.created_at) ? new Date(a.timestamp || a.created_at).toLocaleDateString() : '';
         var contact = a.contact_name ? esc(a.contact_name) : '';
-        activitiesHtml += '<div style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5)">' +
-          '<div style="display:table-cell;width:36px;vertical-align:top">' +
-          '<div style="width:32px;height:32px;border-radius:8px;background:' + iconBg + '20;display:flex;align-items:center;justify-content:center;font-size:14px">' + iconSymbol + '</div></div>' +
-          '<div style="display:table-cell;vertical-align:top;padding-left:10px">' +
-          '<div style="font-weight:500;font-size:13px;color:#e2e8f0;margin-bottom:2px">' + desc + '</div>' +
-          '<div style="font-size:11px;color:#64748b">' + (contact ? contact + (dt ? ' · ' + dt : '') : dt) + '</div>' +
+        activitiesHtml += '<div style="display:flex;gap:12px;padding:10px 12px;margin-bottom:6px;border-radius:12px;transition:all 0.15s;border:1px solid transparent" onmouseover="this.style.background=\'#0f172a\';this.style.borderColor=\'#1e293b\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'transparent\'">' +
+          '<div style="width:36px;height:36px;border-radius:10px;background:' + iconBg + '12;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;border:1px solid ' + iconBg + '20">' + iconSymbol + '</div>' +
+          '<div style="min-width:0;flex:1">' +
+          '<div style="font-weight:600;font-size:13px;color:#e2e8f0;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + desc + '</div>' +
+          '<div style="font-size:11px;color:#475569">' + (contact ? contact + (dt ? ' · ' + dt : '') : dt) + '</div>' +
           '</div></div>';
       });
     } else {
@@ -3411,14 +3412,13 @@ async function renderHomeDashboard(el) {
         var dt = tk.due_date ? new Date(tk.due_date).toLocaleDateString() : '';
         var assignee = tk.assigned_name ? esc(tk.assigned_name) : '';
         var taskId = tk.id;
-        tasksHtml += '<div id="dash-task-' + taskId + '" style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5)">' +
-          '<div style="display:table-cell;width:28px;vertical-align:top;padding-top:1px">' +
-          '<div class="dash-task-circle" onclick="toggleDashTask(' + taskId + ',\'' + newStatus + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:inline-flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + ';transition:all 0.2s">' +
+        tasksHtml += '<div id="dash-task-' + taskId + '" style="display:flex;gap:12px;padding:10px 12px;margin-bottom:6px;border-radius:12px;align-items:center;transition:all 0.15s;border:1px solid transparent" onmouseover="this.style.background=\'#0f172a\';this.style.borderColor=\'#1e293b\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'transparent\'">' +
+          '<div class="dash-task-circle" onclick="toggleDashTask(' + taskId + ',\'' + newStatus + '\')" style="width:22px;height:22px;border-radius:8px;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + ';transition:all 0.2s;flex-shrink:0">' +
           (isDone ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : '') +
-          '</div></div>' +
-          '<div style="display:table-cell;vertical-align:top;padding-left:8px">' +
-          '<div class="dash-task-title" style="font-weight:500;font-size:13px;color:' + (isDone ? '#64748b' : '#e2e8f0') + ';' + (isDone ? 'text-decoration:line-through;' : '') + '">' + title + '</div>' +
-          '<div style="font-size:11px;color:#64748b;margin-top:2px">' + (assignee ? assignee + (dt ? ' · ' + dt : '') : dt) + '</div>' +
+          '</div>' +
+          '<div style="min-width:0;flex:1">' +
+          '<div class="dash-task-title" style="font-weight:600;font-size:13px;color:' + (isDone ? '#475569' : '#e2e8f0') + ';' + (isDone ? 'text-decoration:line-through;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>' +
+          '<div style="font-size:11px;color:#475569;margin-top:2px">' + (assignee ? assignee + (dt ? ' · ' + dt : '') : dt) + '</div>' +
           '</div></div>';
       });
     } else {
@@ -3434,11 +3434,10 @@ async function renderHomeDashboard(el) {
         var dt = n.created_at ? new Date(n.created_at).toLocaleDateString() : '';
         var iconBg = n.severity === 'high' ? '#ef4444' : n.severity === 'medium' ? '#f59e0b' : '#3b82f6';
         var dotColor = n.severity === 'high' ? '#ef4444' : n.severity === 'medium' ? '#f59e0b' : '#3b82f6';
-        notifsHtml += '<div style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5);cursor:pointer">' +
-          '<div style="display:table-cell;width:28px;vertical-align:top;padding-top:4px">' +
-          '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + '"></div></div>' +
-          '<div style="display:table-cell;vertical-align:top">' +
-          '<div style="font-weight:500;font-size:13px;color:#e2e8f0;margin-bottom:2px">' + title + '</div>' +
+        notifsHtml += '<div style="display:flex;gap:12px;padding:10px 12px;margin-bottom:6px;border-radius:12px;cursor:pointer;transition:all 0.15s;align-items:flex-start;border:1px solid transparent" onmouseover="this.style.background=\'#0f172a\';this.style.borderColor=\'#1e293b\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'transparent\'">' +
+          '<div style="width:10px;height:10px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-top:5px;box-shadow:0 0 8px ' + dotColor + '50"></div>' +
+          '<div style="min-width:0;flex:1">' +
+          '<div style="font-weight:600;font-size:13px;color:#e2e8f0;margin-bottom:3px">' + title + '</div>' +
           (detail ? '<div style="font-size:12px;color:#94a3b8">' + detail + '</div>' : '') +
           (dt ? '<div style="font-size:11px;color:#475569;margin-top:3px">' + dt + '</div>' : '') +
           '</div></div>';
@@ -3452,57 +3451,99 @@ async function renderHomeDashboard(el) {
 
     el.innerHTML = `
       <div style="max-width:1400px;margin:0 auto;padding:0 8px;">
-        <div style="margin-bottom:32px">
-          <h1 style="font-size:24px;font-weight:700;color:#f1f5f9;margin-bottom:4px">${greeting}, ${esc(userName)}!</h1>
-          <p style="font-size:14px;color:#64748b">${dateStr}</p>
+        <!-- Hero Greeting -->
+        <div style="position:relative;background:linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #1e1b4b 100%);border:1px solid #1e293b;border-radius:20px;padding:32px 36px;margin-bottom:24px;overflow:hidden">
+          <div style="position:absolute;top:-40px;right:5%;width:250px;height:250px;background:radial-gradient(circle, #6366f112 0%, transparent 70%);pointer-events:none"></div>
+          <div style="position:absolute;bottom:-60px;left:10%;width:200px;height:200px;background:radial-gradient(circle, #3b82f608 0%, transparent 70%);pointer-events:none"></div>
+          <div style="position:relative;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h1 style="font-size:30px;font-weight:800;color:#f8fafc;margin-bottom:6px;letter-spacing:-0.03em">${greeting}, ${esc(userName)}!</h1>
+              <p style="font-size:14px;color:#64748b;display:flex;align-items:center;gap:8px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                ${dateStr}
+              </p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <div style="background:#6366f112;border:1px solid #6366f125;border-radius:12px;padding:10px 18px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px" onclick="location.hash='#/contacts'" onmouseover="this.style.background='#6366f120';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#6366f112';this.style.transform='translateY(0)'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                <span style="color:#818cf8;font-size:13px;font-weight:600">${_t('New Contact','Новый контакт','Yeni kontakt')}</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px">
+
+        <!-- KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
           ${kpiCard(deals_pipeline, _t('Active Deals','Активные сделки','Aktiv sövdələşmələr'), formatCurrency(deals_pipeline_value), '#6366f1', '💼', '#/deals')}
           ${kpiCard(companies_total, _t('Companies','Компании','Şirkətlər'), '', '#3b82f6', '🏢', '#/clients')}
           ${kpiCard(contacts_total, _t('Contacts','Контакты','Kontaktlar'), '', '#10b981', '👥', '#/contacts')}
           ${kpiCard(open_tickets, _t('Open Tickets','Открытые тикеты','Açıq tiketlər'), '', '#f59e0b', '🎫', '#/tickets')}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;margin-bottom:32px">
-          <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <h3 style="font-size:15px;font-weight:600;color:#f1f5f9">📝 ${_t('Recent Activity', 'Последняя активность', 'Son aktivlik')}</h3>
-              <a href="#/activities" style="font-size:12px;color:#6366f1;text-decoration:none">${_t('View all','Все','Hamısı')} →</a>
+
+        <!-- Main Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <!-- Activities -->
+          <div style="background:linear-gradient(180deg, #0c1220, #080d16);border:1px solid #1e293b;border-radius:18px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,0.15)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+              <h3 style="font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:10px">
+                <span style="width:32px;height:32px;border-radius:10px;background:#6366f112;display:inline-flex;align-items:center;justify-content:center;font-size:15px">📝</span>
+                ${_t('Recent Activity', 'Последняя активность', 'Son aktivlik')}
+              </h3>
+              <a href="#/activities" style="font-size:12px;color:#6366f1;text-decoration:none;padding:4px 12px;border-radius:8px;border:1px solid #6366f125;transition:all 0.15s" onmouseover="this.style.background='#6366f115'" onmouseout="this.style.background='transparent'">${_t('View all','Все','Hamısı')} →</a>
             </div>
-            <div style="max-height:320px;overflow-y:auto">${activitiesHtml}</div>
+            <div style="max-height:340px;overflow-y:auto">${activitiesHtml}</div>
           </div>
-          <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <h3 style="font-size:15px;font-weight:600;color:#f1f5f9">✅ ${_t('My Tasks', 'Мои задачи', 'Tapşırıqlarım')}</h3>
-              <a href="#/tasks" style="font-size:12px;color:#6366f1;text-decoration:none">${_t('View all','Все','Hamısı')} →</a>
+
+          <!-- Tasks -->
+          <div style="background:linear-gradient(180deg, #0c1220, #080d16);border:1px solid #1e293b;border-radius:18px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,0.15)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+              <h3 style="font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:10px">
+                <span style="width:32px;height:32px;border-radius:10px;background:#10b98112;display:inline-flex;align-items:center;justify-content:center;font-size:15px">✅</span>
+                ${_t('My Tasks', 'Мои задачи', 'Tapşırıqlarım')}
+              </h3>
+              <a href="#/tasks" style="font-size:12px;color:#10b981;text-decoration:none;padding:4px 12px;border-radius:8px;border:1px solid #10b98125;transition:all 0.15s" onmouseover="this.style.background='#10b98115'" onmouseout="this.style.background='transparent'">${_t('View all','Все','Hamısı')} →</a>
             </div>
-            <div style="max-height:320px;overflow-y:auto">${tasksHtml}</div>
+            <div style="max-height:340px;overflow-y:auto">${tasksHtml}</div>
           </div>
-          <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <h3 style="font-size:15px;font-weight:600;color:#f1f5f9">🔔 ${_t('Notifications', 'Уведомления', 'Bildirişlər')}</h3>
+        </div>
+
+        <!-- Bottom Row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+          <!-- Notifications -->
+          <div style="background:linear-gradient(180deg, #0c1220, #080d16);border:1px solid #1e293b;border-radius:18px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,0.15)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+              <h3 style="font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:10px">
+                <span style="width:32px;height:32px;border-radius:10px;background:#f59e0b12;display:inline-flex;align-items:center;justify-content:center;font-size:15px">🔔</span>
+                ${_t('Notifications', 'Уведомления', 'Bildirişlər')}
+              </h3>
             </div>
-            <div style="max-height:320px;overflow-y:auto">${notifsHtml}</div>
+            <div style="max-height:280px;overflow-y:auto">${notifsHtml}</div>
           </div>
-          <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px">
-            <div style="margin-bottom:16px">
-              <h3 style="font-size:15px;font-weight:600;color:#f1f5f9">⚡ ${_t('Quick Actions', 'Быстрые действия', 'Sürətli əməliyyatlar')}</h3>
+
+          <!-- Quick Actions -->
+          <div style="background:linear-gradient(180deg, #0c1220, #080d16);border:1px solid #1e293b;border-radius:18px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,0.15)">
+            <div style="margin-bottom:18px">
+              <h3 style="font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:10px">
+                <span style="width:32px;height:32px;border-radius:10px;background:#8b5cf612;display:inline-flex;align-items:center;justify-content:center;font-size:15px">⚡</span>
+                ${_t('Quick Actions', 'Быстрые действия', 'Sürətli əməliyyatlar')}
+              </h3>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;text-align:center;transition:all 0.2s" onclick="location.hash='#/deals'" onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#334155'">
-                <div style="font-size:20px;margin-bottom:6px">💼</div>
-                <div style="font-size:12px;color:#cbd5e1">${_t('New Deal','Новая сделка','Yeni sövdələşmə')}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:linear-gradient(135deg,#6366f108,#6366f103);border:1px solid #6366f118;border-radius:14px;padding:20px;cursor:pointer;text-align:center;transition:all 0.25s" onclick="location.hash='#/deals'" onmouseover="this.style.borderColor='#6366f140';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px #6366f115'" onmouseout="this.style.borderColor='#6366f118';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                <div style="width:44px;height:44px;border-radius:12px;background:#6366f115;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px">💼</div>
+                <div style="font-size:13px;color:#e2e8f0;font-weight:600">${_t('New Deal','Новая сделка','Yeni sövdələşmə')}</div>
               </div>
-              <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;text-align:center;transition:all 0.2s" onclick="location.hash='#/tasks'" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#334155'">
-                <div style="font-size:20px;margin-bottom:6px">✅</div>
-                <div style="font-size:12px;color:#cbd5e1">${_t('New Task','Новая задача','Yeni tapşırıq')}</div>
+              <div style="background:linear-gradient(135deg,#10b98108,#10b98103);border:1px solid #10b98118;border-radius:14px;padding:20px;cursor:pointer;text-align:center;transition:all 0.25s" onclick="location.hash='#/tasks'" onmouseover="this.style.borderColor='#10b98140';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px #10b98115'" onmouseout="this.style.borderColor='#10b98118';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                <div style="width:44px;height:44px;border-radius:12px;background:#10b98115;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px">✅</div>
+                <div style="font-size:13px;color:#e2e8f0;font-weight:600">${_t('New Task','Новая задача','Yeni tapşırıq')}</div>
               </div>
-              <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;text-align:center;transition:all 0.2s" onclick="location.hash='#/contacts'" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='#334155'">
-                <div style="font-size:20px;margin-bottom:6px">👤</div>
-                <div style="font-size:12px;color:#cbd5e1">${_t('Add Contact','Добавить контакт','Kontakt əlavə et')}</div>
+              <div style="background:linear-gradient(135deg,#3b82f608,#3b82f603);border:1px solid #3b82f618;border-radius:14px;padding:20px;cursor:pointer;text-align:center;transition:all 0.25s" onclick="location.hash='#/contacts'" onmouseover="this.style.borderColor='#3b82f640';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px #3b82f615'" onmouseout="this.style.borderColor='#3b82f618';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                <div style="width:44px;height:44px;border-radius:12px;background:#3b82f615;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px">👤</div>
+                <div style="font-size:13px;color:#e2e8f0;font-weight:600">${_t('Add Contact','Добавить контакт','Kontakt əlavə et')}</div>
               </div>
-              <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;text-align:center;transition:all 0.2s" onclick="location.hash='#/analytics'" onmouseover="this.style.borderColor='#f59e0b'" onmouseout="this.style.borderColor='#334155'">
-                <div style="font-size:20px;margin-bottom:6px">📊</div>
-                <div style="font-size:12px;color:#cbd5e1">${_t('Reports','Отчёты','Hesabatlar')}</div>
+              <div style="background:linear-gradient(135deg,#f59e0b08,#f59e0b03);border:1px solid #f59e0b18;border-radius:14px;padding:20px;cursor:pointer;text-align:center;transition:all 0.25s" onclick="location.hash='#/analytics'" onmouseover="this.style.borderColor='#f59e0b40';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px #f59e0b15'" onmouseout="this.style.borderColor='#f59e0b18';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+                <div style="width:44px;height:44px;border-radius:12px;background:#f59e0b15;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px">📊</div>
+                <div style="font-size:13px;color:#e2e8f0;font-weight:600">${_t('Reports','Отчёты','Hesabatlar')}</div>
               </div>
             </div>
           </div>

@@ -13754,12 +13754,21 @@ function showCreateCampaignModal() {
           <select id="campTemplate" class="form-input w-full"></select></div>
       </div>
       <div><label class="text-sm text-slate-400">${_t('Recipients','Получатели','Alıcılar')}</label>
-        <select id="campTarget" class="form-input w-full" onchange="loadCampaignRecipientCount()">
+        <select id="campTarget" class="form-input w-full" onchange="onCampTargetChange()">
           <option value="all">${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
           <option value="contacts">${_t('Contacts only','Только контакты','Yalnız kontaktlar')}</option>
           <option value="leads">${_t('Leads only','Только лиды','Yalnız lidlər')}</option>
+          <option value="custom">${_t('Select manually','Выбрать вручную','Əl ilə seçin')}</option>
         </select>
         <div class="text-xs text-slate-500 mt-1">${_t('Will be sent to','Будет отправлено','Göndəriləcək')}: <span id="campRecipientCount" style="color:#6366f1;font-weight:600;">...</span> ${_t('recipients','получателям','alıcıya')}</div>
+      </div>
+      <div id="campCustomRecipients" style="display:none;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input id="campRecipientSearch" class="form-input" style="flex:1;" placeholder="${_t('Search contacts/leads...','Поиск контактов/лидов...','Kontakt/lid axtarın...')}" oninput="filterCampRecipients()">
+          <button class="btn btn-sm" onclick="toggleAllCampRecipients(true)" style="font-size:11px;padding:4px 8px;background:#4338ca;color:white;border:none;border-radius:6px;">${_t('All','Все','Hamısı')}</button>
+          <button class="btn btn-sm" onclick="toggleAllCampRecipients(false)" style="font-size:11px;padding:4px 8px;background:#334155;color:#94a3b8;border:none;border-radius:6px;">${_t('None','Никого','Heç kim')}</button>
+        </div>
+        <div id="campRecipientList" style="max-height:220px;overflow-y:auto;border:1px solid #334155;border-radius:8px;padding:4px;"></div>
       </div>
     </div>
     <div class="flex gap-2 mt-4">
@@ -13776,8 +13785,9 @@ function showCreateCampaignModal() {
       sel.appendChild(opt);
     });
   }).catch(()=>{});
-  // Load recipient count
+  // Load recipient count and all contacts/leads for custom selection
   loadCampaignRecipientCount();
+  loadAllCampaignRecipients();
 }
 
 function showCampaignDetail(id) {
@@ -13785,32 +13795,66 @@ function showCampaignDetail(id) {
     const L = currentLang;
     const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
     const statusColors = {draft:'#64748b',scheduled:'#f59e0b',sending:'#3b82f6',sent:'#22c55e',cancelled:'#ef4444'};
+    const isDraft = campaign.status === 'draft';
 
     showModal(`
-      <h2 class="text-xl font-bold mb-4">${t('campaign_edit')}</h2>
+      <h2 class="text-xl font-bold mb-4">${isDraft ? t('campaign_edit') : _t('Campaign Details','Детали кампании','Kampaniya detalları')}</h2>
       <div class="space-y-3">
-        <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full" value="${esc(campaign.name)}"></div>
-        <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="3">${esc(campaign.description||'')}</textarea></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full" value="${esc(campaign.name)}" ${isDraft ? '' : 'disabled'}></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="2" ${isDraft ? '' : 'disabled'}>${esc(campaign.description||'')}</textarea></div>
         <div class="text-sm text-slate-400">
           <span style="color:${statusColors[campaign.status]||'#64748b'};font-weight:600">${({draft:_t('Draft','Черновик','Qaralama'),scheduled:_t('Scheduled','Запланирована','Planlaşdırılıb'),sending:_t('Sending','Отправляется','Göndərilir'),sent:_t('Sent','Отправлена','Göndərilib'),cancelled:_t('Cancelled','Отменена','Ləğv edilib')})[campaign.status]||campaign.status}</span>
           <span class="ml-3">📧 ${({email:_t('Email','Email','E-poçt'),sms:'SMS'})[campaign.type]||campaign.type}</span>
           <span class="ml-3">👥 ${campaign.total_recipients||0}</span>
           <span class="ml-3">📤 ${campaign.sent_count||0}</span>
-          <span class="ml-3">👁 ${campaign.open_count||0}</span>
-          <span class="ml-3">🔗 ${campaign.click_count||0}</span>
         </div>
+        ${isDraft ? `
+        <div><label class="text-sm text-slate-400">${_t('Recipients','Получатели','Alıcılar')}</label>
+          <select id="campDetailTarget" class="form-input w-full" onchange="onCampDetailTargetChange()">
+            <option value="all" ${campaign.target_type==='all'?'selected':''}>${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
+            <option value="contacts" ${campaign.target_type==='contacts'?'selected':''}>${_t('Contacts only','Только контакты','Yalnız kontaktlar')}</option>
+            <option value="leads" ${campaign.target_type==='leads'?'selected':''}>${_t('Leads only','Только лиды','Yalnız lidlər')}</option>
+            <option value="custom" ${campaign.target_type==='custom'?'selected':''}>${_t('Select manually','Выбрать вручную','Əl ilə seçin')}</option>
+          </select>
+          <div class="text-xs text-slate-500 mt-1">${_t('Will be sent to','Будет отправлено','Göndəriləcək')}: <span id="campDetailCount" style="color:#6366f1;font-weight:600;">...</span> ${_t('recipients','получателям','alıcıya')}</div>
+        </div>
+        <div id="campDetailCustom" style="display:${campaign.target_type==='custom'?'block':'none'};">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input id="campDetailSearch" class="form-input" style="flex:1;" placeholder="${_t('Search...','Поиск...','Axtar...')}" oninput="filterCampDetailRecipients()">
+            <button class="btn btn-sm" onclick="toggleAllCampDetailRecipients(true)" style="font-size:11px;padding:4px 8px;background:#4338ca;color:white;border:none;border-radius:6px;">${_t('All','Все','Hamısı')}</button>
+            <button class="btn btn-sm" onclick="toggleAllCampDetailRecipients(false)" style="font-size:11px;padding:4px 8px;background:#334155;color:#94a3b8;border:none;border-radius:6px;">${_t('None','Никого','Heç kim')}</button>
+          </div>
+          <div id="campDetailList" style="max-height:200px;overflow-y:auto;border:1px solid #334155;border-radius:8px;padding:4px;"></div>
+        </div>
+        ` : `
         <div class="text-sm mt-2" style="background:#1e293b;padding:8px 12px;border-radius:8px;">
           <span class="text-slate-400">${_t('Target','Аудитория','Hədəf')}:</span>
-          <span style="color:#6366f1;font-weight:600;margin-left:6px;">${({all:_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər'),contacts:_t('Contacts only','Только контакты','Yalnız kontaktlar'),leads:_t('Leads only','Только лиды','Yalnız lidlər')})[campaign.target_type]||_t('All','Все','Hamısı')}</span>
+          <span style="color:#6366f1;font-weight:600;margin-left:6px;">${({all:_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər'),contacts:_t('Contacts only','Только контакты','Yalnız kontaktlar'),leads:_t('Leads only','Только лиды','Yalnız lidlər'),custom:_t('Custom selection','Ручной выбор','Əl ilə seçim')})[campaign.target_type]||_t('All','Все','Hamısı')}</span>
           ${campaign.template_name ? '<span class="ml-4 text-slate-400">' + _t('Template','Шаблон','Şablon') + ':</span><span style="color:#22c55e;margin-left:6px;">' + esc(campaign.template_name) + '</span>' : ''}
         </div>
+        `}
       </div>
       <div class="flex gap-2 mt-4">
-        ${campaign.status === 'draft' ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
+        ${isDraft ? `<button class="btn flex-1" onclick="updateCampaignDraft(${id})" style="background:#4338ca;color:white;">${t('common_save')}</button>` : ''}
+        ${isDraft ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
         <button class="btn btn-danger flex-1" onclick="deleteCampaign(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
         <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
       </div>
     `);
+    // For drafts load recipients for editing
+    if (isDraft) {
+      loadAllCampaignRecipients('detail');
+      loadCampDetailCount();
+      // If custom, pre-select saved recipients
+      if (campaign.target_type === 'custom' && campaign.target_filter) {
+        try {
+          var filter = typeof campaign.target_filter === 'string' ? JSON.parse(campaign.target_filter) : campaign.target_filter;
+          if (filter.selected_ids) {
+            window._campDetailPreselect = filter.selected_ids;
+          }
+        } catch(e) {}
+      }
+    }
   }).catch(e => showToast(e.message, 'error'));
 }
 
@@ -13819,12 +13863,21 @@ async function saveNewCampaign() {
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   const name = document.getElementById('campName')?.value?.trim();
   if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
+  var targetType = document.getElementById('campTarget')?.value||'all';
+  var targetFilter = {};
+  if (targetType === 'custom') {
+    var checked = document.querySelectorAll('#campRecipientList input[type=checkbox]:checked');
+    var selectedIds = Array.from(checked).map(c => ({type: c.dataset.rtype, id: parseInt(c.dataset.rid), email: c.dataset.email, name: c.dataset.rname}));
+    if (selectedIds.length === 0) { showToast(_t('Select at least one recipient','Выберите хотя бы одного получателя','Ən azı bir alıcı seçin'),'error'); return; }
+    targetFilter = {selected_ids: selectedIds};
+  }
   try {
     await api.post('/api/campaigns', {
       name, description: document.getElementById('campDesc')?.value||'',
       type: document.getElementById('campType')?.value||'email',
       template_id: parseInt(document.getElementById('campTemplate')?.value||0),
-      target_type: document.getElementById('campTarget')?.value||'all'
+      target_type: targetType,
+      target_filter: targetFilter
     });
     closeModal(); showToast(t('campaign_created'),'success');
     renderCampaigns(document.getElementById('app'));
@@ -13852,6 +13905,150 @@ async function deleteCampaign(id) {
   } catch(e) { showToast(e.message,'error'); }
 }
 
+
+
+// Campaign recipient helpers
+var _allCampRecipients = [];
+
+async function loadAllCampaignRecipients(mode) {
+  try {
+    var contacts = [];
+    var leads = [];
+    var cResp = await api.get('/api/contacts?limit=500');
+    if (Array.isArray(cResp.data)) contacts = cResp.data;
+    else if (cResp.data && Array.isArray(cResp.data)) contacts = cResp.data;
+    
+    var lResp = await api.get('/api/leads?limit=500');
+    var leadsArr = (lResp.data && lResp.data.leads) ? lResp.data.leads : (Array.isArray(lResp.data) ? lResp.data : []);
+    leads = leadsArr;
+    
+    _allCampRecipients = [];
+    contacts.forEach(c => {
+      if (c.email) _allCampRecipients.push({type:'contact', id:c.id, name:(c.first_name||'')+' '+(c.last_name||''), email:c.email, company:c.company||''});
+    });
+    leads.forEach(l => {
+      if (l.email) _allCampRecipients.push({type:'lead', id:l.id, name:(l.first_name||'')+' '+(l.last_name||''), email:l.email, company:l.company||''});
+    });
+    
+    renderCampRecipientCheckboxes(mode || 'create');
+  } catch(e) { console.error('loadAllCampaignRecipients', e); }
+}
+
+function renderCampRecipientCheckboxes(mode) {
+  var listId = mode === 'detail' ? 'campDetailList' : 'campRecipientList';
+  var searchId = mode === 'detail' ? 'campDetailSearch' : 'campRecipientSearch';
+  var el = document.getElementById(listId);
+  if (!el) return;
+  
+  var searchVal = (document.getElementById(searchId)?.value || '').toLowerCase();
+  var filtered = _allCampRecipients.filter(r => {
+    if (!searchVal) return true;
+    return r.name.toLowerCase().includes(searchVal) || r.email.toLowerCase().includes(searchVal) || r.company.toLowerCase().includes(searchVal);
+  });
+  
+  var preselect = mode === 'detail' ? (window._campDetailPreselect || []) : [];
+  
+  var html = '';
+  if (filtered.length === 0) {
+    html = '<div style="padding:12px;text-align:center;color:#64748b;font-size:13px;">No results</div>';
+  } else {
+    filtered.forEach(r => {
+      var isSelected = preselect.some(p => p.id === r.id && p.type === r.type);
+      html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;" onmouseover="this.style.background=\'#1e293b\'" onmouseout="this.style.background=\'transparent\'">';
+      html += '<input type="checkbox" data-rtype="' + r.type + '" data-rid="' + r.id + '" data-email="' + r.email + '" data-rname="' + (r.name||'').replace(/"/g,'&quot;') + '" ' + (isSelected ? 'checked' : '') + ' onchange="updateCampCustomCount(\'' + mode + '\')" style="accent-color:#6366f1;width:16px;height:16px;">';
+      html += '<span style="color:' + (r.type==='contact' ? '#6366f1' : '#f59e0b') + ';font-size:10px;padding:1px 5px;border-radius:4px;background:' + (r.type==='contact' ? '#312e81' : '#422006') + ';">' + (r.type==='contact' ? 'C' : 'L') + '</span>';
+      html += '<span style="color:#e2e8f0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (r.name||'').trim() + '</span>';
+      html += '<span style="color:#64748b;font-size:11px;overflow:hidden;text-overflow:ellipsis;">' + r.email + '</span>';
+      html += '</label>';
+    });
+  }
+  el.innerHTML = html;
+}
+
+function filterCampRecipients() { renderCampRecipientCheckboxes('create'); }
+function filterCampDetailRecipients() { renderCampRecipientCheckboxes('detail'); }
+
+function toggleAllCampRecipients(selectAll) {
+  document.querySelectorAll('#campRecipientList input[type=checkbox]').forEach(c => c.checked = selectAll);
+  updateCampCustomCount('create');
+}
+function toggleAllCampDetailRecipients(selectAll) {
+  document.querySelectorAll('#campDetailList input[type=checkbox]').forEach(c => c.checked = selectAll);
+  updateCampCustomCount('detail');
+}
+
+function updateCampCustomCount(mode) {
+  var listId = mode === 'detail' ? 'campDetailList' : 'campRecipientList';
+  var countId = mode === 'detail' ? 'campDetailCount' : 'campRecipientCount';
+  var checked = document.querySelectorAll('#' + listId + ' input[type=checkbox]:checked');
+  var countEl = document.getElementById(countId);
+  if (countEl) countEl.textContent = checked.length;
+}
+
+function onCampTargetChange() {
+  var val = document.getElementById('campTarget')?.value;
+  var customDiv = document.getElementById('campCustomRecipients');
+  if (customDiv) customDiv.style.display = val === 'custom' ? 'block' : 'none';
+  if (val === 'custom') {
+    updateCampCustomCount('create');
+  } else {
+    loadCampaignRecipientCount();
+  }
+}
+
+function onCampDetailTargetChange() {
+  var val = document.getElementById('campDetailTarget')?.value;
+  var customDiv = document.getElementById('campDetailCustom');
+  if (customDiv) customDiv.style.display = val === 'custom' ? 'block' : 'none';
+  if (val === 'custom') {
+    updateCampCustomCount('detail');
+  } else {
+    loadCampDetailCount();
+  }
+}
+
+async function loadCampDetailCount() {
+  var targetType = document.getElementById('campDetailTarget')?.value || 'all';
+  var countEl = document.getElementById('campDetailCount');
+  if (!countEl) return;
+  if (targetType === 'custom') { updateCampCustomCount('detail'); return; }
+  countEl.textContent = '...';
+  try {
+    var cResp = await api.get('/api/contacts?limit=1');
+    var contactsTotal = cResp.total || 0;
+    if (targetType === 'contacts') { countEl.textContent = contactsTotal; return; }
+    var lResp = await api.get('/api/leads?limit=10000');
+    var leadsArr = (lResp.data && lResp.data.leads) ? lResp.data.leads : (Array.isArray(lResp.data) ? lResp.data : []);
+    if (targetType === 'leads') { countEl.textContent = leadsArr.length; return; }
+    countEl.textContent = contactsTotal + leadsArr.length;
+  } catch(e) { countEl.textContent = '?'; }
+}
+
+async function updateCampaignDraft(id) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  var name = document.getElementById('campName')?.value?.trim();
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
+  var targetType = document.getElementById('campDetailTarget')?.value || 'all';
+  var targetFilter = {};
+  if (targetType === 'custom') {
+    var checked = document.querySelectorAll('#campDetailList input[type=checkbox]:checked');
+    var selectedIds = Array.from(checked).map(c => ({type: c.dataset.rtype, id: parseInt(c.dataset.rid), email: c.dataset.email, name: c.dataset.rname}));
+    if (selectedIds.length === 0) { showToast(_t('Select at least one recipient','Выберите хотя бы одного получателя','Ən azı bir alıcı seçin'),'error'); return; }
+    targetFilter = {selected_ids: selectedIds};
+  }
+  try {
+    await api.put('/api/campaigns/' + id, {
+      name: name,
+      description: document.getElementById('campDesc')?.value || '',
+      target_type: targetType,
+      target_filter: targetFilter
+    });
+    closeModal();
+    showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
+    renderCampaigns(document.getElementById('app'));
+  } catch(e) { showToast(e.message, 'error'); }
+}
 
 // ─── SMTP Settings Page ─────────────────────────────────────────
 async function renderSmtpSettings(el) {

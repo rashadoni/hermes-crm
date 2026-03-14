@@ -6625,17 +6625,37 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
         if not campaign:
             _err("Campaign not found", 404)
 
-        # Get template to populate recipients if not already done
+        # Populate recipients based on target_type
         if not conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]:
-            # Get contacts to send to
-            contacts = conn.execute("SELECT id, email FROM contacts WHERE email IS NOT NULL LIMIT 100").fetchall()
+            import json as _json
+            target_type = campaign["target_type"] or "all"
             now = datetime.utcnow().isoformat() + "Z"
-            for contact_id, email in contacts:
-                conn.execute(
-                    """INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at)
-                       VALUES (?,?,?,?,?,?)""",
-                    [campaign_id, "contact", contact_id, email, "sent", now]
-                )
+
+            if target_type == "custom":
+                # Use manually selected recipients from target_filter
+                try:
+                    tf = _json.loads(campaign["target_filter"]) if campaign["target_filter"] else {}
+                    selected = tf.get("selected_ids", [])
+                    for r in selected:
+                        conn.execute(
+                            "INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at) VALUES (?,?,?,?,?,?)",
+                            [campaign_id, r.get("type","contact"), r.get("id",0), r.get("email",""), "sent", now]
+                        )
+                except Exception:
+                    pass
+            else:
+                recipients = []
+                if target_type in ("all", "contacts"):
+                    contacts = conn.execute("SELECT id, email FROM contacts WHERE email IS NOT NULL AND email != '' LIMIT 5000").fetchall()
+                    recipients += [("contact", cid, email) for cid, email in contacts]
+                if target_type in ("all", "leads"):
+                    leads = conn.execute("SELECT id, email FROM leads WHERE email IS NOT NULL AND email != '' LIMIT 5000").fetchall()
+                    recipients += [("lead", lid, email) for lid, email in leads]
+                for rtype, rid, email in recipients:
+                    conn.execute(
+                        "INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at) VALUES (?,?,?,?,?,?)",
+                        [campaign_id, rtype, rid, email, "sent", now]
+                    )
 
         # Mark as sent
         now = datetime.utcnow().isoformat() + "Z"

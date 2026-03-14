@@ -214,7 +214,13 @@
       <a href="#/clients" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="clients" data-i18n="nav_clients">Clients</a>
       <a href="#/partners" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="partners" data-i18n="nav_partners">Partners</a>
       <a href="#/contacts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="contacts" data-i18n="nav_contacts">Contacts</a>
-      <a href="#/deals" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="deals" data-i18n="nav_deals">Deals</a>
+      <div class="nav-dropdown">
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_deals">Deals</span>
+        <div class="nav-dropdown-menu">
+          <a href="#/deals" data-page="deals" data-i18n="nav_deals">Deals</a>
+          <a href="#/offers" data-page="offers" data-i18n="nav_offers">Offers</a>
+        </div>
+      </div>
       <a href="#/tasks" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="tasks" data-i18n="nav_tasks">Tasks</a>
       
       <div class="nav-dropdown">
@@ -222,7 +228,6 @@
         <div class="nav-dropdown-menu">
           <a href="#/pricing" data-page="pricing" data-i18n="nav_pricing">Pricing</a>
           <a href="#/muqavile" data-page="muqavile" data-i18n="nav_muqavile">Müqavilə</a>
-          <a href="#/offers" data-page="offers" data-i18n="nav_offers">Offer</a>
           <a href="#/contracts" data-page="contracts" data-i18n="nav_contracts">Contracts</a>
         </div>
       </div>
@@ -376,7 +381,7 @@ const translations = {
     nav_docs_menu: 'Documents',
     nav_analytics_menu: 'Analytics',
     nav_muqavile: 'Contract Preparation',
-    nav_offers: 'Offer',
+    nav_offers: 'Offers',
     offers_title: 'Commercial Offers',
     offer_new: 'New Offer',
     offer_edit: 'Edit Offer',
@@ -1103,7 +1108,7 @@ const translations = {
     nav_docs_menu: 'Документы',
     nav_analytics_menu: 'Аналитика',
     nav_muqavile: 'Подготовка договоров',
-    nav_offers: 'Offer',
+    nav_offers: 'Предложения',
     offers_title: 'Коммерческие предложения',
     offer_new: 'Новое предложение',
     offer_edit: 'Редактировать',
@@ -1812,7 +1817,7 @@ const translations = {
     nav_docs_menu: 'Sənədlər',
     nav_analytics_menu: 'Analitika',
     nav_muqavile: 'Razılaşmaların hazırlanması',
-    nav_offers: 'Offer',
+    nav_offers: 'Təkliflər',
     offers_title: 'Kommersiya Təklifləri',
     offer_new: 'Yeni Təklif',
     offer_edit: 'Redaktə et',

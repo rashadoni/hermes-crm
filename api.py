@@ -2099,14 +2099,17 @@ async def analytics_summary(user=Depends(require_auth)):
         contracts_total = conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0]
         clients_total = conn.execute("SELECT COUNT(*) FROM companies WHERE category = 'client'").fetchone()[0]
         partners_total = conn.execute("SELECT COUNT(*) FROM companies WHERE category = 'partner'").fetchone()[0]
+        contacts_total = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
 
     return _ok({
         "clients_total": clients_total,
         "partners_total": partners_total,
         "companies_total": Company.count(),
+        "contacts_total": contacts_total,
         "deals_total": Deal.count(),
         "deals_active": active_deals,
         "pipeline_value": total_value,
+        "deals_value": total_value,
         "activities_total": Activity.count(),
         "contracts_total": contracts_total,
     })

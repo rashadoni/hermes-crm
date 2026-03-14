@@ -246,6 +246,7 @@
           <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
           <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
           <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
+          <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -345,6 +346,15 @@ const translations = {
     roi_link_deal: 'Link Deal',
     roi_no_deals: 'No deals linked',
     roi_summary: 'ROI Summary',
+    cf_title: 'Custom Fields',
+    cf_new: 'New Field',
+    cf_entity: 'Entity Type',
+    cf_field_name: 'Field Name',
+    cf_field_label: 'Label',
+    cf_field_type: 'Type',
+    cf_options: 'Options (comma-separated)',
+    cf_required: 'Required',
+    cf_default: 'Default Value',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1096,6 +1106,15 @@ const translations = {
     roi_link_deal: 'Привязать сделку',
     roi_no_deals: 'Нет связанных сделок',
     roi_summary: 'Сводка ROI',
+    cf_title: 'Пользовательские поля',
+    cf_new: 'Новое поле',
+    cf_entity: 'Тип сущности',
+    cf_field_name: 'Имя поля',
+    cf_field_label: 'Метка',
+    cf_field_type: 'Тип',
+    cf_options: 'Варианты (через запятую)',
+    cf_required: 'Обязательное',
+    cf_default: 'Значение по умолчанию',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1845,6 +1864,15 @@ const translations = {
     roi_link_deal: 'Sövdələşmə bağla',
     roi_no_deals: 'Əlaqəli sövdələşmə yoxdur',
     roi_summary: 'ROI xülasəsi',
+    cf_title: 'Xüsusi sahələr',
+    cf_new: 'Yeni sahə',
+    cf_entity: 'Varlıq növü',
+    cf_field_name: 'Sahə adı',
+    cf_field_label: 'Etiket',
+    cf_field_type: 'Növ',
+    cf_options: 'Seçimlər (vergüllə ayrılmış)',
+    cf_required: 'Məcburi',
+    cf_default: 'Standart dəyər',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3244,6 +3272,9 @@ async function renderPage(page) {
         break;
       case 'campaign-roi':
         await renderCampaignRoiPage(app);
+        break;
+      case 'custom-fields':
+        if (isAdmin()) await renderCustomFieldsPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14106,6 +14137,216 @@ async function updateCampaignDraft(id) {
     showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Custom Fields ────────────────────────────────────────────
+async function renderCustomFieldsPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let fields = [];
+  try { const r = await api.get('/api/custom-fields'); fields = r.data || r || []; } catch(e){}
+  
+  const entityTypes = ['leads','contacts','deals','companies','tickets'];
+  const entityLabels = {leads:_t('Leads','Лиды','Lidlər'), contacts:_t('Contacts','Контакты','Kontaktlar'), deals:_t('Deals','Сделки','Sövdələşmələr'), companies:_t('Companies','Компании','Şirkətlər'), tickets:_t('Tickets','Тикеты','Müraciətlər')};
+  const typeLabels = {text:'Text',number:'Number',date:'Date',select:'Select',multiselect:'Multi-select',checkbox:'Checkbox',url:'URL',email:'Email',textarea:'Textarea'};
+  
+  // Group by entity
+  const grouped = {};
+  entityTypes.forEach(et => { grouped[et] = fields.filter(f => f.entity_type === et); });
+
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('cf_title')}</h1>
+        <button class="btn btn-primary" onclick="showCustomFieldForm()">${t('cf_new')}</button>
+      </div>
+      ${entityTypes.map(et => {
+        const items = grouped[et];
+        if (!items.length) return '';
+        return `
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-2 text-indigo-400">${entityLabels[et]}</h2>
+            <table class="w-full text-sm mb-2">
+              <thead><tr class="text-left border-b border-slate-700">
+                <th class="p-2">${t('cf_field_name')}</th>
+                <th class="p-2">${t('cf_field_label')}</th>
+                <th class="p-2">${t('cf_field_type')}</th>
+                <th class="p-2">${t('cf_required')}</th>
+                <th class="p-2">${t('cf_default')}</th>
+                <th class="p-2"></th>
+              </tr></thead>
+              <tbody>
+                ${items.map(f => `
+                  <tr class="border-b border-slate-800">
+                    <td class="p-2 font-mono text-xs">${esc(f.field_name)}</td>
+                    <td class="p-2">${esc(L==='ru'&&f.field_label_ru?f.field_label_ru:L==='az'&&f.field_label_az?f.field_label_az:f.field_label)}</td>
+                    <td class="p-2"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${typeLabels[f.field_type]||f.field_type}</span></td>
+                    <td class="p-2">${f.is_required ? '✅' : '—'}</td>
+                    <td class="p-2 text-slate-400 text-xs">${esc(f.default_value||'')}</td>
+                    <td class="p-2 text-right">
+                      <button class="text-xs text-indigo-400 hover:underline mr-2" onclick="showCustomFieldForm(${f.id})">${_t('Edit','Ред.','Redaktə')}</button>
+                      <button class="text-xs text-red-400 hover:underline" onclick="deleteCustomField(${f.id})">${_t('Delete','Удалить','Sil')}</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      }).join('')}
+      ${fields.length === 0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom fields yet','Нет пользовательских полей','Xüsusi sahə yoxdur') + '</div>' : ''}
+    </div>`;
+}
+
+async function showCustomFieldForm(fieldId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let f = {entity_type:'leads',field_name:'',field_label:'',field_label_ru:'',field_label_az:'',field_type:'text',options:[],is_required:0,default_value:''};
+  if (fieldId) {
+    try {
+      const all = await api.get('/api/custom-fields');
+      const list = all.data || all || [];
+      const found = list.find(x => x.id === fieldId);
+      if (found) f = found;
+    } catch(e){}
+  }
+  const entityTypes = ['leads','contacts','deals','companies','tickets'];
+  const fieldTypes = ['text','number','date','select','multiselect','checkbox','url','email','textarea'];
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+  modal.id = 'cfModal';
+  modal.innerHTML = `
+    <div class="bg-slate-900 rounded-xl p-6 w-full max-w-lg shadow-2xl border border-slate-700">
+      <h2 class="text-lg font-bold mb-4">${fieldId ? _t('Edit Field','Ред. поле','Sahəni redaktə et') : t('cf_new')}</h2>
+      <form onsubmit="saveCustomField(event, ${fieldId||'null'})" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-500">${t('cf_entity')} *</label>
+            <select name="cf_entity_type" class="w-full text-sm" ${fieldId?'disabled':''}>
+              ${entityTypes.map(et => '<option value="'+et+'" '+(f.entity_type===et?'selected':'')+'>'+et+'</option>').join('')}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">${t('cf_field_type')} *</label>
+            <select name="cf_field_type" class="w-full text-sm" onchange="document.getElementById('cfOptionsRow').style.display=this.value==='select'||this.value==='multiselect'?'':'none'">
+              ${fieldTypes.map(ft => '<option value="'+ft+'" '+(f.field_type===ft?'selected':'')+'>'+ft+'</option>').join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">${t('cf_field_name')} * (latin, no spaces)</label>
+          <input type="text" name="cf_field_name" value="${esc(f.field_name)}" required class="w-full text-sm" pattern="[a-z0-9_]+" ${fieldId?'readonly':''}>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div><label class="text-xs text-slate-500">Label EN</label><input name="cf_label" value="${esc(f.field_label)}" class="w-full text-sm"></div>
+          <div><label class="text-xs text-slate-500">Label RU</label><input name="cf_label_ru" value="${esc(f.field_label_ru||'')}" class="w-full text-sm"></div>
+          <div><label class="text-xs text-slate-500">Label AZ</label><input name="cf_label_az" value="${esc(f.field_label_az||'')}" class="w-full text-sm"></div>
+        </div>
+        <div id="cfOptionsRow" style="display:${f.field_type==='select'||f.field_type==='multiselect'?'':'none'}">
+          <label class="text-xs text-slate-500">${t('cf_options')}</label>
+          <input type="text" name="cf_options" value="${Array.isArray(f.options)?f.options.join(', '):''}" class="w-full text-sm" placeholder="Option1, Option2, Option3">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-500">${t('cf_default')}</label>
+            <input type="text" name="cf_default" value="${esc(f.default_value||'')}" class="w-full text-sm">
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" name="cf_required" ${f.is_required?'checked':''} class="accent-indigo-500"> ${t('cf_required')}
+            </label>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Yadda saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('cfModal').remove()">${_t('Cancel','Отмена','Ləğv et')}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveCustomField(e, fieldId) {
+  e.preventDefault();
+  const g = n => { const el = document.querySelector('[name="'+n+'"]'); return el ? el.value.trim() : ''; };
+  const payload = {
+    entity_type: g('cf_entity_type'),
+    field_name: g('cf_field_name'),
+    field_label: g('cf_label'),
+    field_label_ru: g('cf_label_ru'),
+    field_label_az: g('cf_label_az'),
+    field_type: g('cf_field_type'),
+    options: g('cf_options') ? g('cf_options').split(',').map(s=>s.trim()).filter(Boolean) : [],
+    default_value: g('cf_default'),
+    is_required: document.querySelector('[name="cf_required"]')?.checked || false
+  };
+  try {
+    if (fieldId) await api.put('/api/custom-fields/' + fieldId, payload);
+    else await api.post('/api/custom-fields', payload);
+    document.getElementById('cfModal')?.remove();
+    showToast(fieldId ? 'Updated' : 'Created', 'success');
+    navigate('custom-fields');
+  } catch(err) { showToast(err.message || 'Error', 'error'); }
+}
+
+async function deleteCustomField(fieldId) {
+  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+  if (!confirm(_t('Delete this field?','Удалить поле?','Sahəni silmək?'))) return;
+  try {
+    await api.delete('/api/custom-fields/' + fieldId);
+    showToast('Deleted', 'success');
+    navigate('custom-fields');
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
+}
+
+// Helper: render custom fields in any entity form
+async function renderCustomFieldsForEntity(containerId, entityType, entityId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const L = currentLang;
+  let fields = [];
+  try { const r = await api.get('/api/custom-fields/values/' + entityType + '/' + (entityId||0)); fields = r.data || r || []; } catch(e){}
+  if (!fields.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <div class="bg-slate-800/30 rounded-lg p-3 mt-3">
+      <div class="text-xs font-semibold text-slate-400 mb-2">${L==='ru'?'Доп. поля':L==='az'?'Əlavə sahələr':'Custom Fields'}</div>
+      <div class="grid grid-cols-2 gap-2" style="font-size:12px">
+        ${fields.map(f => {
+          const label = L==='ru'&&f.field_label_ru ? f.field_label_ru : L==='az'&&f.field_label_az ? f.field_label_az : f.field_label;
+          const val = f.value || '';
+          let input = '';
+          if (f.field_type==='select') {
+            input = '<select name="cf_val_'+f.field_id+'" class="w-full text-xs">' +
+              '<option value="">—</option>' +
+              (f.options||[]).map(o => '<option value="'+esc(o)+'" '+(val===o?'selected':'')+'>'+esc(o)+'</option>').join('') +
+              '</select>';
+          } else if (f.field_type==='checkbox') {
+            input = '<input type="checkbox" name="cf_val_'+f.field_id+'" '+(val==='true'||val==='1'?'checked':'')+' class="accent-indigo-500">';
+          } else if (f.field_type==='textarea') {
+            input = '<textarea name="cf_val_'+f.field_id+'" rows="2" class="w-full text-xs">'+esc(val)+'</textarea>';
+          } else if (f.field_type==='date') {
+            input = '<input type="date" name="cf_val_'+f.field_id+'" value="'+esc(val)+'" class="w-full text-xs">';
+          } else if (f.field_type==='number') {
+            input = '<input type="number" name="cf_val_'+f.field_id+'" value="'+esc(val)+'" class="w-full text-xs">';
+          } else {
+            input = '<input type="text" name="cf_val_'+f.field_id+'" value="'+esc(val)+'" class="w-full text-xs">';
+          }
+          return '<div><label class="text-xs text-slate-500">'+esc(label)+(f.is_required?' *':'')+'</label>'+input+'</div>';
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+async function collectAndSaveCustomFields(entityType, entityId) {
+  const vals = {};
+  document.querySelectorAll('[name^="cf_val_"]').forEach(el => {
+    const fid = el.name.replace('cf_val_', '');
+    if (el.type === 'checkbox') vals[fid] = el.checked ? 'true' : 'false';
+    else vals[fid] = el.value;
+  });
+  if (Object.keys(vals).length) {
+    try { await api.put('/api/custom-fields/values/' + entityType + '/' + entityId, vals); } catch(e){}
+  }
 }
 
 // ─── Campaign ROI ─────────────────────────────────────────────

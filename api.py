@@ -375,6 +375,29 @@ async def startup_event():
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now'))
                 );
+                CREATE TABLE IF NOT EXISTS custom_fields (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    field_name TEXT NOT NULL,
+                    field_label TEXT NOT NULL,
+                    field_label_ru TEXT DEFAULT '',
+                    field_label_az TEXT DEFAULT '',
+                    field_type TEXT NOT NULL DEFAULT 'text',
+                    options TEXT DEFAULT '[]',
+                    is_required INTEGER DEFAULT 0,
+                    default_value TEXT DEFAULT '',
+                    sort_order INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    UNIQUE(entity_type, field_name)
+                );
+                CREATE TABLE IF NOT EXISTS custom_field_values (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    field_id INTEGER NOT NULL,
+                    entity_id INTEGER NOT NULL,
+                    value TEXT DEFAULT '',
+                    UNIQUE(field_id, entity_id)
+                );
                 CREATE TABLE IF NOT EXISTS campaign_deals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     campaign_id INTEGER NOT NULL,
@@ -6685,6 +6708,138 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Custom Fields ────────────────────────────────────────────────
+
+@app.get("/api/custom-fields")
+async def list_custom_fields(entity_type: Optional[str] = None, user=Depends(require_auth)):
+    with get_db() as conn:
+        if entity_type:
+            rows = conn.execute(
+                "SELECT * FROM custom_fields WHERE entity_type=? AND is_active=1 ORDER BY sort_order, id",
+                [entity_type]
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM custom_fields WHERE is_active=1 ORDER BY entity_type, sort_order, id").fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM custom_fields LIMIT 0").description]
+        result = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            try:
+                d["options"] = json.loads(d["options"] or "[]")
+            except Exception:
+                d["options"] = []
+            result.append(d)
+        return _ok(result)
+
+
+@app.post("/api/custom-fields")
+async def create_custom_field(request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    entity_type = data.get("entity_type", "")
+    field_name = data.get("field_name", "").strip().lower().replace(" ", "_")
+    if not entity_type or not field_name:
+        _err("entity_type and field_name required", 400)
+    valid_types = {"text", "number", "date", "select", "multiselect", "checkbox", "url", "email", "textarea"}
+    field_type = data.get("field_type", "text")
+    if field_type not in valid_types:
+        _err(f"Invalid field_type. Must be one of: {', '.join(valid_types)}", 400)
+    options = json.dumps(data.get("options", []))
+    with get_db() as conn:
+        max_order = conn.execute(
+            "SELECT COALESCE(MAX(sort_order),0) FROM custom_fields WHERE entity_type=?", [entity_type]
+        ).fetchone()[0]
+        try:
+            cur = conn.execute(
+                """INSERT INTO custom_fields (entity_type, field_name, field_label, field_label_ru, field_label_az,
+                   field_type, options, is_required, default_value, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                [entity_type, field_name, data.get("field_label", field_name),
+                 data.get("field_label_ru", ""), data.get("field_label_az", ""),
+                 field_type, options, 1 if data.get("is_required") else 0,
+                 data.get("default_value", ""), max_order + 1]
+            )
+            fid = cur.lastrowid
+        except Exception:
+            _err("Field already exists for this entity type", 409)
+    log_audit(user["user_id"], "create_custom_field", "custom_field", fid, entity_name=field_name, ip=_get_ip(request))
+    return _ok({"id": fid})
+
+
+@app.put("/api/custom-fields/{field_id}")
+async def update_custom_field(field_id: int, request: Request, user=Depends(require_admin)):
+    data = await request.json()
+    allowed = {"field_label", "field_label_ru", "field_label_az", "field_type", "options",
+               "is_required", "default_value", "sort_order", "is_active"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+    if "options" in updates and isinstance(updates["options"], list):
+        updates["options"] = json.dumps(updates["options"])
+    if "is_required" in updates:
+        updates["is_required"] = 1 if updates["is_required"] else 0
+    if "is_active" in updates:
+        updates["is_active"] = 1 if updates["is_active"] else 0
+    if not updates:
+        _err("No fields to update", 400)
+    parts = [f"{k}=?" for k in updates]
+    with get_db() as conn:
+        conn.execute(f"UPDATE custom_fields SET {','.join(parts)} WHERE id=?", list(updates.values()) + [field_id])
+    log_audit(user["user_id"], "update_custom_field", "custom_field", field_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/custom-fields/{field_id}")
+async def delete_custom_field(field_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM custom_field_values WHERE field_id=?", [field_id])
+        conn.execute("DELETE FROM custom_fields WHERE id=?", [field_id])
+    log_audit(user["user_id"], "delete_custom_field", "custom_field", field_id)
+    return _ok({"deleted": True})
+
+
+@app.get("/api/custom-fields/values/{entity_type}/{entity_id}")
+async def get_custom_field_values(entity_type: str, entity_id: int, user=Depends(require_auth)):
+    """Get all custom field values for a specific entity."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT cf.id as field_id, cf.field_name, cf.field_label, cf.field_label_ru, cf.field_label_az,
+                      cf.field_type, cf.options, cf.is_required, cf.default_value,
+                      COALESCE(cfv.value, cf.default_value) as value
+               FROM custom_fields cf
+               LEFT JOIN custom_field_values cfv ON cf.id = cfv.field_id AND cfv.entity_id=?
+               WHERE cf.entity_type=? AND cf.is_active=1
+               ORDER BY cf.sort_order, cf.id""",
+            [entity_id, entity_type]
+        ).fetchall()
+        cols = ["field_id", "field_name", "field_label", "field_label_ru", "field_label_az",
+                "field_type", "options", "is_required", "default_value", "value"]
+        result = []
+        for r in rows:
+            d = dict(zip(cols, r))
+            try:
+                d["options"] = json.loads(d["options"] or "[]")
+            except Exception:
+                d["options"] = []
+            result.append(d)
+        return _ok(result)
+
+
+@app.put("/api/custom-fields/values/{entity_type}/{entity_id}")
+async def save_custom_field_values(entity_type: str, entity_id: int, request: Request, user=Depends(require_auth)):
+    """Save custom field values. Body: {field_id: value, ...}"""
+    data = await request.json()
+    with get_db() as conn:
+        for field_id_str, value in data.items():
+            field_id = int(field_id_str)
+            existing = conn.execute(
+                "SELECT id FROM custom_field_values WHERE field_id=? AND entity_id=?", [field_id, entity_id]
+            ).fetchone()
+            if existing:
+                conn.execute("UPDATE custom_field_values SET value=? WHERE field_id=? AND entity_id=?",
+                             [str(value), field_id, entity_id])
+            else:
+                conn.execute("INSERT INTO custom_field_values (field_id, entity_id, value) VALUES (?,?,?)",
+                             [field_id, entity_id, str(value)])
+    return _ok({"saved": True})
 
 
 # ─── Campaign ROI ─────────────────────────────────────────────────

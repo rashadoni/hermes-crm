@@ -6649,6 +6649,123 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
     return _ok({"sent": True, "count": total_recipients})
 
 
+# ─── SMTP Settings ────────────────────────────────────────────────
+def _ensure_smtp_table():
+    with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS smtp_settings (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            smtp_host TEXT DEFAULT '',
+            smtp_port INTEGER DEFAULT 587,
+            smtp_user TEXT DEFAULT '',
+            smtp_password TEXT DEFAULT '',
+            smtp_use_tls INTEGER DEFAULT 1,
+            sender_email TEXT DEFAULT '',
+            sender_name TEXT DEFAULT '',
+            updated_at TEXT DEFAULT (datetime('now'))
+        )""")
+        if not conn.execute("SELECT COUNT(*) FROM smtp_settings").fetchone()[0]:
+            conn.execute("INSERT INTO smtp_settings (id) VALUES (1)")
+
+@app.get("/api/smtp-settings")
+async def get_smtp_settings(user=Depends(require_auth)):
+    _ensure_smtp_table()
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM smtp_settings WHERE id=1").fetchone()
+        if not row:
+            return _ok({})
+        return _ok({
+            "smtp_host": row["smtp_host"],
+            "smtp_port": row["smtp_port"],
+            "smtp_user": row["smtp_user"],
+            "smtp_password": "***" if row["smtp_password"] else "",
+            "smtp_use_tls": bool(row["smtp_use_tls"]),
+            "sender_email": row["sender_email"],
+            "sender_name": row["sender_name"],
+            "updated_at": row["updated_at"]
+        })
+
+@app.put("/api/smtp-settings")
+async def update_smtp_settings(request: Request, user=Depends(require_auth)):
+    _ensure_smtp_table()
+    body = await request.json()
+    with get_db() as conn:
+        fields = []
+        values = []
+        for key in ["smtp_host", "smtp_port", "smtp_user", "smtp_use_tls", "sender_email", "sender_name"]:
+            if key in body:
+                fields.append(f"{key}=?")
+                values.append(body[key])
+        if "smtp_password" in body and body["smtp_password"] and body["smtp_password"] != "***":
+            fields.append("smtp_password=?")
+            values.append(body["smtp_password"])
+        if fields:
+            fields.append("updated_at=datetime('now')")
+            conn.execute(f"UPDATE smtp_settings SET {','.join(fields)} WHERE id=1", values)
+    log_audit(user["user_id"], "update_smtp_settings", "settings", 1, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+@app.post("/api/smtp-settings/test")
+async def test_smtp_settings(request: Request, user=Depends(require_auth)):
+    """Send a test email to verify SMTP settings work."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    _ensure_smtp_table()
+    body = await request.json()
+    test_to = body.get("test_email", "")
+    if not test_to:
+        _err("test_email is required", 400)
+
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM smtp_settings WHERE id=1").fetchone()
+        if not row or not row["smtp_host"]:
+            _err("SMTP not configured", 400)
+
+        host = row["smtp_host"]
+        port = row["smtp_port"] or 587
+        username = row["smtp_user"]
+        password = row["smtp_password"]
+        use_tls = bool(row["smtp_use_tls"])
+        sender_email = row["sender_email"] or username
+        sender_name = row["sender_name"] or "Hermes CRM"
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Hermes CRM — Test Email"
+        msg["From"] = f"{sender_name} <{sender_email}>"
+        msg["To"] = test_to
+
+        html_body = """
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+            <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;">Hermes CRM</h1>
+            </div>
+            <div style="background:#1e293b;padding:30px;border-radius:0 0 12px 12px;color:#e2e8f0;">
+                <p>This is a test email from Hermes CRM.</p>
+                <p>If you received this message, your SMTP settings are configured correctly!</p>
+                <p style="color:#94a3b8;font-size:12px;margin-top:20px;">Sent at: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC") + """</p>
+            </div>
+        </div>
+        """
+        msg.attach(MIMEText(html_body, "html"))
+
+        if use_tls:
+            server = smtplib.SMTP(host, port, timeout=10)
+            server.starttls()
+        else:
+            server = smtplib.SMTP(host, port, timeout=10)
+
+        if username and password:
+            server.login(username, password)
+        server.sendmail(sender_email, [test_to], msg.as_string())
+        server.quit()
+
+        return _ok({"sent": True, "to": test_to})
+    except Exception as e:
+        _err(f"SMTP error: {str(e)}", 400)
+
+
 # ─── Web Forms ────────────────────────────────────────────────────
 @app.get("/api/web-forms")
 async def list_web_forms(

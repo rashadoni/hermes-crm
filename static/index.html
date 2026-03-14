@@ -240,6 +240,7 @@
           <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
           <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
+          <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -331,6 +332,21 @@ const translations = {
     nav_email_templates: 'Email Templates',
     nav_campaigns: 'Campaigns',
     nav_web_forms: 'Web Forms',
+    nav_smtp_settings: 'SMTP Settings',
+    smtp_title: 'SMTP Settings',
+    smtp_host: 'SMTP Server',
+    smtp_port: 'Port',
+    smtp_user: 'Username',
+    smtp_password: 'Password',
+    smtp_use_tls: 'Use TLS',
+    smtp_sender_email: 'Sender Email',
+    smtp_sender_name: 'Sender Name',
+    smtp_test_email: 'Test Email Address',
+    smtp_send_test: 'Send Test Email',
+    smtp_save: 'Save Settings',
+    smtp_saved: 'SMTP settings saved',
+    smtp_test_sent: 'Test email sent!',
+    smtp_test_failed: 'Test failed',
     nav_2fa: '🔐 2FA Settings',
 
     nav_dashboard: 'Dashboard',
@@ -1043,6 +1059,21 @@ const translations = {
     nav_email_templates: 'Шаблоны Email',
     nav_campaigns: 'Кампании',
     nav_web_forms: 'Веб-формы',
+    nav_smtp_settings: 'Настройки SMTP',
+    smtp_title: 'Настройки SMTP',
+    smtp_host: 'SMTP Сервер',
+    smtp_port: 'Порт',
+    smtp_user: 'Логин',
+    smtp_password: 'Пароль',
+    smtp_use_tls: 'Использовать TLS',
+    smtp_sender_email: 'Email отправителя',
+    smtp_sender_name: 'Имя отправителя',
+    smtp_test_email: 'Email для теста',
+    smtp_send_test: 'Отправить тестовое письмо',
+    smtp_save: 'Сохранить настройки',
+    smtp_saved: 'Настройки SMTP сохранены',
+    smtp_test_sent: 'Тестовое письмо отправлено!',
+    smtp_test_failed: 'Ошибка отправки',
     nav_2fa: '🔐 2FA Настройки',
 
     nav_dashboard: 'Панель',
@@ -3126,6 +3157,9 @@ async function renderPage(page) {
         break;
       case 'campaigns':
         await renderCampaigns(app);
+        break;
+      case 'smtp-settings':
+        await renderSmtpSettings(el);
         break;
       case 'web-forms':
         await renderWebForms(app);
@@ -13816,6 +13850,125 @@ async function deleteCampaign(id) {
     closeModal(); showToast(t('campaign_deleted'),'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message,'error'); }
+}
+
+
+// ─── SMTP Settings Page ─────────────────────────────────────────
+async function renderSmtpSettings(el) {
+  var L = currentLang;
+  var _t = function(en,ru,az){ return L==='ru'?ru:L==='az'?az:en; };
+  
+  var html = '';
+  html += '<div style="max-width:640px;margin:0 auto;">';
+  html += '<h1 class="text-2xl font-bold mb-6">' + t('smtp_title') + '</h1>';
+  
+  html += '<div class="card" style="padding:24px;border-radius:14px;">';
+  
+  // SMTP Server
+  html += '<div style="margin-bottom:16px;">';
+  html += '<label class="text-sm text-slate-400">' + t('smtp_host') + '</label>';
+  html += '<input id="smtpHost" class="form-input w-full" placeholder="smtp.gmail.com">';
+  html += '</div>';
+  
+  // Port + TLS
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_port') + '</label>';
+  html += '<input id="smtpPort" class="form-input w-full" type="number" value="587" placeholder="587"></div>';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_use_tls') + '</label>';
+  html += '<select id="smtpTls" class="form-input w-full"><option value="1">' + _t('Yes','Да','Bəli') + '</option><option value="0">' + _t('No','Нет','Xeyr') + '</option></select></div>';
+  html += '</div>';
+  
+  // Username + Password
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_user') + '</label>';
+  html += '<input id="smtpUser" class="form-input w-full" placeholder="user@company.com"></div>';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_password') + '</label>';
+  html += '<input id="smtpPassword" class="form-input w-full" type="password" placeholder="••••••••"></div>';
+  html += '</div>';
+  
+  // Sender email + name
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_email') + '</label>';
+  html += '<input id="smtpSenderEmail" class="form-input w-full" placeholder="noreply@company.com"></div>';
+  html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_name') + '</label>';
+  html += '<input id="smtpSenderName" class="form-input w-full" placeholder="Hermes CRM"></div>';
+  html += '</div>';
+  
+  // Save button
+  html += '<button class="btn btn-primary w-full" onclick="saveSmtpSettings()" style="margin-top:8px;padding:12px;font-size:15px;border-radius:10px;">' + t('smtp_save') + '</button>';
+  
+  html += '</div>'; // end card
+  
+  // Test section
+  html += '<div class="card" style="padding:24px;border-radius:14px;margin-top:16px;">';
+  html += '<h2 class="text-lg font-semibold mb-3">' + _t('Test Email','Тестовое письмо','Test email') + '</h2>';
+  html += '<div style="display:flex;gap:12px;align-items:end;">';
+  html += '<div style="flex:1;"><label class="text-sm text-slate-400">' + t('smtp_test_email') + '</label>';
+  html += '<input id="smtpTestEmail" class="form-input w-full" placeholder="your@email.com"></div>';
+  html += '<button class="btn" onclick="testSmtpEmail()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;padding:10px 20px;border-radius:10px;white-space:nowrap;">' + t('smtp_send_test') + '</button>';
+  html += '</div>';
+  html += '<div id="smtpTestResult" style="margin-top:12px;display:none;padding:10px;border-radius:8px;font-size:14px;"></div>';
+  html += '</div>';
+  
+  html += '<div style="margin-top:12px;padding:16px;background:#1e293b;border-radius:10px;color:#94a3b8;font-size:13px;line-height:1.6;">';
+  html += '<strong style="color:#e2e8f0;">' + _t('Popular SMTP servers:','Популярные SMTP серверы:','Populyar SMTP serverlər:') + '</strong><br>';
+  html += 'Gmail: smtp.gmail.com : 587 (TLS)<br>';
+  html += 'Outlook: smtp.office365.com : 587 (TLS)<br>';
+  html += 'Yandex: smtp.yandex.ru : 465 (TLS)<br>';
+  html += 'Mail.ru: smtp.mail.ru : 465 (TLS)';
+  html += '</div>';
+  
+  html += '</div>'; // end max-width wrapper
+  
+  el.innerHTML = html;
+  
+  // Load existing settings
+  try {
+    var resp = await api.get('/api/smtp-settings');
+    var s = resp.data || {};
+    if (s.smtp_host) document.getElementById('smtpHost').value = s.smtp_host;
+    if (s.smtp_port) document.getElementById('smtpPort').value = s.smtp_port;
+    if (s.smtp_user) document.getElementById('smtpUser').value = s.smtp_user;
+    if (s.smtp_password) document.getElementById('smtpPassword').value = s.smtp_password;
+    document.getElementById('smtpTls').value = s.smtp_use_tls ? '1' : '0';
+    if (s.sender_email) document.getElementById('smtpSenderEmail').value = s.sender_email;
+    if (s.sender_name) document.getElementById('smtpSenderName').value = s.sender_name;
+  } catch(e) {}
+}
+
+async function saveSmtpSettings() {
+  try {
+    await api.put('/api/smtp-settings', {
+      smtp_host: document.getElementById('smtpHost').value,
+      smtp_port: parseInt(document.getElementById('smtpPort').value) || 587,
+      smtp_user: document.getElementById('smtpUser').value,
+      smtp_password: document.getElementById('smtpPassword').value,
+      smtp_use_tls: parseInt(document.getElementById('smtpTls').value),
+      sender_email: document.getElementById('smtpSenderEmail').value,
+      sender_name: document.getElementById('smtpSenderName').value
+    });
+    showToast(t('smtp_saved'), 'success');
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function testSmtpEmail() {
+  var testEmail = document.getElementById('smtpTestEmail').value;
+  if (!testEmail) { showToast('Enter test email', 'error'); return; }
+  var resultEl = document.getElementById('smtpTestResult');
+  resultEl.style.display = 'block';
+  resultEl.style.background = '#1e293b';
+  resultEl.style.color = '#94a3b8';
+  resultEl.textContent = '...';
+  try {
+    var resp = await api.post('/api/smtp-settings/test', { test_email: testEmail });
+    resultEl.style.background = '#052e16';
+    resultEl.style.color = '#4ade80';
+    resultEl.textContent = t('smtp_test_sent') + ' → ' + testEmail;
+  } catch(e) {
+    resultEl.style.background = '#450a0a';
+    resultEl.style.color = '#f87171';
+    resultEl.textContent = t('smtp_test_failed') + ': ' + e.message;
+  }
 }
 
 // ─── Web Forms ───────────────────────────────────────────────

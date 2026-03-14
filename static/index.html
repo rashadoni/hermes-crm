@@ -247,6 +247,7 @@
           <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
           <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
           <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
+          <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -355,6 +356,16 @@ const translations = {
     cf_options: 'Options (comma-separated)',
     cf_required: 'Required',
     cf_default: 'Default Value',
+    nur_title: 'Lead Nurturing',
+    nur_new: 'New Sequence',
+    nur_steps: 'Steps',
+    nur_enrollments: 'Enrolled Leads',
+    nur_trigger: 'Trigger Event',
+    nur_delay: 'Delay (days)',
+    nur_action: 'Action',
+    nur_enroll: 'Enroll Lead',
+    nur_active: 'Active',
+    nur_paused: 'Paused',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1115,6 +1126,16 @@ const translations = {
     cf_options: 'Варианты (через запятую)',
     cf_required: 'Обязательное',
     cf_default: 'Значение по умолчанию',
+    nur_title: 'Цепочки лидов',
+    nur_new: 'Новая цепочка',
+    nur_steps: 'Шаги',
+    nur_enrollments: 'Подписанные лиды',
+    nur_trigger: 'Событие-триггер',
+    nur_delay: 'Задержка (дни)',
+    nur_action: 'Действие',
+    nur_enroll: 'Подписать лид',
+    nur_active: 'Активна',
+    nur_paused: 'На паузе',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1873,6 +1894,16 @@ const translations = {
     cf_options: 'Seçimlər (vergüllə ayrılmış)',
     cf_required: 'Məcburi',
     cf_default: 'Standart dəyər',
+    nur_title: 'Lid zəncirləri',
+    nur_new: 'Yeni zəncir',
+    nur_steps: 'Addımlar',
+    nur_enrollments: 'Qeydə alınmış lidlər',
+    nur_trigger: 'Tetikleyici hadisə',
+    nur_delay: 'Gecikmə (gün)',
+    nur_action: 'Hərəkət',
+    nur_enroll: 'Lid qeydə al',
+    nur_active: 'Aktiv',
+    nur_paused: 'Fasilə',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3275,6 +3306,9 @@ async function renderPage(page) {
         break;
       case 'custom-fields':
         if (isAdmin()) await renderCustomFieldsPage(app);
+        break;
+      case 'nurturing':
+        if (isAdmin()) await renderNurturingPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14137,6 +14171,197 @@ async function updateCampaignDraft(id) {
     showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Lead Nurturing ───────────────────────────────────────────
+async function renderNurturingPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let seqs = [];
+  try { const r = await api.get('/api/nurture-sequences'); seqs = r.data || r || []; } catch(e){}
+
+  container.innerHTML = `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">${t('nur_title')}</h1>
+        <button class="btn btn-primary" onclick="showNurtureForm()">${t('nur_new')}</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left border-b border-slate-700">
+            <th class="p-3">${_t('Name','Название','Ad')}</th>
+            <th class="p-3">${t('nur_trigger')}</th>
+            <th class="p-3">${t('nur_steps')}</th>
+            <th class="p-3">${t('nur_enrollments')}</th>
+            <th class="p-3">${_t('Status','Статус','Status')}</th>
+            <th class="p-3"></th>
+          </tr></thead>
+          <tbody>
+            ${seqs.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No sequences','Нет цепочек','Zəncir yoxdur') + '</td></tr>' :
+              seqs.map(s => `
+                <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showNurtureDetail(${s.id})">
+                  <td class="p-3 font-medium">${esc(s.name)}</td>
+                  <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${s.trigger_event||'—'}</span></td>
+                  <td class="p-3">${s.step_count||0}</td>
+                  <td class="p-3"><span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full text-xs">${s.active_enrollments||0}</span></td>
+                  <td class="p-3">${s.is_active ? '<span class="text-green-400 text-xs">'+t('nur_active')+'</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
+                  <td class="p-3 text-right">
+                    <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteNurtureSeq(${s.id})">${_t('Delete','Удалить','Sil')}</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function showNurtureForm(seqId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let seq = {name:'',description:'',trigger_event:'lead_created',is_active:1,steps:[]};
+  if (seqId) {
+    try { const r = await api.get('/api/nurture-sequences/'+seqId); seq = r.data||r; } catch(e){}
+  }
+  // Get templates for dropdown
+  let templates = [];
+  try { const r = await api.get('/api/email-templates'); templates = r.data||r||[]; } catch(e){}
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="p-6 max-w-3xl">
+      <div class="flex items-center gap-3 mb-6">
+        <button class="text-slate-400 hover:text-white" onclick="navigate('nurturing')">← ${t('nur_title')}</button>
+        <h1 class="text-xl font-bold">${seqId ? _t('Edit Sequence','Ред. цепочку','Zənciri redaktə et') : t('nur_new')}</h1>
+      </div>
+      <form onsubmit="saveNurtureSeq(event, ${seqId||'null'})" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label>
+            <input type="text" id="nurName" value="${esc(seq.name)}" required class="w-full">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">${t('nur_trigger')}</label>
+            <select id="nurTrigger" class="w-full text-sm">
+              <option value="lead_created" ${seq.trigger_event==='lead_created'?'selected':''}>${_t('Lead Created','Лид создан','Lid yaradıldı')}</option>
+              <option value="lead_status_changed" ${seq.trigger_event==='lead_status_changed'?'selected':''}>${_t('Status Changed','Статус изменён','Status dəyişdi')}</option>
+              <option value="form_submitted" ${seq.trigger_event==='form_submitted'?'selected':''}>${_t('Form Submitted','Форма отправлена','Forma göndərildi')}</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">${_t('Description','Описание','Təsvir')}</label>
+          <textarea id="nurDesc" rows="2" class="w-full">${esc(seq.description||'')}</textarea>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">${t('nur_steps')}</h3>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addNurtureStep()">+ ${_t('Add Step','Добавить шаг','Addım əlavə et')}</button>
+          </div>
+          <div id="nurtureStepsContainer">
+            ${(seq.steps||[]).map((s,i) => _renderNurtureStepRow(i, s, templates)).join('')}
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="nurActive" ${seq.is_active?'checked':''} class="accent-green-500"> ${t('nur_active')}</label>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Yadda saxla')}</button>
+          <button type="button" class="btn btn-secondary" onclick="navigate('nurturing')">${_t('Cancel','Отмена','Ləğv et')}</button>
+        </div>
+      </form>
+    </div>`;
+  // Store templates globally for addNurtureStep
+  window._nurtureTemplates = templates;
+  window._nurtureStepIdx = (seq.steps||[]).length;
+}
+
+function _renderNurtureStepRow(idx, step, templates) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  return `
+    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-900 rounded" id="nurtureStep${idx}">
+      <span class="text-xs text-slate-500 w-6">#${idx+1}</span>
+      <div class="flex-1 grid grid-cols-4 gap-2" style="font-size:12px">
+        <div>
+          <label class="text-xs text-slate-600">${_t('Delay','Задержка','Gecikmə')}</label>
+          <input type="number" name="ns_delay_${idx}" value="${step.delay_days||0}" min="0" class="w-full text-xs"> 
+        </div>
+        <div>
+          <label class="text-xs text-slate-600">${t('nur_action')}</label>
+          <select name="ns_action_${idx}" class="w-full text-xs">
+            <option value="email" ${step.action_type==='email'?'selected':''}>Email</option>
+            <option value="task" ${step.action_type==='task'?'selected':''}>${_t('Task','Задача','Tapşırıq')}</option>
+            <option value="notification" ${step.action_type==='notification'?'selected':''}>${_t('Notification','Уведомление','Bildiriş')}</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-600">${_t('Template','Шаблон','Şablon')}</label>
+          <select name="ns_template_${idx}" class="w-full text-xs">
+            <option value="">—</option>
+            ${templates.map(t => '<option value="'+t.id+'" '+(step.template_id==t.id?'selected':'')+'>'+esc(t.name)+'</option>').join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-600">${_t('Task title','Заголовок','Başlıq')}</label>
+          <input type="text" name="ns_task_${idx}" value="${esc(step.task_title||'')}" class="w-full text-xs">
+        </div>
+      </div>
+      <button type="button" class="text-red-400 text-xs" onclick="document.getElementById('nurtureStep${idx}').remove()">✕</button>
+    </div>`;
+}
+
+function addNurtureStep() {
+  const idx = window._nurtureStepIdx || 0;
+  window._nurtureStepIdx = idx + 1;
+  const container = document.getElementById('nurtureStepsContainer');
+  const div = document.createElement('div');
+  div.innerHTML = _renderNurtureStepRow(idx, {}, window._nurtureTemplates || []);
+  container.appendChild(div.firstElementChild);
+}
+
+async function saveNurtureSeq(e, seqId) {
+  e.preventDefault();
+  const name = document.getElementById('nurName').value.trim();
+  if (!name) { showToast('Name required','error'); return; }
+  // Collect steps
+  const steps = [];
+  document.querySelectorAll('[id^="nurtureStep"]').forEach(el => {
+    const idx = el.id.replace('nurtureStep','');
+    const delay = document.querySelector('[name="ns_delay_'+idx+'"]');
+    const action = document.querySelector('[name="ns_action_'+idx+'"]');
+    const tmpl = document.querySelector('[name="ns_template_'+idx+'"]');
+    const task = document.querySelector('[name="ns_task_'+idx+'"]');
+    if (delay) steps.push({
+      delay_days: parseInt(delay.value)||0,
+      action_type: action?action.value:'email',
+      template_id: tmpl&&tmpl.value?parseInt(tmpl.value):null,
+      task_title: task?task.value:''
+    });
+  });
+  const payload = {
+    name,
+    description: document.getElementById('nurDesc').value.trim(),
+    trigger_event: document.getElementById('nurTrigger').value,
+    is_active: document.getElementById('nurActive').checked,
+    steps
+  };
+  try {
+    if (seqId) await api.put('/api/nurture-sequences/'+seqId, payload);
+    else await api.post('/api/nurture-sequences', payload);
+    showToast(seqId?'Updated':'Created','success');
+    navigate('nurturing');
+  } catch(err) { showToast(err.message||'Error','error'); }
+}
+
+async function showNurtureDetail(seqId) {
+  showNurtureForm(seqId);
+}
+
+async function deleteNurtureSeq(seqId) {
+  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+  if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
+  try { await api.delete('/api/nurture-sequences/'+seqId); showToast('Deleted','success'); navigate('nurturing'); } catch(e) { showToast(e.message||'Error','error'); }
 }
 
 // ─── Custom Fields ────────────────────────────────────────────

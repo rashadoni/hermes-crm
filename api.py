@@ -398,6 +398,38 @@ async def startup_event():
                     value TEXT DEFAULT '',
                     UNIQUE(field_id, entity_id)
                 );
+                CREATE TABLE IF NOT EXISTS nurture_sequences (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    trigger_event TEXT DEFAULT 'lead_created',
+                    trigger_conditions TEXT DEFAULT '{}',
+                    is_active INTEGER DEFAULT 1,
+                    created_by INTEGER,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS nurture_steps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sequence_id INTEGER NOT NULL,
+                    step_order INTEGER NOT NULL DEFAULT 0,
+                    delay_days INTEGER DEFAULT 0,
+                    action_type TEXT DEFAULT 'email',
+                    template_id INTEGER,
+                    task_title TEXT DEFAULT '',
+                    task_description TEXT DEFAULT '',
+                    is_active INTEGER DEFAULT 1
+                );
+                CREATE TABLE IF NOT EXISTS nurture_enrollments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sequence_id INTEGER NOT NULL,
+                    lead_id INTEGER NOT NULL,
+                    current_step INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'active',
+                    next_action_at TEXT,
+                    enrolled_at TEXT DEFAULT (datetime('now')),
+                    completed_at TEXT,
+                    UNIQUE(sequence_id, lead_id)
+                );
                 CREATE TABLE IF NOT EXISTS campaign_deals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     campaign_id INTEGER NOT NULL,
@@ -6708,6 +6740,150 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Lead Nurturing ───────────────────────────────────────────────
+
+@app.get("/api/nurture-sequences")
+async def list_nurture_sequences(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT s.*, u.full_name as creator_name,
+                      (SELECT COUNT(*) FROM nurture_steps WHERE sequence_id=s.id) as step_count,
+                      (SELECT COUNT(*) FROM nurture_enrollments WHERE sequence_id=s.id AND status='active') as active_enrollments
+               FROM nurture_sequences s LEFT JOIN users u ON s.created_by=u.id ORDER BY s.created_at DESC"""
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT s.*, u.full_name as creator_name FROM nurture_sequences s LEFT JOIN users u ON s.created_by=u.id LIMIT 0"
+        ).description] + ["step_count", "active_enrollments"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/nurture-sequences")
+async def create_nurture_sequence(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO nurture_sequences (name, description, trigger_event, trigger_conditions, is_active, created_by) VALUES (?,?,?,?,?,?)",
+            [data.get("name",""), data.get("description",""), data.get("trigger_event","lead_created"),
+             json.dumps(data.get("trigger_conditions",{})), 1 if data.get("is_active",True) else 0, user["user_id"]]
+        )
+        sid = cur.lastrowid
+        # Insert steps
+        for i, step in enumerate(data.get("steps", [])):
+            conn.execute(
+                "INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, template_id, task_title, task_description) VALUES (?,?,?,?,?,?,?)",
+                [sid, i, step.get("delay_days",0), step.get("action_type","email"),
+                 step.get("template_id"), step.get("task_title",""), step.get("task_description","")]
+            )
+    log_audit(user["user_id"], "create_nurture_sequence", "nurture_sequence", sid, ip=_get_ip(request))
+    return _ok({"id": sid})
+
+
+@app.get("/api/nurture-sequences/{seq_id}")
+async def get_nurture_sequence(seq_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM nurture_sequences WHERE id=?", [seq_id]).fetchone()
+        if not row:
+            _err("Sequence not found", 404)
+        cols = [d[0] for d in conn.execute("SELECT * FROM nurture_sequences LIMIT 0").description]
+        seq = dict(zip(cols, row))
+        try:
+            seq["trigger_conditions"] = json.loads(seq["trigger_conditions"] or "{}")
+        except Exception:
+            seq["trigger_conditions"] = {}
+        # Steps
+        steps = conn.execute("SELECT * FROM nurture_steps WHERE sequence_id=? ORDER BY step_order", [seq_id]).fetchall()
+        scols = [d[0] for d in conn.execute("SELECT * FROM nurture_steps LIMIT 0").description]
+        seq["steps"] = [dict(zip(scols, s)) for s in steps]
+        # Enrollments
+        enrollments = conn.execute(
+            """SELECT ne.*, l.company_name, l.contact_name, l.email
+               FROM nurture_enrollments ne LEFT JOIN leads l ON ne.lead_id=l.id
+               WHERE ne.sequence_id=? ORDER BY ne.enrolled_at DESC LIMIT 50""", [seq_id]
+        ).fetchall()
+        ecols = [d[0] for d in conn.execute(
+            "SELECT ne.*, l.company_name, l.contact_name, l.email FROM nurture_enrollments ne LEFT JOIN leads l ON ne.lead_id=l.id LIMIT 0"
+        ).description]
+        seq["enrollments"] = [dict(zip(ecols, e)) for e in enrollments]
+        return _ok(seq)
+
+
+@app.put("/api/nurture-sequences/{seq_id}")
+async def update_nurture_sequence(seq_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        allowed = {"name", "description", "trigger_event", "trigger_conditions", "is_active"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        if "trigger_conditions" in updates and isinstance(updates["trigger_conditions"], dict):
+            updates["trigger_conditions"] = json.dumps(updates["trigger_conditions"])
+        if "is_active" in updates:
+            updates["is_active"] = 1 if updates["is_active"] else 0
+        if updates:
+            parts = [f"{k}=?" for k in updates]
+            conn.execute(f"UPDATE nurture_sequences SET {','.join(parts)} WHERE id=?", list(updates.values()) + [seq_id])
+        # Update steps if provided
+        if "steps" in data:
+            conn.execute("DELETE FROM nurture_steps WHERE sequence_id=?", [seq_id])
+            for i, step in enumerate(data["steps"]):
+                conn.execute(
+                    "INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, template_id, task_title, task_description) VALUES (?,?,?,?,?,?,?)",
+                    [seq_id, i, step.get("delay_days",0), step.get("action_type","email"),
+                     step.get("template_id"), step.get("task_title",""), step.get("task_description","")]
+                )
+    log_audit(user["user_id"], "update_nurture_sequence", "nurture_sequence", seq_id, ip=_get_ip(request))
+    return _ok({"updated": True})
+
+
+@app.delete("/api/nurture-sequences/{seq_id}")
+async def delete_nurture_sequence(seq_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM nurture_enrollments WHERE sequence_id=?", [seq_id])
+        conn.execute("DELETE FROM nurture_steps WHERE sequence_id=?", [seq_id])
+        conn.execute("DELETE FROM nurture_sequences WHERE id=?", [seq_id])
+    return _ok({"deleted": True})
+
+
+@app.post("/api/nurture-sequences/{seq_id}/enroll")
+async def enroll_lead(seq_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    lead_id = data.get("lead_id")
+    if not lead_id:
+        _err("lead_id required", 400)
+    with get_db() as conn:
+        # Get first step delay
+        first_step = conn.execute("SELECT delay_days FROM nurture_steps WHERE sequence_id=? ORDER BY step_order LIMIT 1", [seq_id]).fetchone()
+        delay = first_step[0] if first_step else 0
+        next_at = (datetime.utcnow() + __import__("datetime").timedelta(days=delay)).isoformat() + "Z"
+        try:
+            conn.execute(
+                "INSERT INTO nurture_enrollments (sequence_id, lead_id, current_step, status, next_action_at) VALUES (?,?,0,?,?)",
+                [seq_id, lead_id, "active", next_at]
+            )
+        except Exception:
+            _err("Lead already enrolled", 409)
+    return _ok({"enrolled": True})
+
+
+@app.put("/api/nurture-enrollments/{enrollment_id}/pause")
+async def pause_enrollment(enrollment_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("UPDATE nurture_enrollments SET status='paused' WHERE id=?", [enrollment_id])
+    return _ok({"paused": True})
+
+
+@app.put("/api/nurture-enrollments/{enrollment_id}/resume")
+async def resume_enrollment(enrollment_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("UPDATE nurture_enrollments SET status='active' WHERE id=?", [enrollment_id])
+    return _ok({"resumed": True})
+
+
+@app.delete("/api/nurture-enrollments/{enrollment_id}")
+async def cancel_enrollment(enrollment_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("UPDATE nurture_enrollments SET status='cancelled' WHERE id=?", [enrollment_id])
+    return _ok({"cancelled": True})
 
 
 # ─── Custom Fields ────────────────────────────────────────────────

@@ -239,6 +239,7 @@
       <div class="nav-dropdown">
         <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_analytics_menu">Analytics</span>
         <div class="nav-dropdown-menu">
+          <a href="#/analytics" data-page="analytics" data-i18n="nav_reports_analytics">Reports</a>
           <a href="#/cost-model" data-page="cost-model" data-i18n="nav_cost_model">Maya</a>
         </div>
       </div>
@@ -963,6 +964,21 @@ const translations = {
     web_form_field_email: 'Email',
     web_form_field_phone: 'Phone',
     web_form_field_textarea: 'Text Area',
+    nav_reports_analytics: 'Reports & Analytics',
+    home_deals_pipeline: 'Deals Pipeline',
+    home_companies: 'Companies',
+    home_contacts: 'Contacts',
+    home_open_tickets: 'Open Tickets',
+    home_recent_records: 'Recent Records',
+    home_my_tasks: 'My Tasks',
+    home_notifications: 'Notifications',
+    home_campaigns: 'Campaigns',
+    home_welcome: 'Welcome',
+    home_quick_actions: 'Quick Actions',
+    home_view_all: 'View all',
+    home_no_tasks: 'No tasks',
+    home_no_notifications: 'No notifications',
+    home_no_records: 'No recent records',
 },
   ru: {
     // Auth
@@ -1634,6 +1650,21 @@ const translations = {
     web_form_field_email: 'Email',
     web_form_field_phone: 'Телефон',
     web_form_field_textarea: 'Текстовая область',
+    nav_reports_analytics: 'Отчёты и аналитика',
+    home_deals_pipeline: 'Воронка сделок',
+    home_companies: 'Компании',
+    home_contacts: 'Контакты',
+    home_open_tickets: 'Открытые тикеты',
+    home_recent_records: 'Последние записи',
+    home_my_tasks: 'Мои задачи',
+    home_notifications: 'Уведомления',
+    home_campaigns: 'Кампании',
+    home_welcome: 'Добро пожаловать',
+    home_quick_actions: 'Быстрые действия',
+    home_view_all: 'Все',
+    home_no_tasks: 'Нет задач',
+    home_no_notifications: 'Нет уведомлений',
+    home_no_records: 'Нет записей',
 },
   az: {
     // Auth
@@ -2307,6 +2338,21 @@ const translations = {
     web_form_field_email: 'Email',
     web_form_field_phone: 'Telefon',
     web_form_field_textarea: 'Mətn Sahəsi',
+    nav_reports_analytics: 'Hesabatlar və Analitika',
+    home_deals_pipeline: 'Sövdələşmə xətti',
+    home_companies: 'Şirkətlər',
+    home_contacts: 'Kontaktlar',
+    home_open_tickets: 'Açıq tiketlər',
+    home_recent_records: 'Son qeydlər',
+    home_my_tasks: 'Tapşırıqlarım',
+    home_notifications: 'Bildirişlər',
+    home_campaigns: 'Kampaniyalar',
+    home_welcome: 'Xoş gəldiniz',
+    home_quick_actions: 'Sürətli əməliyyatlar',
+    home_view_all: 'Hamısı',
+    home_no_tasks: 'Tapşırıq yoxdur',
+    home_no_notifications: 'Bildiriş yoxdur',
+    home_no_records: 'Qeyd yoxdur',
 }
 };
 
@@ -2938,7 +2984,8 @@ async function renderPage(page) {
   const app = document.getElementById('app');
   try {
     switch(page) {
-      case 'dashboard': await renderDashboard(app); break;
+      case 'dashboard': await renderHomeDashboard(app); break;
+      case 'analytics': await renderAnalytics(app); break;
       case 'clients': await renderCompanyList(app, 'client'); break;
       case 'inactive': window._leadsFilter = 'inactive'; await renderCompanyList(app, 'client'); break;
       case 'partners': await renderCompanyList(app, 'partner'); break;
@@ -3147,8 +3194,164 @@ async function markAllNotifRead() {
   document.getElementById('notifPanel').style.display = 'none';
 }
 
-// ─── Dashboard ───────────────────────────────────────────────
-async function renderDashboard(el) {
+// ─── Home Dashboard (Salesforce-style) ─────────────────────────
+async function renderHomeDashboard(el) {
+  showLoading(el);
+  try {
+    const userName = localStorage.getItem('crm_user_name') || 'User';
+    const L = state.lang || 'en';
+    const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+
+    // Fetch data in parallel
+    const [{data:summary}, {data:ticketsStats}, {data:activities}, {data:tasks}, {data:notifications}, {data:deals}] = await Promise.all([
+      api.get('/api/analytics/summary'),
+      api.get('/api/tickets/stats').catch(() => ({data:{total:0,open:0}})),
+      api.get('/api/activities?limit=5').catch(() => ({data:[]})),
+      api.get('/api/tasks?limit=5').catch(() => ({data:[]})),
+      api.get('/api/notifications?limit=5').catch(() => ({data:[]})),
+      api.get('/api/deals?limit=5').catch(() => ({data:[]}))
+    ]);
+
+    const deals_pipeline = summary.deals_active || 0;
+    const deals_pipeline_value = summary.deals_value || 0;
+    const companies_total = summary.clients_total || 0;
+    const contacts_total = summary.contacts_total || 0;
+    const open_tickets = ticketsStats.open || 0;
+
+    // SVG circle progress function
+    const circleSVG = (value, max, label, color) => {
+      const percentage = Math.min(100, (value / Math.max(1, max)) * 100);
+      const circumference = 2 * Math.PI * 45;
+      const strokeDashoffset = circumference - (percentage / 100) * circumference;
+      return `
+        <div class="relative w-32 h-32 flex flex-col items-center justify-center">
+          <svg width="140" height="140" style="transform: rotate(-90deg)">
+            <circle cx="70" cy="70" r="45" fill="none" stroke="#334155" stroke-width="3" />
+            <circle cx="70" cy="70" r="45" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" style="transition: stroke-dashoffset 0.5s ease;" stroke-linecap="round" />
+          </svg>
+          <div class="absolute text-center">
+            <div class="text-2xl font-bold text-white">${value}</div>
+            <div class="text-xs text-slate-400">${label}</div>
+          </div>
+        </div>
+      `;
+    };
+
+    el.innerHTML = `
+      <div style="max-width:1400px;margin:0 auto;">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+          <h1 class="text-3xl font-bold mb-1">${_t('home_welcome', 'Добро пожаловать', 'Xoş gəldiniz')}, ${esc(userName)}!</h1>
+          <p class="text-slate-400">${new Date().toLocaleDateString(L === 'ru' ? 'ru-RU' : L === 'az' ? 'az-AZ' : 'en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</p>
+        </div>
+
+        <!-- Top Row: 4 Metric Circle Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <!-- Deals Pipeline Card -->
+          <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/deals'">
+            ${circleSVG(deals_pipeline, Math.max(5, deals_pipeline), _t('home_deals_pipeline', 'Воронка сделок', 'Sövdələşmə xətti'), '#6366f1')}
+            <div class="text-xs text-slate-400 mt-4 text-center">${formatCurrency(deals_pipeline_value)}</div>
+          </div>
+          <!-- Companies Card -->
+          <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/clients'">
+            ${circleSVG(companies_total, Math.max(20, companies_total), _t('home_companies', 'Компании', 'Şirkətlər'), '#3b82f6')}
+          </div>
+          <!-- Contacts Card -->
+          <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/contacts'">
+            ${circleSVG(contacts_total, Math.max(50, contacts_total), _t('home_contacts', 'Контакты', 'Kontaktlar'), '#10b981')}
+          </div>
+          <!-- Open Tickets Card -->
+          <div class="card p-6 flex flex-col items-center cursor-pointer hover:border-indigo-500 transition-colors" onclick="location.hash='#/tickets'">
+            ${circleSVG(open_tickets, Math.max(10, open_tickets), _t('home_open_tickets', 'Открытые тикеты', 'Açıq tiketlər'), '#f59e0b')}
+          </div>
+        </div>
+
+        <!-- Second Row: 4 Info Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <!-- Recent Records -->
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span>📝</span>${_t('home_recent_records', 'Последние записи', 'Son qeydlər')}
+            </h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+              ${activities && activities.length > 0
+                ? activities.map(a => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm">
+                    <span class="text-lg">\${a.type === 'call' ? '☎️' : a.type === 'email' ? '📧' : a.type === 'meeting' ? '📞' : '📌'}</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium truncate">\${esc(a.description || 'Activity')}</div>
+                      <div class="text-xs text-slate-400">\${new Date(a.created_at).toLocaleDateString()}</div>
+                    </div>
+                  </div>\`).join('')
+                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_records', 'Нет записей', 'Qeyd yoxdur')}</div>\`}
+            </div>
+          </div>
+
+          <!-- My Tasks -->
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span>✓</span>${_t('home_my_tasks', 'Мои задачи', 'Tapşırıqlarım')}
+            </h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+              ${tasks && tasks.length > 0
+                ? tasks.map(t => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded text-sm">
+                    <input type="checkbox" class="mt-0.5" \${t.status === 'completed' ? 'checked' : ''} style="cursor:pointer;">
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium \${t.status === 'completed' ? 'line-through text-slate-500' : ''} truncate">\${esc(t.title || t.description || 'Task')}</div>
+                      <div class="text-xs text-slate-400">\${t.due_date ? new Date(t.due_date).toLocaleDateString() : 'No date'}</div>
+                    </div>
+                  </div>\`).join('')
+                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_tasks', 'Нет задач', 'Tapşırıq yoxdur')}</div>\`}
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span>🔔</span>${_t('home_notifications', 'Уведомления', 'Bildirişlər')}
+            </h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+              ${notifications && notifications.length > 0
+                ? notifications.map(n => \`<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm border-l-3 \${n.severity === 'high' ? 'border-red-500' : n.severity === 'medium' ? 'border-yellow-500' : 'border-slate-600'}">
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium truncate">\${esc(n.title)}</div>
+                      <div class="text-xs text-slate-400">\${new Date(n.created_at).toLocaleDateString()}</div>
+                    </div>
+                  </div>\`).join('')
+                : \`<div class="text-slate-500 text-sm text-center py-6">${_t('home_no_notifications', 'Нет уведомлений', 'Bildiriş yoxdur')}</div>\`}
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card p-5">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span>⚡</span>${_t('home_quick_actions', 'Быстрые действия', 'Sürətli əməliyyatlar')}
+            </h3>
+            <div class="space-y-2">
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/deals'">
+                <span>📊</span>Go to Deals
+              </button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/tasks'">
+                <span>✓</span>Manage Tasks
+              </button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/contacts'">
+                <span>👥</span>Add Contact
+              </button>
+              <button class="w-full text-left p-3 rounded hover:bg-slate-800 transition-colors text-sm flex items-center gap-2" onclick="location.hash='#/analytics'">
+                <span>📈</span>View Reports
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+  } catch(e) {
+    el.innerHTML = \`<div class="card p-6 text-red-400">\${esc(e.message)}</div>\`;
+  }
+}
+
+// ─── Analytics Dashboard ─────────────────────────────────────
+async function renderAnalytics(el) {
   showLoading(el);
   try {
     const [{data:summary}, {data:cstats}, {data:expiring, total:expiringTotal}, leadStats, taskStats,
@@ -5795,7 +5998,7 @@ async function deleteUser(userId) {
 // closeModal defined below with showModal
 
 // ─── Reports ─────────────────────────────────────────────────
-async function renderReports(el) { return renderDashboard(el); }
+async function renderReports(el) { return renderAnalytics(el); }
 
 // ─── Pricing Dashboard ───────────────────────────────────────
 let _pricingData = null;

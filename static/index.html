@@ -12858,48 +12858,67 @@ async function renderTicketsPage(el) {
     return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900':''}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._ticketFilter='${key}';renderTicketsPage(document.getElementById('app'))">${label} <span class="opacity-70">(${count})</span></button>`;
   };
 
-  el.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('nav_tickets')} <span class="text-slate-500 text-lg font-normal">(${stats.total||0})</span></h1>
-      <button class="btn btn-primary btn-sm" onclick="showCreateTicketModal()">+ ${_t('New Ticket','Новый тикет','Yeni tiket')}</button>
-    </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-      <div class="card p-4 text-center"><div class="text-2xl font-bold text-blue-400">${stats.open||0}</div><div class="text-xs text-slate-400">${statusLabels.open}</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold text-yellow-400">${stats.in_progress||0}</div><div class="text-xs text-slate-400">${statusLabels.in_progress}</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold text-green-400">${stats.resolved||0}</div><div class="text-xs text-slate-400">${statusLabels.resolved}</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold text-red-400">${stats.breached||0}</div><div class="text-xs text-slate-400">SLA ${_t('Breached','Нарушен','Pozuldu')}</div></div>
-    </div>
-    <div class="flex gap-2 mb-4 flex-wrap">
-      ${tabBtn('all', _t('All','Все','Hamısı'), stats.total||0)}
-      ${tabBtn('open', statusLabels.open, stats.open||0)}
-      ${tabBtn('in_progress', statusLabels.in_progress, stats.in_progress||0)}
-      ${tabBtn('waiting', statusLabels.waiting, stats.waiting||0)}
-      ${tabBtn('resolved', statusLabels.resolved, stats.resolved||0)}
-      ${tabBtn('closed', statusLabels.closed, stats.closed||0)}
-    </div>
-    <div class="space-y-2">
-      ${tickets.length === 0 ? `<div class="card p-8 text-center text-slate-500">${_t('No tickets yet','Тикетов нет','Tiket yoxdur')}</div>` :
-        tickets.map(tk => `
-          <div class="card p-4 cursor-pointer hover:border-indigo-500 transition flex items-center gap-4" onclick="showTicketDetail(${tk.id})">
-            <div style="min-width:40px;text-align:center;">
-              <span style="font-size:10px;font-weight:700;color:${statusColors[tk.status]||'#64748b'};background:${statusColors[tk.status]||'#64748b'}20;padding:2px 8px;border-radius:6px;">${(statusLabels[tk.status]||tk.status).toUpperCase()}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-semibold truncate">#${tk.id} ${esc(tk.subject)}</div>
-              <div class="text-xs text-slate-500 mt-1">
-                ${tk.company_name ? '<span>🏢 '+esc(tk.company_name)+'</span> · ' : ''}
-                ${tk.assigned_name ? '<span>👤 '+esc(tk.assigned_name)+'</span> · ' : '<span style="color:#ef4444">⚠ '+_t('Unassigned','Не назначен','Təyin edilməyib')+'</span> · '}
-                <span>${tk.created_at ? tk.created_at.substring(0,10) : ''}</span>
-              </div>
-            </div>
-            <div style="min-width:70px;text-align:right;">
-              <span style="font-size:11px;font-weight:600;color:${prioColors[tk.priority]||'#64748b'}">${prioLabels[tk.priority]||tk.priority}</span>
-              ${tk.sla_breach ? '<div style="font-size:10px;color:#ef4444;font-weight:700;margin-top:2px;">⚠ SLA</div>' : ''}
-            </div>
-          </div>
-        `).join('')}
-    </div>
-  `;
+  // Premium tickets layout
+  let _tkHTML = '';
+
+  // Header
+  _tkHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+  _tkHTML += '<div><h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_tickets') + '</h1>';
+  _tkHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + (stats.total||0) + ' ' + _t('tickets total','тикетов всего','cəmi tiket') + '</p></div>';
+  _tkHTML += '<button onclick="showCreateTicketModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(99,102,241,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(99,102,241,0.3)\'">+ ' + _t('New Ticket','Новый тикет','Yeni tiket') + '</button>';
+  _tkHTML += '</div>';
+
+  // Stats
+  _tkHTML += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">';
+  _tkHTML += '<div style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:20px;transition:all 0.3s" onmouseover="this.style.borderColor=\'rgba(59,130,246,0.3)\'" onmouseout="this.style.borderColor=\'rgba(59,130,246,0.15)\'"><div style="font-size:28px;font-weight:800;color:#60a5fa">' + (stats.open||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + statusLabels.open + '</div></div>';
+  _tkHTML += '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px;transition:all 0.3s" onmouseover="this.style.borderColor=\'rgba(245,158,11,0.3)\'" onmouseout="this.style.borderColor=\'rgba(245,158,11,0.15)\'"><div style="font-size:28px;font-weight:800;color:#fbbf24">' + (stats.in_progress||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + statusLabels.in_progress + '</div></div>';
+  _tkHTML += '<div style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04));border:1px solid rgba(34,197,94,0.15);border-radius:16px;padding:20px;transition:all 0.3s" onmouseover="this.style.borderColor=\'rgba(34,197,94,0.3)\'" onmouseout="this.style.borderColor=\'rgba(34,197,94,0.15)\'"><div style="font-size:28px;font-weight:800;color:#4ade80">' + (stats.resolved||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">' + statusLabels.resolved + '</div></div>';
+  _tkHTML += '<div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.15);border-radius:16px;padding:20px;transition:all 0.3s" onmouseover="this.style.borderColor=\'rgba(239,68,68,0.3)\'" onmouseout="this.style.borderColor=\'rgba(239,68,68,0.15)\'"><div style="font-size:28px;font-weight:800;color:#f87171">' + (stats.breached||0) + '</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">SLA ' + _t('Breached','Нарушен','Pozuldu') + '</div></div>';
+  _tkHTML += '</div>';
+
+  // Filter tabs
+  _tkHTML += '<div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">';
+  _tkHTML += tabBtn('all', _t('All','Все','Hamısı'), stats.total||0);
+  _tkHTML += tabBtn('open', statusLabels.open, stats.open||0);
+  _tkHTML += tabBtn('in_progress', statusLabels.in_progress, stats.in_progress||0);
+  _tkHTML += tabBtn('waiting', statusLabels.waiting, stats.waiting||0);
+  _tkHTML += tabBtn('resolved', statusLabels.resolved, stats.resolved||0);
+  _tkHTML += tabBtn('closed', statusLabels.closed, stats.closed||0);
+  _tkHTML += '</div>';
+
+  // Ticket list
+  if (tickets.length === 0) {
+    _tkHTML += '<div style="text-align:center;color:#64748b;padding:60px 20px;font-size:15px"><div style="font-size:48px;margin-bottom:16px;opacity:0.5">' + String.fromCodePoint(127915) + '</div>' + _t('No tickets yet','Тикетов нет','Tiket yoxdur') + '</div>';
+  } else {
+    _tkHTML += '<div style="display:flex;flex-direction:column;gap:8px">';
+    tickets.forEach(function(tk) {
+      var sc = statusColors[tk.status] || '#64748b';
+      _tkHTML += '<div onclick="showTicketDetail(' + tk.id + ')" style="background:linear-gradient(135deg,rgba(30,41,59,0.7),' + sc + '05);border:1px solid rgba(71,85,105,0.2);border-radius:14px;padding:16px 20px;cursor:pointer;transition:all 0.25s ease;display:flex;align-items:center;gap:16px" ';
+      _tkHTML += 'onmouseover="this.style.borderColor=\'' + sc + '40\';this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 15px ' + sc + '10\'" ';
+      _tkHTML += 'onmouseout="this.style.borderColor=\'rgba(71,85,105,0.2)\';this.style.transform=\'none\';this.style.boxShadow=\'none\'">';
+      // Status badge
+      _tkHTML += '<div style="min-width:70px;text-align:center"><span style="font-size:10px;font-weight:700;color:' + sc + ';background:' + sc + '18;padding:4px 10px;border-radius:8px;text-transform:uppercase;letter-spacing:0.3px">' + (statusLabels[tk.status] || tk.status) + '</span></div>';
+      // Content
+      _tkHTML += '<div style="flex:1;min-width:0">';
+      _tkHTML += '<div style="font-size:15px;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#' + tk.id + ' ' + esc(tk.subject) + '</div>';
+      _tkHTML += '<div style="font-size:12px;color:#64748b;margin-top:4px">';
+      if (tk.company_name) _tkHTML += '<span>' + String.fromCodePoint(127970) + ' ' + esc(tk.company_name) + '</span> · ';
+      if (tk.assigned_name) _tkHTML += '<span>' + String.fromCodePoint(128100) + ' ' + esc(tk.assigned_name) + '</span> · ';
+      else _tkHTML += '<span style="color:#ef4444">' + String.fromCodePoint(9888) + ' ' + _t('Unassigned','Не назначен','Təyin edilməyib') + '</span> · ';
+      _tkHTML += '<span>' + (tk.created_at ? tk.created_at.substring(0,10) : '') + '</span>';
+      _tkHTML += '</div></div>';
+      // Priority
+      var pc = prioColors[tk.priority] || '#64748b';
+      _tkHTML += '<div style="min-width:80px;text-align:right">';
+      _tkHTML += '<span style="font-size:12px;font-weight:600;color:' + pc + '">' + (prioLabels[tk.priority] || tk.priority) + '</span>';
+      if (tk.sla_breach) _tkHTML += '<div style="font-size:10px;color:#ef4444;font-weight:700;margin-top:4px">' + String.fromCodePoint(9888) + ' SLA</div>';
+      _tkHTML += '</div>';
+      _tkHTML += '</div>';
+    });
+    _tkHTML += '</div>';
+  }
+
+  el.innerHTML = _tkHTML;
 }
 
 function showCreateTicketModal() {

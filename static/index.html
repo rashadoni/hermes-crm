@@ -13679,6 +13679,31 @@ async function renderCampaigns(el) {
   `;
 }
 
+
+// ─── Campaign Recipients Helper ─────────────────────────────
+async function loadCampaignRecipientCount() {
+  var targetType = document.getElementById('campTarget') ? document.getElementById('campTarget').value : 'all';
+  var countEl = document.getElementById('campRecipientCount');
+  if (!countEl) return;
+  countEl.textContent = '...';
+  try {
+    var endpoint = '/api/contacts?limit=1';
+    if (targetType === 'leads') endpoint = '/api/leads?limit=1';
+    var resp = await api.get(endpoint);
+    var arr = resp.data || [];
+    // Try to get total from response
+    if (targetType === 'all') {
+      var c1 = await api.get('/api/contacts?limit=10000');
+      var c2 = await api.get('/api/leads?limit=10000');
+      var total = (c1.data ? c1.data.length : 0) + (c2.data ? c2.data.length : 0);
+      countEl.textContent = total;
+    } else {
+      var r = await api.get('/api/' + targetType + '?limit=10000');
+      countEl.textContent = r.data ? r.data.length : 0;
+    }
+  } catch(e) { countEl.textContent = '?'; }
+}
+
 function showCreateCampaignModal() {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
@@ -13696,6 +13721,14 @@ function showCreateCampaignModal() {
         <div><label class="text-sm text-slate-400">${t('campaign_template')}</label>
           <select id="campTemplate" class="form-input w-full"></select></div>
       </div>
+      <div><label class="text-sm text-slate-400">${_t('Recipients','Получатели','Alıcılar')}</label>
+        <select id="campTarget" class="form-input w-full" onchange="loadCampaignRecipientCount()">
+          <option value="all">${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
+          <option value="contacts">${_t('Contacts only','Только контакты','Yalnız kontaktlar')}</option>
+          <option value="leads">${_t('Leads only','Только лиды','Yalnız lidlər')}</option>
+        </select>
+        <div class="text-xs text-slate-500 mt-1">${_t('Will be sent to','Будет отправлено','Göndəriləcək')}: <span id="campRecipientCount" style="color:#6366f1;font-weight:600;">...</span> ${_t('recipients','получателям','alıcıya')}</div>
+      </div>
     </div>
     <div class="flex gap-2 mt-4">
       <button class="btn btn-primary flex-1" onclick="saveNewCampaign()">${t('common_save')}</button>
@@ -13711,6 +13744,8 @@ function showCreateCampaignModal() {
       sel.appendChild(opt);
     });
   }).catch(()=>{});
+  // Load recipient count
+  loadCampaignRecipientCount();
 }
 
 function showCampaignDetail(id) {
@@ -13732,6 +13767,11 @@ function showCampaignDetail(id) {
           <span class="ml-3">👁 ${campaign.open_count||0}</span>
           <span class="ml-3">🔗 ${campaign.click_count||0}</span>
         </div>
+        <div class="text-sm mt-2" style="background:#1e293b;padding:8px 12px;border-radius:8px;">
+          <span class="text-slate-400">${_t('Target','Аудитория','Hədəf')}:</span>
+          <span style="color:#6366f1;font-weight:600;margin-left:6px;">${({all:_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər'),contacts:_t('Contacts only','Только контакты','Yalnız kontaktlar'),leads:_t('Leads only','Только лиды','Yalnız lidlər')})[campaign.target_type]||_t('All','Все','Hamısı')}</span>
+          ${campaign.template_name ? '<span class="ml-4 text-slate-400">' + _t('Template','Шаблон','Şablon') + ':</span><span style="color:#22c55e;margin-left:6px;">' + esc(campaign.template_name) + '</span>' : ''}
+        </div>
       </div>
       <div class="flex gap-2 mt-4">
         ${campaign.status === 'draft' ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
@@ -13751,7 +13791,8 @@ async function saveNewCampaign() {
     await api.post('/api/campaigns', {
       name, description: document.getElementById('campDesc')?.value||'',
       type: document.getElementById('campType')?.value||'email',
-      template_id: parseInt(document.getElementById('campTemplate')?.value||0)
+      template_id: parseInt(document.getElementById('campTemplate')?.value||0),
+      target_type: document.getElementById('campTarget')?.value||'all'
     });
     closeModal(); showToast(t('campaign_created'),'success');
     renderCampaigns(document.getElementById('app'));

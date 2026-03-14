@@ -5388,39 +5388,92 @@ async function renderCompanyList(el, mode) {
     ['last_recent', t('sort_last_recent')]
   ];
 
-  el.innerHTML = `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('nav_partners')} <span class="text-slate-500 text-lg font-normal">(${filtered.length})</span></h1>
-      <button class="btn btn-primary btn-sm" onclick="showCompanyForm('${mode}')">${t('companies_add')}</button>
-    </div>
-    <div class="card mb-4 p-3 flex gap-3 flex-wrap items-center">
-      <input type="text" id="companiesSearch" placeholder="${t('companies_search')}" value="${esc(state.companiesQuery)}" oninput="onCompaniesSearch(this.value)" class="flex-1 min-w-[200px]">
-      <div class="flex gap-1">
-        <button class="btn btn-sm ${!companiesContractFilter?'btn-primary':'btn-secondary'}" onclick="filterCompanyContract('')">${t('company_cat_all')}</button>
-        <button class="btn btn-sm ${companiesContractFilter==='yes'?'btn-primary':'btn-secondary'}" onclick="filterCompanyContract('yes')">&#128196; ${t('company_has_contract')}</button>
-        <button class="btn btn-sm ${companiesContractFilter==='no'?'btn-primary':'btn-secondary'}" onclick="filterCompanyContract('no')">&#10060; ${t('company_no_contract')}</button>
-      </div>
-      <span class="text-slate-600">|</span>
-      <div class="flex items-center gap-2">
-        <span class="text-slate-500 text-sm">${t('sort_by')}:</span>
-        ${sortSelect(companiesSort, 'onCompaniesSort', sortOpts)}
-      </div>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      ${filtered.length === 0 ? `<div class="col-span-full text-center text-slate-500 py-8">${t('nothing_found')}</div>` : ''}
-      ${filtered.map(c => `<div class="card p-5 cursor-pointer hover:border-indigo-500 transition" onclick="showCompanyDetail(${c.id})">
-        <div class="flex items-start justify-between mb-2">
-          <h3 class="font-semibold text-lg">${esc(c.cost_code||c.name)}</h3>
-          <span style="background:#3b2f63;color:#a78bfa;padding:1px 8px;border-radius:9999px;font-size:10px;font-weight:600">${t('company_cat_partner')}</span>
-        </div>
-        <div class="flex items-center gap-2 mt-1"><p class="text-indigo-400 text-sm">${esc(c.domain)||'—'}</p></div>
-        <div class="flex justify-between mt-3 text-sm text-slate-400">
-          <span>${c.contacts_count||0} ${t('companies_contacts')}</span>
-          <span>${c.contracts_count ? '<span style="color:#34d399;font-weight:600">'+c.contracts_count+' '+t('companies_contracts_cnt')+'</span>' : '<span style="color:#64748b">'+t('company_no_contract')+'</span>'}</span>
-        </div>
-      </div>`).join('')}
-    </div>
-  `;
+  // Partners stats
+  const _pTotal = filtered.length;
+  const _pWithC = filtered.filter(c => c.contracts_count > 0).length;
+  const _pNoC = _pTotal - _pWithC;
+
+  let _pHTML = '';
+
+  // Header
+  _pHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+  _pHTML += '<div>';
+  _pHTML += '<h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_partners') + '</h1>';
+  _pHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + _pTotal + ' ' + _t('partners total', 'партнёров всего', 'cəmi partnyor') + '</p>';
+  _pHTML += '</div>';
+  _pHTML += '<button onclick="showCompanyForm(\'' + mode + '\')" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(139,92,246,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(139,92,246,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(139,92,246,0.3)\'">' + t('companies_add') + '</button>';
+  _pHTML += '</div>';
+
+  // Stats cards
+  _pHTML += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">';
+  _pHTML += '<div style="background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.15);border-radius:16px;padding:20px;transition:all 0.3s ease" onmouseover="this.style.borderColor=\'rgba(139,92,246,0.3)\';this.style.boxShadow=\'0 4px 20px rgba(139,92,246,0.1)\'" onmouseout="this.style.borderColor=\'rgba(139,92,246,0.15)\';this.style.boxShadow=\'none\'">';
+  _pHTML += '<div style="display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;border-radius:12px;background:rgba(139,92,246,0.2);display:flex;align-items:center;justify-content:center"><svg width="20" height="20" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>';
+  _pHTML += '<div><div style="font-size:24px;font-weight:800;color:#f1f5f9">' + _pTotal + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Total', 'Всего', 'Cəmi') + '</div></div></div></div>';
+  _pHTML += '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.15);border-radius:16px;padding:20px;transition:all 0.3s ease" onmouseover="this.style.borderColor=\'rgba(16,185,129,0.3)\';this.style.boxShadow=\'0 4px 20px rgba(16,185,129,0.1)\'" onmouseout="this.style.borderColor=\'rgba(16,185,129,0.15)\';this.style.boxShadow=\'none\'">';
+  _pHTML += '<div style="display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;border-radius:12px;background:rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center"><svg width="20" height="20" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>';
+  _pHTML += '<div><div style="font-size:24px;font-weight:800;color:#f1f5f9">' + _pWithC + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('With contracts', 'С контрактами', 'Müqaviləli') + '</div></div></div></div>';
+  _pHTML += '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px;transition:all 0.3s ease" onmouseover="this.style.borderColor=\'rgba(245,158,11,0.3)\';this.style.boxShadow=\'0 4px 20px rgba(245,158,11,0.1)\'" onmouseout="this.style.borderColor=\'rgba(245,158,11,0.15)\';this.style.boxShadow=\'none\'">';
+  _pHTML += '<div style="display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;border-radius:12px;background:rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center"><svg width="20" height="20" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>';
+  _pHTML += '<div><div style="font-size:24px;font-weight:800;color:#f1f5f9">' + _pNoC + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('No contracts', 'Без контрактов', 'Müqaviləsiz') + '</div></div></div></div>';
+  _pHTML += '</div>';
+
+  // Search & filters bar
+  _pHTML += '<div style="background:linear-gradient(135deg,rgba(30,41,59,0.8),rgba(15,23,42,0.9));border:1px solid rgba(99,102,241,0.1);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">';
+  _pHTML += '<div style="flex:1;min-width:200px;position:relative">';
+  _pHTML += '<svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4" width="16" height="16" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  _pHTML += '<input type="text" id="companiesSearch" placeholder="' + t('companies_search') + '" value="' + esc(state.companiesQuery) + '" oninput="onCompaniesSearch(this.value)" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px 10px 36px;color:#e2e8f0;font-size:14px;outline:none;transition:border-color 0.3s" onfocus="this.style.borderColor=\'rgba(99,102,241,0.4)\'" onblur="this.style.borderColor=\'rgba(99,102,241,0.15)\'">';
+  _pHTML += '</div>';
+  var _pfAll = !companiesContractFilter;
+  var _pfYes = companiesContractFilter === 'yes';
+  var _pfNo = companiesContractFilter === 'no';
+  _pHTML += '<div style="display:flex;gap:6px">';
+  _pHTML += '<button onclick="filterCompanyContract(\'\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (_pfAll ? 'rgba(139,92,246,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (_pfAll ? 'rgba(139,92,246,0.15)' : 'transparent') + ';color:' + (_pfAll ? '#c4b5fd' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + t('company_cat_all') + '</button>';
+  _pHTML += '<button onclick="filterCompanyContract(\'yes\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (_pfYes ? 'rgba(16,185,129,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (_pfYes ? 'rgba(16,185,129,0.15)' : 'transparent') + ';color:' + (_pfYes ? '#6ee7b7' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + String.fromCodePoint(128196) + ' ' + t('company_has_contract') + '</button>';
+  _pHTML += '<button onclick="filterCompanyContract(\'no\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (_pfNo ? 'rgba(245,158,11,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (_pfNo ? 'rgba(245,158,11,0.15)' : 'transparent') + ';color:' + (_pfNo ? '#fcd34d' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + String.fromCodePoint(9888) + ' ' + t('company_no_contract') + '</button>';
+  _pHTML += '</div>';
+  _pHTML += '<div style="display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid rgba(71,85,105,0.3)">';
+  _pHTML += '<span style="color:#64748b;font-size:12px;font-weight:500">' + t('sort_by') + ':</span>';
+  _pHTML += sortSelect(companiesSort, 'onCompaniesSort', sortOpts);
+  _pHTML += '</div>';
+  _pHTML += '</div>';
+
+  // Company cards grid
+  if (filtered.length === 0) {
+    _pHTML += '<div style="text-align:center;color:#64748b;padding:60px 20px;font-size:15px">';
+    _pHTML += '<div style="font-size:48px;margin-bottom:16px;opacity:0.5">' + String.fromCodePoint(128269) + '</div>';
+    _pHTML += t('nothing_found');
+    _pHTML += '</div>';
+  } else {
+    _pHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+    const _pcColors = ['#8b5cf6','#6366f1','#3b82f6','#10b981','#14b8a6','#f59e0b','#ec4899','#a855f7','#f97316','#ef4444'];
+    filtered.forEach(function(c, ci) {
+      var _cc = _pcColors[ci % _pcColors.length];
+      _pHTML += '<div onclick="showCompanyDetail(' + c.id + ')" style="background:linear-gradient(135deg,rgba(30,41,59,0.9),' + _cc + '05);border:1px solid rgba(71,85,105,0.2);border-radius:16px;padding:22px;cursor:pointer;transition:all 0.3s ease;position:relative;overflow:hidden" ';
+      _pHTML += 'onmouseover="this.style.borderColor=\'' + _cc + '40\';this.style.boxShadow=\'0 8px 30px ' + _cc + '15\';this.style.transform=\'translateY(-2px)\'" ';
+      _pHTML += 'onmouseout="this.style.borderColor=\'rgba(71,85,105,0.2)\';this.style.boxShadow=\'none\';this.style.transform=\'none\'">';
+      _pHTML += '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,' + _cc + '60,' + _cc + '10);border-radius:16px 16px 0 0"></div>';
+      _pHTML += '<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">';
+      _pHTML += '<div style="width:46px;height:46px;border-radius:14px;background:' + _cc + '18;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">' + String.fromCodePoint(127970) + '</div>';
+      _pHTML += '<div style="flex:1;min-width:0">';
+      _pHTML += '<h3 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.cost_code || c.name) + '</h3>';
+      _pHTML += '<p style="font-size:13px;color:#818cf8;margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (esc(c.domain) || '—') + '</p>';
+      _pHTML += '</div>';
+      _pHTML += '<span style="background:' + _cc + '18;color:' + _cc + ';padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:0.3px">' + t('company_cat_partner') + '</span>';
+      _pHTML += '</div>';
+      _pHTML += '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid rgba(71,85,105,0.15)">';
+      _pHTML += '<div style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span style="font-size:13px;color:#94a3b8;font-weight:500">' + (c.contacts_count || 0) + ' ' + t('companies_contacts') + '</span></div>';
+      if (c.contracts_count > 0) {
+        _pHTML += '<span style="background:rgba(16,185,129,0.12);color:#34d399;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600">' + String.fromCodePoint(128196) + ' ' + c.contracts_count + ' ' + t('companies_contacts_cnt') + '</span>';
+      } else {
+        _pHTML += '<span style="background:rgba(245,158,11,0.1);color:#fbbf24;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:500">' + t('company_no_contract') + '</span>';
+      }
+      _pHTML += '</div>';
+      _pHTML += '</div>';
+    });
+    _pHTML += '</div>';
+  }
+
+  el.innerHTML = _pHTML;
 }
 function _renderCompanyCard(item, mode) {
   if (item.type === 'lead') {

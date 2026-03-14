@@ -943,9 +943,12 @@ async def delete_contacts_without_phone(request: Request, user=Depends(require_a
         ).fetchone()[0]
         if count == 0:
             return _ok({"deleted": 0, "message": "No contacts without phone found"})
-        conn.execute("DELETE FROM contacts WHERE phone IS NULL OR phone = '' OR phone = 'None'")
-        log_audit(user["user_id"], "bulk_delete_contacts_no_phone", "contact", None,
-                  details=f"Deleted {count} contacts without phone", ip=_get_ip(request))
+        conn.execute("DELETE FROM contacts WHERE phone IS NULL OR TRIM(phone) = '' OR phone = 'None'")
+        try:
+            log_audit(user["user_id"], "bulk_delete_contacts_no_phone", "contact", 0,
+                      details=f"Deleted {count} contacts without phone", ip=_get_ip(request))
+        except Exception:
+            pass
         return _ok({"deleted": count})
 
 

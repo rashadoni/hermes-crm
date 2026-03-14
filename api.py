@@ -2273,6 +2273,24 @@ async def get_notifications(user=Depends(require_auth)):
                 "entity_id": r["id"],
             })
 
+        # 4. Stored notifications from notifications table
+        stored = conn.execute(
+            "SELECT id, type, title, message, entity_type, entity_id, is_read, created_at "
+            "FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
+            (user["user_id"],)
+        ).fetchall()
+        for r in stored:
+            notifications.append({
+                "type": r["type"] or "info",
+                "severity": "medium",
+                "title": r["title"] or r["message"] or "Notification",
+                "detail": r["message"] or "",
+                "entity_type": r["entity_type"],
+                "entity_id": r["entity_id"],
+                "is_read": r["is_read"],
+                "created_at": r["created_at"],
+            })
+
     # Sort: high first, then medium, then low
     sev_order = {"high": 0, "medium": 1, "low": 2}
     notifications.sort(key=lambda n: sev_order.get(n["severity"], 3))

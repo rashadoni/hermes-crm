@@ -10462,27 +10462,7 @@ async function getCompanyDetails() {
       _offerCompanyDetails = await r.json();
     } catch(e) { _offerCompanyDetails = {}; }
   }
-  
-      // Strip trailing TEMP/OLD markers
-      s = s.replace(/\s+TEMP\s*$/gi, '');
-      // Strip ALL trailing parenthetical content e.g. (Yeni xidmetdir), (Account Management Service OLD)
-      s = s.replace(/\s*\([^)]*\)\s*$/g, '');
-      // Apply repeatedly for nested cases like (xxx) TEMP
-      s = s.replace(/\s+TEMP\s*$/gi, '');
-      s = s.replace(/\s*\([^)]*\)\s*$/g, '');
-      // Strip trailing (number) patterns like (7), (10), (210)
-      s = s.replace(/\s*\(\d+\)\s*$/g, '');
-      // Normalize smart quotes
-      s = s.replace(/[\u201c\u201d\u201e\u201f]/g, '"');
-      s = s.replace(/[\u2018\u2019\u201a\u201b]/g, "'");
-      // Normalize dashes (em-dash, en-dash)
-      s = s.replace(/[\u2013\u2014]/g, '-');
-      // Normalize spaces around dashes
-      s = s.replace(/\s*-\s*/g, '-');
-      // Collapse multiple spaces
-      s = s.replace(/\s+/g, ' ').trim();
-      
-      return _offerCompanyDetails;
+  return _offerCompanyDetails;
 }
 // Find company_details entry by CRM company name (fuzzy match by code or legal_name)
 function findCompanyDetail(companyName) {

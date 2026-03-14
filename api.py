@@ -934,6 +934,21 @@ async def update_contact(contact_id: int, request: Request, user=Depends(require
     return _ok(contact)
 
 
+@app.delete("/api/contacts/bulk/no-phone")
+async def delete_contacts_without_phone(request: Request, user=Depends(require_admin)):
+    """Delete all contacts that have no phone number."""
+    with get_db() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM contacts WHERE phone IS NULL OR phone = '' OR phone = 'None'"
+        ).fetchone()[0]
+        if count == 0:
+            return _ok({"deleted": 0, "message": "No contacts without phone found"})
+        conn.execute("DELETE FROM contacts WHERE phone IS NULL OR phone = '' OR phone = 'None'")
+        log_audit(user["user_id"], "bulk_delete_contacts_no_phone", "contact", None,
+                  details=f"Deleted {count} contacts without phone", ip=_get_ip(request))
+        return _ok({"deleted": count})
+
+
 @app.delete("/api/contacts/{contact_id}")
 async def delete_contact(contact_id: int, request: Request, user=Depends(require_admin)):
     Contact.delete(contact_id)

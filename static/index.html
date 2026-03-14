@@ -3273,24 +3273,47 @@ async function markAllNotifRead() {
 
 // ─── Dashboard Task Toggle ──────────────────────────────────────
 async function toggleDashTask(taskId, newStatus) {
+  // Instantly update UI before API call
+  var row = document.getElementById('dash-task-' + taskId);
+  if (!row) return;
+  var circle = row.querySelector('.dash-task-circle');
+  var titleEl = row.querySelector('.dash-task-title');
+  var becomingDone = (newStatus === 'done');
+
+  if (circle) {
+    circle.style.background = becomingDone ? '#10b981' : 'transparent';
+    circle.style.borderColor = becomingDone ? '#10b981' : '#334155';
+    circle.innerHTML = becomingDone ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : '';
+    circle.setAttribute('onclick', "toggleDashTask(" + taskId + ",'" + (becomingDone ? 'todo' : 'done') + "')");
+  }
+  if (titleEl) {
+    titleEl.style.color = becomingDone ? '#64748b' : '#e2e8f0';
+    titleEl.style.textDecoration = becomingDone ? 'line-through' : 'none';
+  }
+
+  // API call in background
   try {
-    var btn = document.querySelector('#dash-task-' + taskId + ' div[onclick]');
-    if (btn) {
-      btn.style.opacity = '0.4';
-      btn.style.pointerEvents = 'none';
-    }
-    await fetch('/api/tasks/' + taskId + '/status', {
+    var resp = await fetch('/api/tasks/' + taskId + '/status', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('crm_token') },
       body: JSON.stringify({ status: newStatus })
     });
-    // Re-render dashboard
-    var mainEl = document.getElementById('app');
-    if (mainEl) renderHomeDashboard(mainEl);
+    if (!resp.ok) {
+      console.error('Toggle task failed:', resp.status);
+      // Revert on error
+      if (circle) {
+        circle.style.background = becomingDone ? 'transparent' : '#10b981';
+        circle.style.borderColor = becomingDone ? '#334155' : '#10b981';
+        circle.innerHTML = becomingDone ? '' : '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>';
+        circle.setAttribute('onclick', "toggleDashTask(" + taskId + ",'" + newStatus + "')");
+      }
+      if (titleEl) {
+        titleEl.style.color = becomingDone ? '#e2e8f0' : '#64748b';
+        titleEl.style.textDecoration = becomingDone ? 'none' : 'line-through';
+      }
+    }
   } catch(e) {
     console.error('Toggle task error:', e);
-    var btn2 = document.querySelector('#dash-task-' + taskId + ' div[onclick]');
-    if (btn2) { btn2.style.opacity = '1'; btn2.style.pointerEvents = 'auto'; }
   }
 }
 
@@ -3384,12 +3407,11 @@ async function renderHomeDashboard(el) {
         var taskId = tk.id;
         tasksHtml += '<div id="dash-task-' + taskId + '" style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5)">' +
           '<div style="display:table-cell;width:28px;vertical-align:top;padding-top:1px">' +
-          '<div onclick="toggleDashTask(' + taskId + ',\'' + newStatus + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + ';transition:all 0.2s" ' +
-          'onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">' +
+          '<div class="dash-task-circle" onclick="toggleDashTask(' + taskId + ',\'' + newStatus + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:inline-flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + ';transition:all 0.2s">' +
           (isDone ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : '') +
           '</div></div>' +
           '<div style="display:table-cell;vertical-align:top;padding-left:8px">' +
-          '<div style="font-weight:500;font-size:13px;color:' + (isDone ? '#64748b' : '#e2e8f0') + ';' + (isDone ? 'text-decoration:line-through;' : '') + '">' + title + '</div>' +
+          '<div class="dash-task-title" style="font-weight:500;font-size:13px;color:' + (isDone ? '#64748b' : '#e2e8f0') + ';' + (isDone ? 'text-decoration:line-through;' : '') + '">' + title + '</div>' +
           '<div style="font-size:11px;color:#64748b;margin-top:2px">' + (assignee ? assignee + (dt ? ' · ' + dt : '') : dt) + '</div>' +
           '</div></div>';
       });

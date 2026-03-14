@@ -119,18 +119,75 @@
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
 
   /* Mobile responsive navigation */
-  .hamburger { display: none; }
+  .hamburger { display: none; cursor: pointer; background: none; border: none; color: #94a3b8; font-size: 24px; padding: 8px; }
   .nav-links { display: flex; gap: 1px; flex-shrink: 1; min-width: 0; }
   .nav-links a { white-space: nowrap; flex-shrink: 0; padding: 6px 8px !important; font-size: 13px !important; }
+
+  /* Tablet */
+  @media (max-width: 1024px) {
+    .nav-links a { padding: 6px 6px !important; font-size: 12px !important; }
+    .stat-cards, .grid-3, .grid-cols-3 { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+
+  /* Mobile */
   @media (max-width: 768px) {
-    .nav-links { display: none; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: #0f172a; border-bottom: 1px solid #334155; padding: 8px; }
+    .nav-links {
+      display: none; flex-direction: column;
+      position: absolute; top: 56px; left: 0; right: 0;
+      background: #0f172a; border-bottom: 1px solid #334155;
+      padding: 8px; z-index: 1000;
+    }
     .nav-links.open { display: flex; }
+    .nav-links a { padding: 10px 16px !important; font-size: 14px !important; border-bottom: 1px solid #1e293b; }
     .hamburger { display: block !important; }
-    .kanban-col { min-width: 160px; }
-    .modal-content { width: 95%; padding: 16px; }
-    table { font-size: 12px; }
+
+    /* Tables — horizontal scroll */
+    .table-responsive, .overflow-x-auto, table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { font-size: 12px; min-width: 600px; }
     th, td { padding: 6px 8px; }
-    .stat-value { font-size: 1.5rem; }
+
+    /* Stats */
+    .stat-cards { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+    .stat-value { font-size: 1.3rem; }
+
+    /* Kanban — horizontal scroll */
+    .kanban-board { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+    .kanban-col { min-width: 240px; flex-shrink: 0; }
+
+    /* Cards */
+    .grid-2, .grid-cols-2 { grid-template-columns: 1fr !important; }
+    .grid-3, .grid-cols-3, .grid-4, .grid-cols-4, .grid-cols-6 { grid-template-columns: 1fr !important; }
+
+    /* Modals — almost fullscreen */
+    .modal-content { width: 95% !important; max-height: 90vh; overflow-y: auto; padding: 16px; }
+
+    /* Charts */
+    canvas { max-height: 250px !important; }
+
+    /* Typography */
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.25rem !important; }
+
+    /* Main container */
+    #app { padding-left: 8px; padding-right: 8px; }
+
+    /* Flex wrapping */
+    .flex.gap-4, .flex.gap-3, .flex.gap-2 { flex-wrap: wrap; }
+
+    /* Filters row */
+    .filters-row, .flex.items-center.gap-2 { flex-wrap: wrap; gap: 6px; }
+    .filters-row select, .filters-row input { min-width: 120px; flex: 1; }
+
+    /* Hide less important table columns on mobile */
+    .hide-mobile { display: none !important; }
+  }
+
+  /* Small mobile */
+  @media (max-width: 480px) {
+    .stat-cards { grid-template-columns: 1fr !important; }
+    nav .text-xl { font-size: 1rem !important; }
+    .btn { padding: 6px 12px; font-size: 13px; }
+    .kanban-col { min-width: 200px; }
   }
 </style>
 </head>
@@ -205,7 +262,10 @@
           <div id="rolesNavLink" class="lang-option" onclick="location.hash='#/roles';toggleUserMenu();" style="display:none;">Roles</div>
           <div id="auditNavLink" class="lang-option" onclick="location.hash='#/audit-log';toggleUserMenu();" style="display:none;">Audit Log</div>
           <div id="scoringNavLink" class="lang-option" onclick="location.hash='#/scoring-rules';toggleUserMenu();" style="display:none;">Lead Scoring</div>
+          <div id="assignNavLink" class="lang-option" onclick="location.hash='#/assignment-rules';toggleUserMenu();" style="display:none;">Assignment Rules</div>
+          <div id="webLeadNavLink" class="lang-option" onclick="location.hash='#/web-to-lead';toggleUserMenu();" style="display:none;">Web-to-Lead</div>
           <div class="lang-option" onclick="showChangePasswordModal()" data-i18n="change_password">Change Password</div>
+          <div class="lang-option" onclick="show2FASettingsModal()">🔐 2FA Settings</div>
           <div class="lang-option" onclick="logout()" data-i18n="logout">Logout</div>
         </div>
       </div>
@@ -2058,6 +2118,10 @@ function updateUserMenuVisibility() {
     if (rolesLink) rolesLink.style.display = isAdmin() ? 'block' : 'none';
     if (auditLink) auditLink.style.display = isAdmin() ? 'block' : 'none';
     if (scoringLink) scoringLink.style.display = isAdmin() ? 'block' : 'none';
+    const assignLink = document.getElementById('assignNavLink');
+    const webLeadLink = document.getElementById('webLeadNavLink');
+    if (assignLink) assignLink.style.display = isAdmin() ? 'block' : 'none';
+    if (webLeadLink) webLeadLink.style.display = isAdmin() ? 'block' : 'none';
   } else {
     if (userMenu) userMenu.style.display = 'none';
     if (usersLink) usersLink.style.display = 'none';
@@ -2312,9 +2376,16 @@ let contractsFilter = { type:'', status:'', q:'' };
 const PAGE_SIZE = 50;
 
 // ─── Authentication ──────────────────────────────────────────
-async function login(email, password) {
+async function login(email, password, totp_code) {
   try {
-    const result = await api.post('/api/auth/login', {email, password});
+    const body = {email, password};
+    if (totp_code) body.totp_code = totp_code;
+    const result = await api.post('/api/auth/login', body);
+    // Check if 2FA is required
+    if (result.requires_2fa) {
+      show2FALoginStep(email, password);
+      return false;
+    }
     state.token = result.token;
     state.user = result.user;
     localStorage.setItem('crm_token', state.token);
@@ -2325,6 +2396,43 @@ async function login(email, password) {
   } catch(e) {
     showToast(t('login_error'), 'error');
     return false;
+  }
+}
+
+function show2FALoginStep(email, password) {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="card p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-2 text-indigo-400">🔐 2FA Verification</h1>
+        <p class="text-slate-500 text-center mb-6 text-sm">Enter the code from your authenticator app</p>
+        <form onsubmit="on2FALoginSubmit(event)">
+          <input type="hidden" id="login2faEmail" value="${email}">
+          <input type="hidden" id="login2faPassword" value="${password}">
+          <div class="mb-6">
+            <label class="block text-sm text-slate-400 mb-2">Authentication Code</label>
+            <input type="text" id="login2faCode" class="w-full input-field text-center text-2xl tracking-widest"
+                   placeholder="000000" required autofocus maxlength="10" autocomplete="one-time-code"
+                   style="letter-spacing:0.3em; font-family:monospace">
+          </div>
+          <button type="submit" class="btn btn-primary w-full mb-3">Verify</button>
+          <button type="button" onclick="renderLoginPage()" class="btn btn-secondary w-full text-sm">Back to Login</button>
+          <p class="text-xs text-slate-500 mt-3 text-center">You can also use a backup code</p>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+async function on2FALoginSubmit(event) {
+  event.preventDefault();
+  const email = document.getElementById('login2faEmail').value;
+  const password = document.getElementById('login2faPassword').value;
+  const code = document.getElementById('login2faCode').value.trim();
+  if (!code) { showToast('Enter 2FA code', 'error'); return; }
+  if (await login(email, password, code)) {
+    document.querySelector('nav').style.display = 'block';
+    navigate();
   }
 }
 
@@ -2382,6 +2490,107 @@ async function onChangePassword(event) {
     showToast(t('change_pw_success'), 'success');
   } catch(e) {
     showToast(t('change_pw_error'), 'error');
+  }
+}
+
+// ─── 2FA Settings ───────────────────────────────────────────
+async function show2FASettingsModal() {
+  document.getElementById('userDropdown').style.display = 'none';
+  try {
+    const status = await api.get('/api/auth/2fa/status');
+    if (status.enabled) {
+      showModal(`
+        <h2 class="text-xl font-bold mb-4">🔐 Two-Factor Authentication</h2>
+        <div class="text-center mb-4">
+          <span class="inline-block px-3 py-1 rounded-full text-sm font-medium" style="background:#22c55e33;color:#22c55e;">✓ 2FA Enabled</span>
+        </div>
+        <p class="text-slate-400 text-sm mb-4">Your account is protected with 2FA. Enter your password to disable it.</p>
+        <form onsubmit="onDisable2FA(event)">
+          <div class="mb-4">
+            <label class="text-xs text-slate-500">Password</label>
+            <input type="password" id="disable2faPassword" class="w-full input-field" required>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" class="btn flex-1" style="background:#ef4444;color:white;">Disable 2FA</button>
+            <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+          </div>
+        </form>
+      `);
+    } else {
+      showModal(`
+        <h2 class="text-xl font-bold mb-4">🔐 Enable Two-Factor Authentication</h2>
+        <p class="text-slate-400 text-sm mb-4">Protect your account with an authenticator app (Google Authenticator, Authy, etc.)</p>
+        <div class="flex gap-2">
+          <button onclick="start2FASetup()" class="btn btn-primary flex-1">Enable 2FA</button>
+          <button onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+        </div>
+      `);
+    }
+  } catch(e) {
+    showToast('Failed to check 2FA status', 'error');
+  }
+}
+
+async function start2FASetup() {
+  try {
+    const result = await api.post('/api/auth/2fa/setup', {});
+    showModal(`
+      <h2 class="text-xl font-bold mb-4">🔐 Scan QR Code</h2>
+      <p class="text-slate-400 text-sm mb-3">Scan this QR code with your authenticator app:</p>
+      <div class="text-center mb-4">
+        <img src="${result.qr_code}" alt="QR Code" style="width:200px;height:200px;margin:0 auto;image-rendering:pixelated;border-radius:8px;">
+      </div>
+      <p class="text-xs text-slate-500 mb-1">Or enter manually:</p>
+      <div class="mb-4" style="background:#1e293b;padding:8px 12px;border-radius:6px;font-family:monospace;font-size:13px;word-break:break-all;color:#94a3b8;">
+        ${result.secret}
+      </div>
+      <form onsubmit="onVerify2FA(event)">
+        <div class="mb-4">
+          <label class="text-xs text-slate-500">Enter 6-digit code from app</label>
+          <input type="text" id="verify2faCode" class="w-full input-field text-center text-xl"
+                 placeholder="000000" required maxlength="6" autocomplete="one-time-code"
+                 style="letter-spacing:0.3em;font-family:monospace;">
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary flex-1">Verify & Enable</button>
+          <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+        </div>
+      </form>
+    `);
+  } catch(e) {
+    showToast('Failed to setup 2FA', 'error');
+  }
+}
+
+async function onVerify2FA(event) {
+  event.preventDefault();
+  const code = document.getElementById('verify2faCode').value.trim();
+  if (!code) return;
+  try {
+    const result = await api.post('/api/auth/2fa/verify', {code});
+    const codes = result.backup_codes || [];
+    showModal(`
+      <h2 class="text-xl font-bold mb-4" style="color:#22c55e;">✓ 2FA Enabled Successfully!</h2>
+      <p class="text-slate-400 text-sm mb-3">Save these backup codes in a safe place. Each can be used once if you lose your authenticator:</p>
+      <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:14px;columns:2;column-gap:16px;">
+        ${codes.map((c,i) => `<div style="color:#f59e0b;margin-bottom:4px;">${i+1}. ${c}</div>`).join('')}
+      </div>
+      <button onclick="closeModal()" class="btn btn-primary w-full mt-4">Done</button>
+    `);
+  } catch(e) {
+    showToast('Invalid code. Try again.', 'error');
+  }
+}
+
+async function onDisable2FA(event) {
+  event.preventDefault();
+  const password = document.getElementById('disable2faPassword').value;
+  try {
+    await api.post('/api/auth/2fa/disable', {password});
+    closeModal();
+    showToast('2FA disabled', 'success');
+  } catch(e) {
+    showToast('Invalid password', 'error');
   }
 }
 
@@ -2454,6 +2663,9 @@ function navigate() {
   const page = hash.replace('#/', '') || 'dashboard';
   state.page = page;
   document.querySelectorAll('.nav-link').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  // Close mobile nav on navigation
+  const navLinks = document.querySelector('.nav-links');
+  if (navLinks) navLinks.classList.remove('open');
   renderPage(page);
 }
 window.addEventListener('hashchange', navigate);
@@ -2495,6 +2707,14 @@ async function renderPage(page) {
         break;
       case 'scoring-rules':
         if (isAdmin()) await renderScoringRules(app);
+        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'assignment-rules':
+        if (isAdmin()) await renderAssignmentRules(app);
+        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        break;
+      case 'web-to-lead':
+        if (isAdmin()) await renderWebToLead(app);
         else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
         break;
       default: app.innerHTML = `<h2 class="text-xl">${t('error_page_not_found')}</h2>`;
@@ -2740,6 +2960,33 @@ async function renderDashboard(el) {
       </div>
     </div>
 
+    <!-- Row 2.5: Sales Forecast -->
+    <div class="card p-5 mb-6" id="forecastSection">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">📊 Sales Forecast</h3>
+        <select id="forecastMonths" onchange="loadForecast()" class="input-field" style="width:auto;padding:4px 8px;font-size:12px;">
+          <option value="3">3 months</option>
+          <option value="6" selected>6 months</option>
+          <option value="12">12 months</option>
+        </select>
+      </div>
+      <canvas id="forecastChart" height="140"></canvas>
+      <div id="forecastSummary" class="grid grid-cols-3 gap-4 mt-4" style="display:none;">
+        <div class="text-center p-3 rounded" style="background:rgba(99,102,241,0.12)">
+          <div class="text-xs text-gray-400">Pipeline Total</div>
+          <div class="text-lg font-bold text-indigo-400" id="fcTotal">-</div>
+        </div>
+        <div class="text-center p-3 rounded" style="background:rgba(34,197,94,0.12)">
+          <div class="text-xs text-gray-400">Weighted Forecast</div>
+          <div class="text-lg font-bold text-green-400" id="fcWeighted">-</div>
+        </div>
+        <div class="text-center p-3 rounded" style="background:rgba(245,158,11,0.12)">
+          <div class="text-xs text-gray-400">Active Deals</div>
+          <div class="text-lg font-bold text-amber-400" id="fcDeals">-</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Row 3: Deal Pipeline + Contact Health -->
     <div class="grid md:grid-cols-2 gap-6 mb-6">
       <div class="card p-5">
@@ -2979,7 +3226,72 @@ async function renderDashboard(el) {
 
 
 
+    // Load forecast widget
+    loadForecast();
+
   } catch(e) { console.error("Dashboard error:", e); el.innerHTML = `<div class="alert alert-danger">Dashboard load error</div>`; }
+}
+
+// ─── Sales Forecast ──────────────────────────────────────────
+let _forecastChart = null;
+async function loadForecast() {
+  try {
+    const months = document.getElementById('forecastMonths')?.value || 6;
+    const result = await api.get(`/api/deals/forecast?months=${months}`);
+    const data = result.months || [];
+    const summary = result.summary || {};
+
+    // Show summary cards
+    const summaryEl = document.getElementById('forecastSummary');
+    if (summaryEl) {
+      summaryEl.style.display = 'grid';
+      document.getElementById('fcTotal').textContent = formatMoney(summary.total_pipeline || 0);
+      document.getElementById('fcWeighted').textContent = formatMoney(summary.total_weighted || 0);
+      document.getElementById('fcDeals').textContent = summary.total_deals || 0;
+    }
+
+    // Draw chart
+    const canvas = document.getElementById('forecastChart');
+    if (!canvas) return;
+    if (_forecastChart) _forecastChart.destroy();
+    const chartTextColor = '#94a3b8';
+    _forecastChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: data.map(d => d.month),
+        datasets: [
+          { label: 'Pipeline Total', data: data.map(d => d.total), backgroundColor: 'rgba(99,102,241,0.5)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 4, order: 2 },
+          { label: 'Weighted Forecast', data: data.map(d => d.weighted), backgroundColor: 'rgba(34,197,94,0.7)', borderColor: '#22c55e', borderWidth: 1, borderRadius: 4, order: 1 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: chartTextColor } },
+          tooltip: {
+            callbacks: {
+              afterBody: function(ctx) {
+                const idx = ctx[0].dataIndex;
+                return `Deals: ${data[idx].count}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: chartTextColor, callback: v => formatMoney(v) }, grid: { color: 'rgba(148,163,184,0.1)' } },
+          x: { ticks: { color: chartTextColor }, grid: { display: false } }
+        }
+      }
+    });
+  } catch(e) { console.warn('Forecast load error:', e); }
+}
+
+function formatMoney(v) {
+  if (typeof window._formatMoney === 'function') return window._formatMoney(v);
+  if (v >= 1000000) return (v/1000000).toFixed(1) + 'M';
+  if (v >= 1000) return (v/1000).toFixed(1) + 'K';
+  return v.toFixed(0);
 }
 
 // ─── Sorting System ──────────────────────────────────────────
@@ -9895,6 +10207,178 @@ async function rescoreAllLeads() {
     const {data} = await api.post('/api/leads/rescore-all');
     showToast(`Rescored ${data.rescored} leads`, 'success');
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─── Lead Assignment Rules Page ──────────────────────────────
+async function renderAssignmentRules(el) {
+  showLoading(el);
+  try {
+    const rules = await api.get('/api/lead-assignment-rules');
+    const users = state.allUsers || [];
+    el.innerHTML = `
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">📋 Lead Assignment Rules</h1>
+        <button class="btn btn-primary" onclick="showAddAssignmentRuleModal()">+ Add Rule</button>
+      </div>
+      <div class="card p-4">
+        <table>
+          <thead><tr><th>Name</th><th>Conditions</th><th>Method</th><th>Assign To</th><th>Priority</th><th>Active</th><th>Actions</th></tr></thead>
+          <tbody>
+          ${(rules.data||rules||[]).length === 0 ? '<tr><td colspan="7" class="text-center text-slate-500">No rules yet</td></tr>' :
+            (rules.data||rules||[]).map(r => {
+              const conds = typeof r.conditions === 'string' ? JSON.parse(r.conditions || '{}') : (r.conditions || {});
+              const condStr = Object.entries(conds).map(([k,v]) => `${esc(k)}=${esc(v)}`).join(', ') || '-';
+              const assignUser = users.find(u => u.id === r.assign_to);
+              return `<tr>
+                <td class="font-medium">${esc(r.name)}</td>
+                <td class="text-xs text-slate-400">${condStr}</td>
+                <td><span class="px-2 py-1 text-xs rounded" style="background:${r.assign_method==='round_robin'?'#f59e0b33':'#6366f133'};color:${r.assign_method==='round_robin'?'#f59e0b':'#6366f1'};">${r.assign_method}</span></td>
+                <td>${r.assign_method==='round_robin'?'Round Robin':(assignUser?esc(assignUser.full_name||assignUser.username):'-')}</td>
+                <td>${r.priority}</td>
+                <td>${r.is_active?'<span style="color:#22c55e">✓</span>':'<span style="color:#ef4444">✗</span>'}</td>
+                <td><button class="btn btn-sm" style="color:#ef4444" onclick="deleteAssignmentRule(${r.id})">Delete</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = `<div class="text-red-400">${e.message}</div>`; }
+}
+
+function showAddAssignmentRuleModal() {
+  const users = state.allUsers || [];
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Add Assignment Rule</h2>
+    <form onsubmit="saveAssignmentRule(event)">
+      <div class="mb-3"><label class="text-xs text-slate-500">Rule Name</label><input id="arName" class="w-full input-field" required placeholder="e.g. Website leads to Sales"></div>
+      <div class="mb-3"><label class="text-xs text-slate-500">Method</label>
+        <select id="arMethod" class="w-full input-field" onchange="document.getElementById('arAssignTo').style.display=this.value==='direct'?'block':'none'">
+          <option value="direct">Direct (assign to specific user)</option>
+          <option value="round_robin">Round Robin (rotate among managers)</option>
+        </select>
+      </div>
+      <div class="mb-3" id="arAssignTo"><label class="text-xs text-slate-500">Assign To</label>
+        <select id="arUser" class="w-full input-field">${users.map(u => `<option value="${u.id}">${esc(u.full_name||u.username)}</option>`).join('')}</select>
+      </div>
+      <div class="mb-3"><label class="text-xs text-slate-500">Conditions (JSON)</label>
+        <textarea id="arConditions" class="w-full input-field" rows="2" placeholder='{"source": "website"}'></textarea>
+      </div>
+      <div class="mb-3"><label class="text-xs text-slate-500">Priority (higher = checked first)</label><input type="number" id="arPriority" class="w-full input-field" value="0"></div>
+      <div class="flex gap-2">
+        <button type="submit" class="btn btn-primary flex-1">Save</button>
+        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveAssignmentRule(e) {
+  e.preventDefault();
+  let conds = {};
+  try { conds = JSON.parse(document.getElementById('arConditions').value || '{}'); } catch(ex) { showToast('Invalid JSON', 'error'); return; }
+  await api.post('/api/lead-assignment-rules', {
+    name: document.getElementById('arName').value,
+    assign_method: document.getElementById('arMethod').value,
+    assign_to: parseInt(document.getElementById('arUser').value) || null,
+    conditions: conds,
+    priority: parseInt(document.getElementById('arPriority').value) || 0
+  });
+  closeModal();
+  showToast('Rule created', 'success');
+  renderAssignmentRules(document.getElementById('app'));
+}
+
+async function deleteAssignmentRule(id) {
+  if (!confirm('Delete this rule?')) return;
+  await api.delete(`/api/lead-assignment-rules/${id}`);
+  showToast('Rule deleted', 'success');
+  renderAssignmentRules(document.getElementById('app'));
+}
+
+// ─── Web-to-Lead Config Page ─────────────────────────────────
+async function renderWebToLead(el) {
+  const baseUrl = window.location.origin;
+  el.innerHTML = `
+    <h1 class="text-2xl font-bold mb-6">🌐 Web-to-Lead Form</h1>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="card p-5">
+        <h3 class="text-lg font-semibold mb-3">Embed Code</h3>
+        <p class="text-sm text-slate-400 mb-3">Add this script tag to your website to show a lead capture form:</p>
+        <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#94a3b8;word-break:break-all;">
+          &lt;div id="hermes-lead-form"&gt;&lt;/div&gt;<br>
+          &lt;script src="${baseUrl}/api/public/leads/widget.js"&gt;&lt;/script&gt;
+        </div>
+        <button class="btn btn-primary mt-3" onclick="navigator.clipboard.writeText('<div id=\\'hermes-lead-form\\'></div>\\n<script src=\\'${baseUrl}/api/public/leads/widget.js\\'></script>');showToast('Copied!','success')">Copy to Clipboard</button>
+      </div>
+      <div class="card p-5">
+        <h3 class="text-lg font-semibold mb-3">API Endpoint</h3>
+        <p class="text-sm text-slate-400 mb-3">For custom integrations, POST JSON to:</p>
+        <div style="background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#94a3b8;">
+          POST ${baseUrl}/api/public/leads
+        </div>
+        <p class="text-sm text-slate-400 mt-3">Fields: company_name, contact_name, email, phone, message</p>
+        <p class="text-sm text-slate-400 mt-1">Rate limit: 5 per IP per hour</p>
+      </div>
+    </div>
+    <div class="card p-5 mt-6">
+      <h3 class="text-lg font-semibold mb-3">Preview</h3>
+      <div id="hermes-lead-form" style="max-width:400px;"></div>
+    </div>
+  `;
+  // Load widget preview
+  try {
+    const r = await fetch('/api/public/leads/widget.js');
+    const js = await r.text();
+    eval(js);
+  } catch(e) {}
+}
+
+// ─── Deal Team (in deal detail) ──────────────────────────────
+async function loadDealTeam(dealId) {
+  try {
+    const team = await api.get(`/api/deals/${dealId}/team`);
+    return team.data || team || [];
+  } catch(e) { return []; }
+}
+
+async function addDealTeamMember(dealId) {
+  const users = state.allUsers || [];
+  showModal(`
+    <h2 class="text-xl font-bold mb-4">Add Team Member</h2>
+    <form onsubmit="saveDealTeamMember(event, ${dealId})">
+      <div class="mb-3"><label class="text-xs text-slate-500">User</label>
+        <select id="dtmUser" class="w-full input-field">${users.map(u => `<option value="${u.id}">${esc(u.full_name||u.username)}</option>`).join('')}</select>
+      </div>
+      <div class="mb-3"><label class="text-xs text-slate-500">Role</label>
+        <select id="dtmRole" class="w-full input-field">
+          <option value="owner">Owner</option>
+          <option value="sales_engineer">Sales Engineer</option>
+          <option value="account_manager">Account Manager</option>
+          <option value="member" selected>Member</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="btn btn-primary flex-1">Add</button>
+        <button type="button" onclick="closeModal()" class="btn btn-secondary flex-1">Cancel</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveDealTeamMember(e, dealId) {
+  e.preventDefault();
+  await api.post(`/api/deals/${dealId}/team`, {
+    user_id: parseInt(document.getElementById('dtmUser').value),
+    role: document.getElementById('dtmRole').value
+  });
+  closeModal();
+  showToast('Team member added', 'success');
+}
+
+async function removeDealTeamMember(dealId, memberId) {
+  await api.delete(`/api/deals/${dealId}/team/${memberId}`);
+  showToast('Removed', 'success');
 }
 
 </script>

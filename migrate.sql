@@ -133,3 +133,30 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     channel_telegram INTEGER DEFAULT 0,
     UNIQUE(user_id, event_type)
 );
+
+-- 1.3 Two-Factor Authentication (2FA)
+ALTER TABLE users ADD COLUMN totp_secret TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN backup_codes TEXT DEFAULT '[]';
+
+-- 2.3 Lead Assignment Rules
+CREATE TABLE IF NOT EXISTS lead_assignment_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    conditions TEXT DEFAULT '{}',
+    assign_to INTEGER REFERENCES users(id),
+    assign_method TEXT DEFAULT 'direct',
+    priority INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 2.4 Opportunity (Deal) Teams
+CREATE TABLE IF NOT EXISTS deal_team_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deal_id INTEGER REFERENCES deals(id),
+    user_id INTEGER REFERENCES users(id),
+    role TEXT DEFAULT 'member',
+    added_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(deal_id, user_id)
+);

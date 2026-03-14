@@ -12,6 +12,8 @@ import threading
 import time
 import secrets
 import unicodedata
+import io
+import base64
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
@@ -24,6 +26,14 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# 2FA
+try:
+    import pyotp
+    import qrcode
+    HAS_2FA = True
+except ImportError:
+    HAS_2FA = False
 
 # External API v1
 from external_api import router as external_api_router, init_api_tables
@@ -296,7 +306,7 @@ def check_permission(module: str, action: str):
 
 @app.post("/api/auth/login")
 async def login(request: Request):
-    """Login endpoint."""
+    """Login endpoint with optional 2FA support."""
     client_ip = _get_ip(request)
     check_rate_limit(client_ip, "login")
 
@@ -305,12 +315,37 @@ async def login(request: Request):
     login_id = data.get("email") or data.get("username", "")
     _validate_length(login_id, "login_id", 200)
     password = data.get("password", "")
+    totp_code = data.get("totp_code", "")
+
     if not login_id or not password:
         _err("Email/username and password are required")
     user = User.authenticate(login_id, password)
     if not user:
         log_audit(None, "login_failed", details=f"login_id={login_id}", ip=client_ip)
         _err("Invalid credentials", 401)
+
+    # Check 2FA
+    if user.get("totp_enabled") and HAS_2FA:
+        if not totp_code:
+            # Return requires_2fa flag — frontend shows code input
+            return _ok({"requires_2fa": True, "user_id": user["id"]})
+        # Verify TOTP code
+        with get_db() as conn:
+            row = conn.execute("SELECT totp_secret, backup_codes FROM users WHERE id = ?", (user["id"],)).fetchone()
+            if row and row["totp_secret"]:
+                totp = pyotp.TOTP(row["totp_secret"])
+                if totp.verify(totp_code, valid_window=1):
+                    pass  # Code valid
+                else:
+                    # Check backup codes
+                    backup_codes = json.loads(row["backup_codes"] or "[]")
+                    if totp_code in backup_codes:
+                        backup_codes.remove(totp_code)
+                        conn.execute("UPDATE users SET backup_codes = ? WHERE id = ?",
+                                     (json.dumps(backup_codes), user["id"]))
+                    else:
+                        log_audit(user["id"], "2fa_failed", ip=client_ip)
+                        _err("Invalid 2FA code", 401)
 
     token = User.generate_token(user)
     log_audit(user["id"], "login_success", ip=client_ip)
@@ -349,6 +384,87 @@ async def logout_endpoint(request: Request, user=Depends(require_auth), authoriz
         _blacklist_token(token)
     log_audit(user["user_id"], "logout", ip=_get_ip(request))
     return _ok({"message": "Logged out"})
+
+
+# ─── 2FA Management API ──────────────────────────────────────
+
+@app.post("/api/auth/2fa/setup")
+async def setup_2fa(user=Depends(require_auth)):
+    """Generate TOTP secret and QR code for 2FA setup."""
+    if not HAS_2FA:
+        _err("2FA not available — pyotp/qrcode not installed", 501)
+    uid = user["user_id"]
+    with get_db() as conn:
+        row = conn.execute("SELECT totp_enabled, email FROM users WHERE id = ?", (uid,)).fetchone()
+        if row and row["totp_enabled"]:
+            _err("2FA is already enabled. Disable first to re-setup.")
+        secret = pyotp.random_base32()
+        conn.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (secret, uid))
+        email = row["email"] if row else "user"
+        totp = pyotp.TOTP(secret)
+        uri = totp.provisioning_uri(name=email, issuer_name="Hermes CRM")
+        # Generate QR code as base64
+        img = qrcode.make(uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_b64 = base64.b64encode(buf.getvalue()).decode()
+    return _ok({"secret": secret, "qr_code": f"data:image/png;base64,{qr_b64}", "uri": uri})
+
+
+@app.post("/api/auth/2fa/verify")
+async def verify_2fa_setup(request: Request, user=Depends(require_auth)):
+    """Verify TOTP code and enable 2FA. Also generates backup codes."""
+    if not HAS_2FA:
+        _err("2FA not available", 501)
+    data = await request.json()
+    code = data.get("code", "")
+    if not code:
+        _err("TOTP code is required")
+    uid = user["user_id"]
+    with get_db() as conn:
+        row = conn.execute("SELECT totp_secret FROM users WHERE id = ?", (uid,)).fetchone()
+        if not row or not row["totp_secret"]:
+            _err("Call /api/auth/2fa/setup first")
+        totp = pyotp.TOTP(row["totp_secret"])
+        if not totp.verify(code, valid_window=1):
+            _err("Invalid TOTP code. Check your authenticator app.", 401)
+        # Generate 10 backup codes
+        backup_codes = [secrets.token_hex(4).upper() for _ in range(10)]
+        conn.execute("UPDATE users SET totp_enabled = 1, backup_codes = ? WHERE id = ?",
+                     (json.dumps(backup_codes), uid))
+        log_audit(uid, "2fa_enabled")
+    return _ok({"message": "2FA enabled successfully", "backup_codes": backup_codes})
+
+
+@app.post("/api/auth/2fa/disable")
+async def disable_2fa(request: Request, user=Depends(require_auth)):
+    """Disable 2FA. Requires password confirmation."""
+    data = await request.json()
+    password = data.get("password", "")
+    if not password:
+        _err("Password required to disable 2FA")
+    uid = user["user_id"]
+    # Verify password
+    with get_db() as conn:
+        row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (uid,)).fetchone()
+        if not row:
+            _err("User not found", 404)
+        import bcrypt as _bc
+        if not _bc.checkpw(password.encode(), row["password_hash"].encode()):
+            _err("Invalid password", 401)
+        conn.execute("UPDATE users SET totp_enabled = 0, totp_secret = '', backup_codes = '[]' WHERE id = ?", (uid,))
+        log_audit(uid, "2fa_disabled")
+    return _ok({"message": "2FA disabled"})
+
+
+@app.get("/api/auth/2fa/status")
+async def get_2fa_status(user=Depends(require_auth)):
+    """Check if 2FA is enabled for current user."""
+    uid = user["user_id"]
+    with get_db() as conn:
+        row = conn.execute("SELECT totp_enabled FROM users WHERE id = ?", (uid,)).fetchone()
+        enabled = bool(row and row["totp_enabled"]) if row else False
+    return _ok({"enabled": enabled, "available": HAS_2FA})
 
 
 # ─── Roles Management API ────────────────────────────────────
@@ -944,6 +1060,11 @@ async def create_lead(request: Request, user=Depends(require_auth)):
             ]
         )
         lead_id = cur.lastrowid
+        # Auto-assign if not manually assigned
+        if not data.get("assigned_to"):
+            auto_user = auto_assign_lead(conn, data)
+            if auto_user:
+                conn.execute("UPDATE leads SET assigned_to=? WHERE id=?", (auto_user, lead_id))
         log_audit(user["user_id"], "create_lead", "lead", lead_id, ip=_get_ip(request))
         return _ok({"id": lead_id, "message": "Lead created"})
 
@@ -1570,6 +1691,78 @@ async def list_deals(
 ):
     deals = Deal.search(stage=stage, company_id=company_id, limit=limit, offset=offset)
     return _ok(deals, total=Deal.count())
+
+
+@app.get("/api/deals/forecast")
+async def deals_forecast(
+    months: int = Query(6, ge=1, le=24),
+    owner_id: Optional[int] = None,
+    user=Depends(require_auth),
+):
+    """Sales forecast: weighted pipeline by expected close month."""
+    with get_db() as conn:
+        # Get stage probabilities
+        stage_probs = {}
+        try:
+            rows = conn.execute("SELECT name, probability FROM pipeline_stages WHERE is_active=1").fetchall()
+            for r in rows:
+                stage_probs[r["name"]] = r["probability"]
+        except Exception:
+            stage_probs = {"LEAD": 10, "QUALIFIED": 25, "PROPOSAL": 50, "NEGOTIATION": 75, "WON": 100, "LOST": 0}
+
+        # Get active deals (not WON/LOST)
+        sql = """SELECT d.*, COALESCE(d.expected_close, '') as exp_close
+                 FROM deals d WHERE d.stage NOT IN ('WON','LOST')"""
+        params = []
+        if owner_id:
+            sql += " AND d.owner_id = ?"
+            params.append(owner_id)
+        deals = conn.execute(sql, params).fetchall()
+
+        # Group by month
+        from collections import defaultdict
+        monthly = defaultdict(lambda: {"total": 0, "weighted": 0, "count": 0, "deals": []})
+        now = datetime.now()
+        for d in deals:
+            d = dict(d)
+            amount = d.get("value_amount") or d.get("amount") or 0
+            stage = d.get("stage", "LEAD")
+            prob = stage_probs.get(stage, 10)
+            exp = d.get("exp_close") or d.get("expected_close") or ""
+            if exp:
+                try:
+                    month_key = exp[:7]  # "2026-04"
+                except Exception:
+                    month_key = now.strftime("%Y-%m")
+            else:
+                month_key = now.strftime("%Y-%m")
+            monthly[month_key]["total"] += amount
+            monthly[month_key]["weighted"] += amount * prob / 100
+            monthly[month_key]["count"] += 1
+            monthly[month_key]["deals"].append({
+                "id": d.get("id"), "title": d.get("title"), "amount": amount,
+                "stage": stage, "probability": prob
+            })
+
+        # Build result for next N months
+        result = []
+        for i in range(months):
+            m = now.month + i
+            y = now.year + (m - 1) // 12
+            m = ((m - 1) % 12) + 1
+            key = f"{y}-{m:02d}"
+            data = monthly.get(key, {"total": 0, "weighted": 0, "count": 0, "deals": []})
+            result.append({"month": key, **data})
+
+        # Totals
+        total_pipeline = sum(r["total"] for r in result)
+        total_weighted = sum(r["weighted"] for r in result)
+        total_deals = sum(r["count"] for r in result)
+
+    return _ok({
+        "months": result,
+        "summary": {"total_pipeline": total_pipeline, "total_weighted": total_weighted, "total_deals": total_deals}
+    })
 
 
 @app.get("/api/deals/{deal_id}")
@@ -5127,4 +5320,260 @@ async def get_audit_log(
             cols = [d[0] for d in cursor.description]
         items = [dict(zip(cols, r)) for r in rows]
     return _ok({"items": items, "total": total})
+
+
+# ─── Lead Assignment Rules API ────────────────────────────────
+
+_round_robin_idx = {}  # rule_id -> last_assigned_idx
+
+def auto_assign_lead(conn, lead_data):
+    """Check assignment rules and auto-assign lead. Returns assigned_to user_id or None."""
+    try:
+        rules = conn.execute(
+            "SELECT * FROM lead_assignment_rules WHERE is_active=1 ORDER BY priority DESC"
+        ).fetchall()
+    except Exception:
+        return None
+
+    for rule in rules:
+        rule = dict(rule)
+        conditions = json.loads(rule.get("conditions") or "{}")
+        match = True
+        for field, value in conditions.items():
+            lead_val = str(lead_data.get(field, "")).lower()
+            if lead_val != str(value).lower():
+                match = False
+                break
+        if not match:
+            continue
+
+        if rule["assign_method"] == "round_robin":
+            # Get all active managers
+            managers = conn.execute(
+                "SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1 ORDER BY id"
+            ).fetchall()
+            if managers:
+                idx = _round_robin_idx.get(rule["id"], -1) + 1
+                if idx >= len(managers):
+                    idx = 0
+                _round_robin_idx[rule["id"]] = idx
+                return managers[idx]["id"]
+        else:
+            return rule.get("assign_to")
+    return None
+
+
+@app.get("/api/lead-assignment-rules")
+async def list_lead_assignment_rules(user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM lead_assignment_rules ORDER BY priority DESC").fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM lead_assignment_rules LIMIT 0").description]
+    return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/lead-assignment-rules")
+async def create_lead_assignment_rule(request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        _err("Name is required")
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO lead_assignment_rules (name, conditions, assign_to, assign_method, priority) VALUES (?,?,?,?,?)",
+            [name, json.dumps(data.get("conditions", {})), data.get("assign_to"),
+             data.get("assign_method", "direct"), data.get("priority", 0)]
+        )
+        log_audit(user["user_id"], "create_assignment_rule", "lead_assignment_rule", cur.lastrowid)
+    return _ok({"id": cur.lastrowid, "message": "Rule created"})
+
+
+@app.put("/api/lead-assignment-rules/{rule_id}")
+async def update_lead_assignment_rule(rule_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    with get_db() as conn:
+        old = conn.execute("SELECT * FROM lead_assignment_rules WHERE id=?", (rule_id,)).fetchone()
+        if not old:
+            _err("Rule not found", 404)
+        sets, params = [], []
+        for f in ["name", "conditions", "assign_to", "assign_method", "priority", "is_active"]:
+            if f in data:
+                val = data[f]
+                if f == "conditions":
+                    val = json.dumps(val) if isinstance(val, dict) else val
+                sets.append(f"{f}=?")
+                params.append(val)
+        if sets:
+            params.append(rule_id)
+            conn.execute(f"UPDATE lead_assignment_rules SET {','.join(sets)} WHERE id=?", params)
+            log_audit(user["user_id"], "update_assignment_rule", "lead_assignment_rule", rule_id)
+    return _ok({"message": "Rule updated"})
+
+
+@app.delete("/api/lead-assignment-rules/{rule_id}")
+async def delete_lead_assignment_rule(rule_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM lead_assignment_rules WHERE id=?", (rule_id,))
+        log_audit(user["user_id"], "delete_assignment_rule", "lead_assignment_rule", rule_id)
+    return _ok({"message": "Rule deleted"})
+
+
+# ─── Deal Team Members API ───────────────────────────────────
+
+@app.get("/api/deals/{deal_id}/team")
+async def get_deal_team(deal_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT dtm.*, u.full_name, u.email, u.avatar_url
+               FROM deal_team_members dtm
+               JOIN users u ON dtm.user_id = u.id
+               WHERE dtm.deal_id = ?
+               ORDER BY dtm.added_at""",
+            (deal_id,)
+        ).fetchall()
+        cols = [d[0] for d in rows[0].description] if rows and hasattr(rows[0], 'description') else []
+        if rows:
+            cursor = conn.execute(
+                "SELECT dtm.*, u.full_name, u.email, u.avatar_url FROM deal_team_members dtm JOIN users u ON dtm.user_id = u.id LIMIT 0"
+            )
+            cols = [d[0] for d in cursor.description]
+    return _ok([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/deals/{deal_id}/team")
+async def add_deal_team_member(deal_id: int, request: Request, user=Depends(require_auth)):
+    data = await request.json()
+    user_id = data.get("user_id")
+    role = data.get("role", "member")
+    if not user_id:
+        _err("user_id is required")
+    with get_db() as conn:
+        deal = conn.execute("SELECT id FROM deals WHERE id=?", (deal_id,)).fetchone()
+        if not deal:
+            _err("Deal not found", 404)
+        try:
+            conn.execute(
+                "INSERT INTO deal_team_members (deal_id, user_id, role) VALUES (?,?,?)",
+                [deal_id, user_id, role]
+            )
+        except Exception:
+            _err("User already in team")
+        log_audit(user["user_id"], "add_deal_team_member", "deal", deal_id,
+                  details=f"user_id={user_id}, role={role}")
+    return _ok({"message": "Team member added"})
+
+
+@app.delete("/api/deals/{deal_id}/team/{member_id}")
+async def remove_deal_team_member(deal_id: int, member_id: int, user=Depends(require_auth)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM deal_team_members WHERE id=? AND deal_id=?", (member_id, deal_id))
+        log_audit(user["user_id"], "remove_deal_team_member", "deal", deal_id)
+    return _ok({"message": "Team member removed"})
+
+
+# ─── Web-to-Lead (Public API) ────────────────────────────────
+
+_web_lead_rate = {}  # ip -> [timestamps]
+
+@app.post("/api/public/leads")
+async def public_create_lead(request: Request):
+    """Public web-to-lead endpoint. No auth required, rate limited."""
+    client_ip = _get_ip(request)
+
+    # Rate limit: max 5 leads per IP per hour
+    now = time.time()
+    if client_ip not in _web_lead_rate:
+        _web_lead_rate[client_ip] = []
+    _web_lead_rate[client_ip] = [t for t in _web_lead_rate[client_ip] if now - t < 3600]
+    if len(_web_lead_rate[client_ip]) >= 5:
+        _err("Too many submissions. Please try again later.", 429)
+    _web_lead_rate[client_ip].append(now)
+
+    data = await request.json()
+    company_name = (data.get("company_name") or "").strip()
+    contact_name = (data.get("contact_name") or "").strip()
+    email = (data.get("email") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    message = (data.get("message") or "").strip()
+
+    if not company_name and not contact_name:
+        _err("Company name or contact name is required", 400)
+
+    # Validate lengths
+    for val, name, mx in [(company_name,"company_name",300),(contact_name,"contact_name",200),(email,"email",200),(phone,"phone",50),(message,"message",2000)]:
+        _validate_length(val, name, mx)
+
+    with get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO leads (company_name, contact_name, email, phone, source, status, priority, notes, created_by)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            [company_name or contact_name, contact_name, email, phone, "website", "new", "medium",
+             f"Web form submission:\n{message}" if message else "", None]
+        )
+        lead_id = cur.lastrowid
+        log_audit(None, "web_lead_created", "lead", lead_id, ip=client_ip,
+                  details=f"company={company_name}, email={email}")
+
+        # Send notifications to all admins/managers
+        try:
+            admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()
+            for admin in admins:
+                try:
+                    send_notification(admin["id"], "lead_new",
+                                     f"New web lead: {company_name or contact_name}",
+                                     f"From: {contact_name} ({email})", "lead", lead_id)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    return _ok({"message": "Thank you! We will contact you soon.", "id": lead_id})
+
+
+@app.get("/api/public/leads/form-config")
+async def web_lead_form_config():
+    """Get web form configuration (public)."""
+    return _ok({
+        "fields": [
+            {"name": "company_name", "label": "Company", "type": "text", "required": False},
+            {"name": "contact_name", "label": "Your Name", "type": "text", "required": True},
+            {"name": "email", "label": "Email", "type": "email", "required": True},
+            {"name": "phone", "label": "Phone", "type": "tel", "required": False},
+            {"name": "message", "label": "Message", "type": "textarea", "required": False}
+        ],
+        "submit_url": f"{BASE_URL}/api/public/leads",
+        "branding": "Hermes CRM"
+    })
+
+
+@app.get("/api/public/leads/widget.js")
+async def web_lead_widget():
+    """Embeddable JavaScript widget for web-to-lead form."""
+    js = f"""
+(function(){{
+  var SUBMIT_URL = "{BASE_URL}/api/public/leads";
+  var container = document.getElementById('hermes-lead-form') || document.currentScript.parentElement;
+  container.innerHTML = '<form id="hermesLeadForm" style="max-width:400px;font-family:sans-serif;">' +
+    '<div style="margin-bottom:12px;"><label style="display:block;font-size:13px;margin-bottom:4px;">Your Name *</label><input name="contact_name" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+    '<div style="margin-bottom:12px;"><label style="display:block;font-size:13px;margin-bottom:4px;">Email *</label><input name="email" type="email" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+    '<div style="margin-bottom:12px;"><label style="display:block;font-size:13px;margin-bottom:4px;">Company</label><input name="company_name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+    '<div style="margin-bottom:12px;"><label style="display:block;font-size:13px;margin-bottom:4px;">Phone</label><input name="phone" type="tel" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></div>' +
+    '<div style="margin-bottom:12px;"><label style="display:block;font-size:13px;margin-bottom:4px;">Message</label><textarea name="message" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea></div>' +
+    '<button type="submit" style="background:#6366f1;color:white;padding:10px 24px;border:none;border-radius:4px;cursor:pointer;font-size:14px;">Submit</button>' +
+    '<div id="hermesFormMsg" style="margin-top:8px;font-size:13px;"></div>' +
+    '</form>';
+  document.getElementById('hermesLeadForm').addEventListener('submit', function(e) {{
+    e.preventDefault();
+    var fd = new FormData(this);
+    var data = {{}};
+    fd.forEach(function(v,k){{ data[k]=v; }});
+    var msg = document.getElementById('hermesFormMsg');
+    msg.textContent = 'Sending...';
+    fetch(SUBMIT_URL, {{ method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify(data) }})
+      .then(function(r){{ return r.json(); }})
+      .then(function(d){{ msg.style.color='green'; msg.textContent=d.data?.message||'Thank you!'; document.getElementById('hermesLeadForm').reset(); }})
+      .catch(function(){{ msg.style.color='red'; msg.textContent='Error. Please try again.'; }});
+  }});
+}})();
+"""
+    return Response(content=js, media_type="application/javascript")
 

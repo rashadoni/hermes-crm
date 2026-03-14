@@ -30,7 +30,16 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT DEFAULT '',
     role TEXT DEFAULT 'manager',
     is_active INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now')),
+    role_id INTEGER,
+    department TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    avatar_url TEXT DEFAULT '',
+    last_login TEXT,
+    login_count INTEGER DEFAULT 0,
+    totp_secret TEXT DEFAULT '',
+    totp_enabled INTEGER DEFAULT 0,
+    backup_codes TEXT DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -314,6 +323,28 @@ CREATE TABLE IF NOT EXISTS cost_model_log (
     new_value TEXT,
     changed_by INTEGER REFERENCES users(id),
     changed_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Lead Assignment Rules
+CREATE TABLE IF NOT EXISTS lead_assignment_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    conditions TEXT DEFAULT '{}',
+    assign_to INTEGER REFERENCES users(id),
+    assign_method TEXT DEFAULT 'direct',
+    priority INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Deal Team Members
+CREATE TABLE IF NOT EXISTS deal_team_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deal_id INTEGER REFERENCES deals(id),
+    user_id INTEGER REFERENCES users(id),
+    role TEXT DEFAULT 'member',
+    added_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(deal_id, user_id)
 );
 """
 

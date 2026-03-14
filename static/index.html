@@ -3324,13 +3324,16 @@ async function renderHomeDashboard(el) {
     var activitiesHtml = '';
     if (activities && activities.length > 0) {
       activities.forEach(function(a) {
-        var icon = a.type === 'call' ? '☎️' : a.type === 'email' ? '📧' : a.type === 'meeting' ? '📅' : '📌';
-        var desc = esc(a.description || a.subject || 'Activity');
-        var dt = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
-        activitiesHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer text-sm">' +
-          '<span class="text-lg">' + icon + '</span>' +
-          '<div class="flex-1 min-w-0"><div class="font-medium truncate">' + desc + '</div>' +
-          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+        var aType = (a.activity_type || a.type || '').toLowerCase();
+        var icon = aType === 'call' ? '☎️' : aType === 'email' ? '📧' : aType === 'meeting' ? '📅' : '📌';
+        var desc = esc(a.subject || a.description || 'Activity');
+        var dt = (a.timestamp || a.created_at) ? new Date(a.timestamp || a.created_at).toLocaleDateString() : '';
+        var contact = a.contact_name ? ' <span style="color:#64748b;font-size:11px">— ' + esc(a.contact_name) + '</span>' : '';
+        activitiesHtml += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:6px;cursor:pointer" class="hover:bg-slate-800">' +
+          '<span style="font-size:1.2em;flex-shrink:0">' + icon + '</span>' +
+          '<div style="flex:1;overflow:hidden"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + desc + contact + '</div>' +
+          (dt ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + dt + '</div>' : '') +
+          '</div></div>';
       });
     } else {
       activitiesHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No recent records', 'Нет записей', 'Qeyd yoxdur') + '</div>';
@@ -3344,10 +3347,12 @@ async function renderHomeDashboard(el) {
         var strike = tk.status === 'completed' ? 'text-decoration:line-through;color:#64748b;' : '';
         var title = esc(tk.title || tk.description || 'Task');
         var dt = tk.due_date ? new Date(tk.due_date).toLocaleDateString() : '';
-        tasksHtml += '<div class="flex items-start gap-3 p-2 hover:bg-slate-800 rounded text-sm">' +
-          '<input type="checkbox" class="mt-0.5" style="cursor:pointer"' + checked + '>' +
-          '<div class="flex-1 min-w-0"><div class="font-medium truncate" style="' + strike + '">' + title + '</div>' +
-          '<div class="text-xs text-slate-400">' + dt + '</div></div></div>';
+        var assignee = tk.assigned_name ? ' <span style="color:#64748b;font-size:11px">— ' + esc(tk.assigned_name) + '</span>' : '';
+        tasksHtml += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:6px" class="hover:bg-slate-800">' +
+          '<input type="checkbox" style="cursor:pointer;margin-top:3px;flex-shrink:0"' + checked + '>' +
+          '<div style="flex:1;overflow:hidden"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' + strike + '">' + title + assignee + '</div>' +
+          (dt ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + dt + '</div>' : '') +
+          '</div></div>';
       });
     } else {
       tasksHtml = '<div class="text-slate-500 text-sm text-center py-6">' + _t('No tasks', 'Нет задач', 'Tapşırıq yoxdur') + '</div>';

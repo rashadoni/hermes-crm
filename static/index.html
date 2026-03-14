@@ -494,6 +494,8 @@ const translations = {
     contact_field_updated: 'Last Updated',
     contact_field_email_count: 'Total Emails',
     contact_back: 'Back',
+    contact_log_call: 'Log a Call',
+    contact_log_meeting: 'Meeting',
     btn_edit: 'Edit',
     btn_delete: 'Delete',
     btn_save: 'Save',
@@ -1199,6 +1201,8 @@ const translations = {
     contact_field_updated: 'Обновлён',
     contact_field_email_count: 'Всего писем',
     contact_back: 'Назад',
+    contact_log_call: 'Звонок',
+    contact_log_meeting: 'Встреча',
     contact_form_phone: 'Телефон',
     contact_updated: 'Контакт обновлён',
     contact_created: 'Контакт создан',
@@ -1906,6 +1910,8 @@ const translations = {
     contact_field_updated: 'Yenilənib',
     contact_field_email_count: 'Ümumi email',
     contact_back: 'Geri',
+    contact_log_call: 'Zəng',
+    contact_log_meeting: 'Görüş',
     contact_form_phone: 'Telefon',
     contact_updated: 'Əlaqə yeniləndi',
     contact_created: 'Əlaqə yaradıldı',
@@ -4070,6 +4076,26 @@ function showContactDetail(id) {
   location.hash = '#/contact/' + id;
 }
 
+// ─── Log Activity for Contact ───────────────────────────────────
+async function logActivity(contactId, actType) {
+  const subjects = {call: 'Phone Call', email: 'Email', meeting: 'Meeting'};
+  const subject = prompt(t('contact_log_call') + ' — ' + (subjects[actType] || actType) + ':\n' + t('contacts_col_name') + '?');
+  if (!subject) return;
+  try {
+    await api.post('/api/activities', {
+      contact_id: contactId,
+      activity_type: actType,
+      subject: subject,
+      timestamp: new Date().toISOString()
+    });
+    // Refresh contact page
+    var app = document.getElementById('app');
+    if (app) renderContactPage(app, contactId);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
 // ─── Contact Detail Page (Salesforce-inspired) ─────────────────
 async function renderContactPage(el, contactId) {
   try {
@@ -4078,15 +4104,23 @@ async function renderContactPage(el, contactId) {
     // Get additional data
     let deals = [];
     let contracts = [];
+    let activities = [];
     try {
       const dealsResp = await api.get('/api/deals?contact_id=' + contactId);
-      deals = dealsResp.data || [];
+      var dealsRaw = dealsResp.data || [];
+      deals = Array.isArray(dealsRaw) ? dealsRaw : (dealsRaw.deals || dealsRaw.items || []);
     } catch(e) {}
     try {
       if (contact.company_id) {
         const contractsResp = await api.get('/api/contracts?company_id=' + contact.company_id);
-        contracts = contractsResp.data || [];
+        var contractsRaw = contractsResp.data || [];
+        contracts = Array.isArray(contractsRaw) ? contractsRaw : (contractsRaw.contracts || contractsRaw.items || []);
       }
+    } catch(e) {}
+    try {
+      const actResp = await api.get('/api/activities?contact_id=' + contactId + '&limit=15');
+      var actRaw = actResp.data || [];
+      activities = Array.isArray(actRaw) ? actRaw : (actRaw.activities || actRaw.items || []);
     } catch(e) {}
 
     // Prepare initials for avatar
@@ -4179,7 +4213,7 @@ async function renderContactPage(el, contactId) {
                           <tbody>
                             ${deals.slice(0, 5).map(d => `
                               <tr onclick="showDealDetail(${d.id})" style="cursor:pointer;">
-                                <td><a href="#/deals" class="text-indigo-400 hover:underline">${esc(d.deal_name)}</a></td>
+                                <td><a href="#/deals" class="text-indigo-400 hover:underline">${esc(d.title || d.deal_name || 'Deal #' + d.id)}</a></td>
                                 <td>${formatCurrency(d.amount)}</td>
                                 <td><span class="stage-badge stage-${d.stage}">${esc(d.stage)}</span></td>
                                 <td>${d.close_date ? new Date(d.close_date).toLocaleDateString() : '—'}</td>
@@ -4227,9 +4261,9 @@ async function renderContactPage(el, contactId) {
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                       <span>📋</span> ${t('contact_activities_history')}
                     </h3>
-                    ${contact.activities && contact.activities.length > 0 ? `
+                    ${activities && activities.length > 0 ? `
                       <div class="space-y-3">
-                        ${contact.activities.slice(0, 10).map(a => {
+                        ${activities.slice(0, 10).map(a => {
                           const actType = a.activity_type || 'note';
                           const actIcon = actType === 'email' ? '✉️' :
                                         actType === 'call' ? '☎️' :
@@ -4278,11 +4312,11 @@ async function renderContactPage(el, contactId) {
                       <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_source')}</p>
                       <p class="text-slate-200 font-medium">${esc(contact.source || '—')}</p>
                     </div>
-                    ${contact.tags ? `
+                    ${contact.tags && contact.tags.trim() && contact.tags !== '[]' && contact.tags !== 'null' ? `
                       <div class="col-span-2">
                         <p class="text-slate-500 text-xs uppercase tracking-wide mb-2">${t('contact_field_tags')}</p>
                         <div class="flex flex-wrap gap-2">
-                          ${contact.tags.split(',').map(tag => `<span class="px-2 py-1 bg-slate-700 text-slate-200 rounded text-sm">${esc(tag.trim())}</span>`).join('')}
+                          ${contact.tags.split(',').filter(t => t.trim() && t.trim() !== '[]').map(tag => `<span class="px-2 py-1 bg-slate-700 text-slate-200 rounded text-sm">${esc(tag.trim())}</span>`).join('')}
                         </div>
                       </div>
                     ` : ''}
@@ -4317,9 +4351,14 @@ async function renderContactPage(el, contactId) {
             <div>
               <div class="card p-6">
                 <h3 class="text-lg font-semibold mb-4">${t('contact_tab_activity')}</h3>
-                ${contact.activities && contact.activities.length > 0 ? `
+                <div class="flex gap-2 mb-4 flex-wrap">
+                  <button class="px-3 py-1.5 text-xs rounded-full border border-indigo-500 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-colors" onclick="logActivity(${contactId}, 'call')">📞 ${t('contact_log_call')}</button>
+                  <button class="px-3 py-1.5 text-xs rounded-full border border-green-500 text-green-400 hover:bg-green-500 hover:text-white transition-colors" onclick="logActivity(${contactId}, 'email')">✉️ Email</button>
+                  <button class="px-3 py-1.5 text-xs rounded-full border border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-white transition-colors" onclick="logActivity(${contactId}, 'meeting')">📅 ${t('contact_log_meeting')}</button>
+                </div>
+                ${activities && activities.length > 0 ? `
                   <div class="space-y-4">
-                    ${contact.activities.slice(0, 15).map(a => {
+                    ${activities.slice(0, 15).map(a => {
                       const actType = a.activity_type || 'note';
                       const actIcon = actType === 'email' ? '✉️' :
                                     actType === 'call' ? '☎️' :

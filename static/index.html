@@ -13396,6 +13396,85 @@ async function updateSLA(id) {
 // ─── PHASE 4: Marketing Cloud ────────────────────────────────
 
 // ─── Email Templates ─────────────────────────────────────────
+
+// ─── WYSIWYG Email Editor ──────────────────────────────────
+function getEmailEditorToolbarHTML() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  return '<div id="etToolbar" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:10px 10px 0 0;border-bottom:none;">' +
+    '<button type="button" onclick="document.execCommand('bold')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;font-weight:bold;cursor:pointer;" title="Bold">B</button>' +
+    '<button type="button" onclick="document.execCommand('italic')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;font-style:italic;cursor:pointer;" title="Italic">I</button>' +
+    '<button type="button" onclick="document.execCommand('underline')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;text-decoration:underline;cursor:pointer;" title="Underline">U</button>' +
+    '<span style="width:1px;background:#475569;margin:0 4px;"></span>' +
+    '<button type="button" onclick="document.execCommand('insertUnorderedList')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="' + _t('Bullet list','Маркированный список','Siyahı') + '">&#8226;</button>' +
+    '<button type="button" onclick="document.execCommand('insertOrderedList')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="' + _t('Numbered list','Нумерованный список','Nömrəli siyahı') + '">1.</button>' +
+    '<span style="width:1px;background:#475569;margin:0 4px;"></span>' +
+    '<button type="button" onclick="document.execCommand('justifyLeft')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="Left">&#9776;</button>' +
+    '<button type="button" onclick="document.execCommand('justifyCenter')" style="width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="Center">&#9776;</button>' +
+    '<span style="width:1px;background:#475569;margin:0 4px;"></span>' +
+    '<select onchange="document.execCommand('fontSize',false,this.value);this.value='';" style="height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 8px;cursor:pointer;">' +
+      '<option value="">' + _t('Size','Размер','Ölçü') + '</option>' +
+      '<option value="1">S</option><option value="3">M</option><option value="5">L</option><option value="7">XL</option>' +
+    '</select>' +
+    '<select onchange="document.execCommand('foreColor',false,this.value);this.value='';" style="height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 8px;cursor:pointer;">' +
+      '<option value="">' + _t('Color','Цвет','Rəng') + '</option>' +
+      '<option value="#ffffff" style="color:#fff">&#9632; ' + _t('White','Белый','Ağ') + '</option>' +
+      '<option value="#ef4444" style="color:#ef4444">&#9632; ' + _t('Red','Красный','Qırmızı') + '</option>' +
+      '<option value="#3b82f6" style="color:#3b82f6">&#9632; ' + _t('Blue','Синий','Mavi') + '</option>' +
+      '<option value="#22c55e" style="color:#22c55e">&#9632; ' + _t('Green','Зелёный','Yaşıl') + '</option>' +
+      '<option value="#f59e0b" style="color:#f59e0b">&#9632; ' + _t('Yellow','Жёлтый','Sarı') + '</option>' +
+      '<option value="#8b5cf6" style="color:#8b5cf6">&#9632; ' + _t('Purple','Фиолетовый','Bənövşəyi') + '</option>' +
+    '</select>' +
+    '<span style="width:1px;background:#475569;margin:0 4px;"></span>' +
+    '<button type="button" onclick="emailEditorInsertLink()" style="height:32px;padding:0 10px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="' + _t('Insert link','Вставить ссылку','Keçid əlavə et') + '">&#128279;</button>' +
+    '<button type="button" onclick="emailEditorInsertImage()" style="height:32px;padding:0 10px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="' + _t('Insert image','Вставить картинку','Şəkil əlavə et') + '">&#128247;</button>' +
+    '<span style="flex:1"></span>' +
+    '<button type="button" onclick="emailEditorToggleSource()" style="height:32px;padding:0 10px;background:#475569;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;" title="HTML">&lt;/&gt;</button>' +
+  '</div>' +
+  '<div id="etBody" contenteditable="true" style="min-height:200px;max-height:400px;overflow-y:auto;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:0 0 10px 10px;color:#e2e8f0;font-family:Arial,sans-serif;line-height:1.6;outline:none;"></div>' +
+  '<textarea id="etBodySource" style="display:none;min-height:200px;max-height:400px;width:100%;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:0 0 10px 10px;color:#94a3b8;font-family:monospace;font-size:12px;line-height:1.5;resize:vertical;outline:none;" class="form-input"></textarea>';
+}
+
+function emailEditorInsertLink() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  var url = prompt(_t('Enter URL:','Введите URL:','URL daxil edin:'), 'https://');
+  if (url) document.execCommand('createLink', false, url);
+}
+
+function emailEditorInsertImage() {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  var url = prompt(_t('Enter image URL:','Введите URL картинки:','Şəkil URL daxil edin:'), 'https://');
+  if (url) document.execCommand('insertImage', false, url);
+}
+
+function emailEditorToggleSource() {
+  var editor = document.getElementById('etBody');
+  var source = document.getElementById('etBodySource');
+  if (!editor || !source) return;
+  if (source.style.display === 'none') {
+    source.value = editor.innerHTML;
+    editor.style.display = 'none';
+    source.style.display = 'block';
+    document.getElementById('etToolbar').style.opacity = '0.5';
+    document.getElementById('etToolbar').style.pointerEvents = 'none';
+  } else {
+    editor.innerHTML = source.value;
+    source.style.display = 'none';
+    editor.style.display = 'block';
+    document.getElementById('etToolbar').style.opacity = '1';
+    document.getElementById('etToolbar').style.pointerEvents = 'auto';
+  }
+}
+
+function getEmailEditorContent() {
+  var source = document.getElementById('etBodySource');
+  var editor = document.getElementById('etBody');
+  if (source && source.style.display !== 'none') return source.value;
+  return editor ? editor.innerHTML : '';
+}
+
 async function renderEmailTemplates(el) {
   const {data: templates} = await api.get('/api/email-templates');
   const L = currentLang;
@@ -13438,7 +13517,7 @@ function showCreateEmailTemplateModal() {
     <div class="space-y-3">
       <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full"></div>
       <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><textarea id="etBody" class="form-input w-full" rows="6"></textarea></div>
+      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">\${getEmailEditorToolbarHTML()}</div></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
           <select id="etCategory" class="form-input w-full">
@@ -13472,7 +13551,7 @@ function showEditEmailTemplateModal(id, name, subject, category, lang, isActive)
       <div class="space-y-3">
         <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full" value="${esc(name)}"></div>
         <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" value="${esc(subject)}"></div>
-        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><textarea id="etBody" class="form-input w-full" rows="6">${esc(data.body_html||'')}</textarea></div>
+        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">\${getEmailEditorToolbarHTML()}</div></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
             <select id="etCategory" class="form-input w-full">
@@ -13495,6 +13574,7 @@ function showEditEmailTemplateModal(id, name, subject, category, lang, isActive)
         <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
       </div>
     `);
+    setTimeout(function(){ var ed = document.getElementById('etBody'); if(ed) ed.innerHTML = data.body_html || ''; }, 50);
   }).catch(e => showToast(e.message, 'error'));
 }
 
@@ -13506,7 +13586,7 @@ async function saveNewEmailTemplate() {
   try {
     await api.post('/api/email-templates', {
       name, subject: document.getElementById('etSubject')?.value||'',
-      body_html: document.getElementById('etBody')?.value||'',
+      body_html: getEmailEditorContent(),
       category: document.getElementById('etCategory')?.value||'general',
       lang: document.getElementById('etLang')?.value||'en'
     });
@@ -13520,7 +13600,7 @@ async function updateEmailTemplate(id) {
     await api.put('/api/email-templates/' + id, {
       name: document.getElementById('etName')?.value||'',
       subject: document.getElementById('etSubject')?.value||'',
-      body_html: document.getElementById('etBody')?.value||'',
+      body_html: getEmailEditorContent(),
       category: document.getElementById('etCategory')?.value||'general',
       is_active: parseInt(document.getElementById('etActive')?.value||1)
     });

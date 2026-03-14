@@ -13404,8 +13404,8 @@ function getEmailEditorToolbarHTML() {
   var L = currentLang;
   var _t = function(en,ru,az){ return L==='ru'?ru:L==='az'?az:en; };
   var s = 'width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;';
-  var sep = '<span style="width:1px;background:#475569;margin:0 4px;"></span>';
-  var html = '<div id="etToolbar" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:10px 10px 0 0;border-bottom:none;">';
+  var sep = '<span style="width:1px;height:24px;background:#475569;margin:0 4px;flex-shrink:0;"></span>';
+  var html = '<div id="etToolbar" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:10px 10px 0 0;border-bottom:none;">';
   html += '<button type="button" onclick="etCmd(&quot;bold&quot;)" style="' + s + 'font-weight:bold;" title="Bold">B</button>';
   html += '<button type="button" onclick="etCmd(&quot;italic&quot;)" style="' + s + 'font-style:italic;" title="Italic">I</button>';
   html += '<button type="button" onclick="etCmd(&quot;underline&quot;)" style="' + s + 'text-decoration:underline;" title="Underline">U</button>';
@@ -13416,10 +13416,10 @@ function getEmailEditorToolbarHTML() {
   html += '<button type="button" onclick="etCmd(&quot;justifyLeft&quot;)" style="' + s + 'font-size:14px;">&#9776;</button>';
   html += '<button type="button" onclick="etCmd(&quot;justifyCenter&quot;)" style="' + s + 'font-size:14px;">&#8801;</button>';
   html += sep;
-  html += '<select onchange="etCmd(&quot;fontSize&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 8px;cursor:pointer;">';
+  html += '<select onchange="etCmd(&quot;fontSize&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:80px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
   html += '<option value="">' + _t('Size','Размер','Ölçü') + '</option>';
   html += '<option value="1">S</option><option value="3">M</option><option value="5">L</option><option value="7">XL</option></select>';
-  html += '<select onchange="etCmd(&quot;foreColor&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 8px;cursor:pointer;">';
+  html += '<select onchange="etCmd(&quot;foreColor&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:80px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
   html += '<option value="">' + _t('Color','Цвет','Rəng') + '</option>';
   html += '<option value="#ffffff" style="color:#fff">&#9632; ' + _t('White','Белый','Ağ') + '</option>';
   html += '<option value="#ef4444" style="color:#ef4444">&#9632; ' + _t('Red','Красный','Qırmızı') + '</option>';

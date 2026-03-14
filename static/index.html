@@ -3271,6 +3271,29 @@ async function markAllNotifRead() {
   document.getElementById('notifPanel').style.display = 'none';
 }
 
+// ─── Dashboard Task Toggle ──────────────────────────────────────
+async function toggleDashTask(taskId, newStatus) {
+  try {
+    var btn = document.querySelector('#dash-task-' + taskId + ' div[onclick]');
+    if (btn) {
+      btn.style.opacity = '0.4';
+      btn.style.pointerEvents = 'none';
+    }
+    await fetch('/api/tasks/' + taskId + '/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('crm_token') },
+      body: JSON.stringify({ status: newStatus })
+    });
+    // Re-render dashboard
+    var mainEl = document.getElementById('app');
+    if (mainEl) renderHomeDashboard(mainEl);
+  } catch(e) {
+    console.error('Toggle task error:', e);
+    var btn2 = document.querySelector('#dash-task-' + taskId + ' div[onclick]');
+    if (btn2) { btn2.style.opacity = '1'; btn2.style.pointerEvents = 'auto'; }
+  }
+}
+
 // ─── Home Dashboard (Salesforce-style) ─────────────────────────
 async function renderHomeDashboard(el) {
   showLoading(el);
@@ -3353,13 +3376,16 @@ async function renderHomeDashboard(el) {
     if (tasks && tasks.length > 0) {
       tasks.slice(0, 5).forEach(function(tk) {
         var isDone = (tk.status === 'completed' || tk.status === 'done');
+        var newStatus = isDone ? 'todo' : 'done';
         var priorityColor = tk.priority === 'urgent' ? '#ef4444' : tk.priority === 'high' ? '#f59e0b' : '#334155';
         var title = esc(tk.title || tk.description || tk.name || 'Task');
         var dt = tk.due_date ? new Date(tk.due_date).toLocaleDateString() : '';
         var assignee = tk.assigned_name ? esc(tk.assigned_name) : '';
-        tasksHtml += '<div style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5)">' +
+        var taskId = tk.id;
+        tasksHtml += '<div id="dash-task-' + taskId + '" style="display:table;width:100%;padding:10px 0;border-bottom:1px solid rgba(51,65,85,0.5)">' +
           '<div style="display:table-cell;width:28px;vertical-align:top;padding-top:1px">' +
-          '<div style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + '">' +
+          '<div onclick="toggleDashTask(' + taskId + ',\'' + newStatus + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (isDone ? '#10b981' : priorityColor) + ';display:flex;align-items:center;justify-content:center;cursor:pointer;background:' + (isDone ? '#10b981' : 'transparent') + ';transition:all 0.2s" ' +
+          'onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">' +
           (isDone ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : '') +
           '</div></div>' +
           '<div style="display:table-cell;vertical-align:top;padding-left:8px">' +

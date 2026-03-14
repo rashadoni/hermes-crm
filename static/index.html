@@ -248,6 +248,7 @@
           <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
           <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
           <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
+          <a href="#/email-log" data-page="email-log" data-i18n="email_log">Email Log</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -366,6 +367,13 @@ const translations = {
     nur_enroll: 'Enroll Lead',
     nur_active: 'Active',
     nur_paused: 'Paused',
+    email_send: 'Send Email',
+    email_log: 'Email Log',
+    email_subject: 'Subject',
+    email_body: 'Body',
+    email_to: 'To',
+    email_sent: 'Email sent',
+    email_history: 'Email History',
     nav_segments: 'Segments',
     seg_title: 'Contact Segments',
     seg_new: 'New Segment',
@@ -1136,6 +1144,13 @@ const translations = {
     nur_enroll: 'Подписать лид',
     nur_active: 'Активна',
     nur_paused: 'На паузе',
+    email_send: 'Отправить Email',
+    email_log: 'Журнал Email',
+    email_subject: 'Тема',
+    email_body: 'Текст',
+    email_to: 'Кому',
+    email_sent: 'Email отправлен',
+    email_history: 'История писем',
 
     nav_segments: 'Сегменты',
     seg_title: 'Сегменты контактов',
@@ -1904,6 +1919,13 @@ const translations = {
     nur_enroll: 'Lid qeydə al',
     nur_active: 'Aktiv',
     nur_paused: 'Fasilə',
+    email_send: 'E-poçt göndər',
+    email_log: 'E-poçt jurnalı',
+    email_subject: 'Mövzu',
+    email_body: 'Mətn',
+    email_to: 'Kimə',
+    email_sent: 'E-poçt göndərildi',
+    email_history: 'Yazışma tarixçəsi',
 
     nav_segments: 'Seqmentlər',
     seg_title: 'Kontakt seqmentləri',
@@ -3309,6 +3331,9 @@ async function renderPage(page) {
         break;
       case 'nurturing':
         if (isAdmin()) await renderNurturingPage(app);
+        break;
+      case 'email-log':
+        await renderEmailLogPage(app);
         break;
       case 'smtp-settings':
         await renderSmtpSettings(app);
@@ -14171,6 +14196,115 @@ async function updateCampaignDraft(id) {
     showToast(_t('Campaign updated','Кампания обновлена','Kampaniya yeniləndi'), 'success');
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+
+// ─── Email Integration ────────────────────────────────────────
+async function showSendEmailModal(toEmail, contactId, dealId, ticketId) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+  modal.id = 'emailModal';
+  modal.innerHTML = `
+    <div class="bg-slate-900 rounded-xl p-6 w-full max-w-lg shadow-2xl border border-slate-700">
+      <h2 class="text-lg font-bold mb-4">${t('email_send')}</h2>
+      <form onsubmit="doSendEmail(event)" class="space-y-3">
+        <input type="hidden" id="emailContactId" value="${contactId||''}">
+        <input type="hidden" id="emailDealId" value="${dealId||''}">
+        <input type="hidden" id="emailTicketId" value="${ticketId||''}">
+        <div>
+          <label class="text-xs text-slate-500">${t('email_to')}</label>
+          <input type="email" id="emailTo" value="${toEmail||''}" required class="w-full">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">${t('email_subject')}</label>
+          <input type="text" id="emailSubject" required class="w-full">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">${t('email_body')}</label>
+          <textarea id="emailBody" rows="6" class="w-full"></textarea>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">${t('email_send')}</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('emailModal').remove()">${_t('Cancel','Отмена','Ləğv et')}</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doSendEmail(e) {
+  e.preventDefault();
+  const payload = {
+    to: document.getElementById('emailTo').value.trim(),
+    subject: document.getElementById('emailSubject').value.trim(),
+    body: document.getElementById('emailBody').value.trim(),
+    contact_id: document.getElementById('emailContactId').value || null,
+    deal_id: document.getElementById('emailDealId').value || null,
+    ticket_id: document.getElementById('emailTicketId').value || null
+  };
+  try {
+    await api.post('/api/email/send', payload);
+    showToast(t('email_sent'), 'success');
+    document.getElementById('emailModal')?.remove();
+  } catch(err) { showToast(err.message || 'Error', 'error'); }
+}
+
+async function renderEmailLogPage(container) {
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let logs = [];
+  try { const r = await api.get('/api/email/log?limit=100'); logs = r.data || r || []; } catch(e){}
+  
+  container.innerHTML = `
+    <div class="p-6">
+      <h1 class="text-2xl font-bold mb-6">${t('email_log')}</h1>
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b border-slate-700">
+          <th class="p-3">${_t('Date','Дата','Tarix')}</th>
+          <th class="p-3">${_t('Direction','Направление','İstiqamət')}</th>
+          <th class="p-3">${t('email_to')}</th>
+          <th class="p-3">${t('email_subject')}</th>
+          <th class="p-3">${_t('Sender','Отправитель','Göndərən')}</th>
+          <th class="p-3">${_t('Status','Статус','Status')}</th>
+        </tr></thead>
+        <tbody>
+          ${logs.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No emails yet','Нет писем','E-poçt yoxdur') + '</td></tr>' :
+            logs.map(l => `
+              <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                <td class="p-3 text-xs text-slate-400">${l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
+                <td class="p-3"><span class="text-xs ${l.direction==='outbound'?'text-blue-400':'text-green-400'}">${l.direction==='outbound'?'→ OUT':'← IN'}</span></td>
+                <td class="p-3">${esc(l.to_address||'')}</td>
+                <td class="p-3">${esc(l.subject||'')}</td>
+                <td class="p-3 text-slate-400">${esc(l.sender_name||l.from_address||'')}</td>
+                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full ${l.status==='sent'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}">${l.status}</span></td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function loadContactEmailHistory(contactId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  let logs = [];
+  try { const r = await api.get('/api/email/log?contact_id=' + contactId + '&limit=20'); logs = r.data || r || []; } catch(e){}
+  if (!logs.length) { container.innerHTML = '<div class="text-xs text-slate-500 py-2">' + _t('No email history','Нет истории','Tarixçə yoxdur') + '</div>'; return; }
+  container.innerHTML = `
+    <div class="text-xs font-semibold text-slate-400 mb-1">${t('email_history')} (${logs.length})</div>
+    <div class="max-h-40 overflow-y-auto space-y-1">
+      ${logs.map(l => `
+        <div class="flex items-center gap-2 text-xs p-1 rounded bg-slate-800/30">
+          <span class="${l.status==='sent'?'text-green-400':'text-red-400'}">${l.direction==='outbound'?'→':'←'}</span>
+          <span class="text-slate-400">${l.created_at?new Date(l.created_at).toLocaleDateString():''}</span>
+          <span class="truncate flex-1">${esc(l.subject||'')}</span>
+        </div>
+      `).join('')}
+    </div>`;
 }
 
 // ─── Lead Nurturing ───────────────────────────────────────────

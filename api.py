@@ -398,6 +398,20 @@ async def startup_event():
                     value TEXT DEFAULT '',
                     UNIQUE(field_id, entity_id)
                 );
+                CREATE TABLE IF NOT EXISTS email_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    direction TEXT DEFAULT 'outbound',
+                    from_address TEXT DEFAULT '',
+                    to_address TEXT DEFAULT '',
+                    subject TEXT DEFAULT '',
+                    body_text TEXT DEFAULT '',
+                    contact_id INTEGER,
+                    deal_id INTEGER,
+                    ticket_id INTEGER,
+                    sent_by INTEGER,
+                    status TEXT DEFAULT 'sent',
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
                 CREATE TABLE IF NOT EXISTS nurture_sequences (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL DEFAULT '',
@@ -6740,6 +6754,111 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
     return _ok({"sent": True, "count": total_recipients})
+
+
+# ─── Email Integration (Send + Log) ──────────────────────────────
+
+@app.post("/api/email/send")
+async def send_email_from_crm(request: Request, user=Depends(require_auth)):
+    """Send email from CRM using SMTP settings. Logs to email_log."""
+    data = await request.json()
+    to_address = data.get("to", "").strip()
+    subject = data.get("subject", "").strip()
+    body = data.get("body", "").strip()
+    contact_id = data.get("contact_id")
+    deal_id = data.get("deal_id")
+    ticket_id = data.get("ticket_id")
+    if not to_address or not subject:
+        _err("to and subject required", 400)
+
+    # Get SMTP settings
+    with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS smtp_settings (
+            id INTEGER PRIMARY KEY DEFAULT 1, smtp_host TEXT DEFAULT '', smtp_port INTEGER DEFAULT 587,
+            smtp_user TEXT DEFAULT '', smtp_password TEXT DEFAULT '', smtp_use_tls INTEGER DEFAULT 1,
+            sender_email TEXT DEFAULT '', sender_name TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))""")
+        smtp = conn.execute("SELECT * FROM smtp_settings WHERE id=1").fetchone()
+
+    if not smtp or not smtp["smtp_host"] or not smtp["smtp_user"]:
+        _err("SMTP not configured", 400)
+
+    from_addr = smtp["sender_email"] or smtp["smtp_user"]
+    from_name = smtp["sender_name"] or "Hermes CRM"
+    status = "sent"
+
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart()
+        msg["From"] = f"{from_name} <{from_addr}>"
+        msg["To"] = to_address
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "html" if "<" in body else "plain", "utf-8"))
+
+        host = smtp["smtp_host"]
+        port = int(smtp["smtp_port"] or 587)
+        use_tls = bool(smtp["smtp_use_tls"])
+
+        if use_tls and port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=15)
+        else:
+            server = smtplib.SMTP(host, port, timeout=15)
+            server.ehlo()
+            if use_tls:
+                server.starttls()
+                server.ehlo()
+        server.login(smtp["smtp_user"], smtp["smtp_password"])
+        server.sendmail(from_addr, [to_address], msg.as_string())
+        server.quit()
+    except Exception as e:
+        status = "failed"
+        logger.error("Email send failed: %s", str(e))
+
+    # Log
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO email_log (direction, from_address, to_address, subject, body_text,
+               contact_id, deal_id, ticket_id, sent_by, status) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            ["outbound", from_addr, to_address, subject, body, contact_id, deal_id, ticket_id, user["user_id"], status]
+        )
+
+    if status == "failed":
+        _err("Email sending failed", 500)
+    log_audit(user["user_id"], "send_email", "email", 0, details=f"to={to_address}", ip=_get_ip(request))
+    return _ok({"sent": True, "status": status})
+
+
+@app.get("/api/email/log")
+async def get_email_log(
+    contact_id: Optional[int] = None,
+    deal_id: Optional[int] = None,
+    ticket_id: Optional[int] = None,
+    limit: int = Query(50, ge=1, le=200),
+    user=Depends(require_auth)
+):
+    with get_db() as conn:
+        where, params = [], []
+        if contact_id:
+            where.append("e.contact_id=?")
+            params.append(contact_id)
+        if deal_id:
+            where.append("e.deal_id=?")
+            params.append(deal_id)
+        if ticket_id:
+            where.append("e.ticket_id=?")
+            params.append(ticket_id)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"""SELECT e.*, u.full_name as sender_name FROM email_log e
+                LEFT JOIN users u ON e.sent_by=u.id {wc}
+                ORDER BY e.created_at DESC LIMIT ?""", params + [limit]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT e.*, u.full_name as sender_name FROM email_log e LEFT JOIN users u ON e.sent_by=u.id LIMIT 0"
+        ).description]
+        return _ok([dict(zip(cols, r)) for r in rows])
 
 
 # ─── Lead Nurturing ───────────────────────────────────────────────

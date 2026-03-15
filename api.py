@@ -9789,8 +9789,8 @@ async def portal_chat(request: Request):
     # ── Feature 1: PII Masking ──
     original_user_message = user_message
     pii_masking_enabled = agent_cfg.get("pii_masking_enabled", 1)
+    masked_user_message = _mask_pii(user_message) if pii_masking_enabled else user_message
     if pii_masking_enabled:
-        masked_user_message = _mask_pii(user_message)
         # Apply masking to the last message in the messages array (the current user message)
         if messages and messages[-1]["role"] == "user":
             messages[-1]["content"] = masked_user_message
@@ -9809,13 +9809,14 @@ async def portal_chat(request: Request):
         # ── Feature 6: Planning step for complex queries ──
         planning_enabled = agent_cfg.get("planning_enabled", 1)
         plan_text = ""
+        planning_input = masked_user_message if pii_masking_enabled else user_message
         if planning_enabled and len(user_message.split()) > 10:
             t_plan = _time.time()
             try:
                 plan_resp = client.messages.create(
                     model="claude-haiku-4-5-20251001",
                     max_tokens=200,
-                    messages=[{"role": "user", "content": f"You are a support agent planner. Given this user query, create a brief 2-3 step action plan. Be concise.\n\nQuery: {original_user_message[:300]}\n\nAvailable tools: {', '.join([t['name'] for t in active_tools])}\n\nPlan (2-3 steps, one line each):"}]
+                    messages=[{"role": "user", "content": f"You are a support agent planner. Given this user query, create a brief 2-3 step action plan. Be concise.\n\nQuery: {planning_input[:300]}\n\nAvailable tools: {', '.join([t['name'] for t in active_tools])}\n\nPlan (2-3 steps, one line each):"}]
                 )
                 plan_text = plan_resp.content[0].text.strip()
             except Exception:

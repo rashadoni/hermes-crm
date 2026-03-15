@@ -1690,6 +1690,115 @@ async def leads_stats(user=Depends(require_auth)):
         return _ok(stats)
 
 
+# --- Leads string-path routes MUST be before {lead_id} to avoid FastAPI conflict ---
+
+@app.get("/api/leads/top-prospects")
+async def get_top_prospects_early(user=Depends(require_auth), limit: int = 10):
+    """Get highest-scored leads — routed before {lead_id}."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT l.id as lead_id, l.first_name, l.last_name, l.company, l.email, l.phone,
+                       l.source, l.status, ls.total_score, ls.score_grade, ls.demographic_score,
+                       ls.behavioral_score, ls.engagement_score, ls.conversion_probability,
+                       ls.ai_prediction_reason, ls.scoring_factors, ls.scored_at
+                FROM leads l
+                LEFT JOIN lead_scores ls ON l.id = ls.lead_id
+                WHERE l.status NOT IN ('converted','lost','rejected')
+                ORDER BY ls.total_score DESC NULLS LAST
+                LIMIT ?
+            """, [limit]).fetchall()
+            cols = [d[0] for d in rows[0].keys()] if rows else []
+            return _ok([dict(r) for r in rows])
+    except Exception as e:
+        return _err(str(e), 500)
+
+@app.get("/api/leads/scoring/stats")
+async def get_scoring_stats_early(user=Depends(require_auth)):
+    """Scoring statistics — routed before {lead_id}."""
+    try:
+        with get_db() as conn:
+            grade_dist = conn.execute("SELECT score_grade, COUNT(*) FROM lead_scores GROUP BY score_grade").fetchall()
+            grades = {g: c for g, c in grade_dist}
+            avg_row = conn.execute("SELECT AVG(conversion_probability), AVG(total_score), COUNT(*) FROM lead_scores").fetchone()
+            return _ok({
+                "grade_distribution": grades,
+                "avg_probability": round(avg_row[0] or 0, 2),
+                "avg_score": round(avg_row[1] or 0, 2),
+                "total_scored": avg_row[2] or 0
+            })
+    except Exception as e:
+        return _err(str(e), 500)
+
+@app.get("/api/leads/scoring/config")
+async def get_scoring_config_early(user=Depends(require_auth)):
+    """Scoring config — routed before {lead_id}."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT * FROM scoring_model_config ORDER BY factor_type, factor_name").fetchall()
+            return _ok([dict(r) for r in rows])
+    except Exception as e:
+        return _err(str(e), 500)
+
+@app.post("/api/leads/scoring/config")
+async def save_scoring_config_early(request: Request, user=Depends(require_admin)):
+    """Save scoring config — routed before {lead_id}."""
+    try:
+        data = await request.json()
+        factors = data.get("factors", [])
+        with get_db() as conn:
+            conn.execute("DELETE FROM scoring_model_config")
+            for f in factors:
+                conn.execute("INSERT INTO scoring_model_config (factor_name,factor_type,field_name,condition_operator,condition_value,score_points,is_active) VALUES (?,?,?,?,?,?,?)",
+                    [f.get("factor_name"),f.get("factor_type"),f.get("field_name"),f.get("condition_operator"),f.get("condition_value"),f.get("score_points",0),1])
+            log_audit(user["user_id"], "update_scoring_config", "scoring_model", 0, ip=_get_ip(request))
+            return _ok({"saved": True, "factor_count": len(factors)})
+    except Exception as e:
+        return _err(str(e), 500)
+
+@app.post("/api/leads/predict-all")
+async def predict_all_leads_early(user=Depends(require_admin)):
+    """Batch predict all leads — routed before {lead_id}."""
+    try:
+        with get_db() as conn:
+            leads = conn.execute("SELECT * FROM leads WHERE status NOT IN ('converted','lost','rejected')").fetchall()
+            scored = 0
+            for lead in leads:
+                ld = dict(lead)
+                deals = conn.execute("SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)", [ld.get("company","")]).fetchall()
+                deals_list = [dict(d) for d in deals]
+                activities = conn.execute("SELECT * FROM activities WHERE entity_type='lead' AND entity_id=?", [ld["id"]]).fetchall()
+                score_result = _calculate_predictive_score(ld, deals_list, [dict(a) for a in activities])
+                ai_result = None
+                try:
+                    ai_result = await _ai_score_lead(ld, deals_list)
+                except Exception:
+                    pass
+                total = score_result["total_score"]
+                ai_score = 0
+                ai_reason = ""
+                predicted_value = 0.0
+                if ai_result:
+                    ai_score = int(ai_result.get("probability", 0) * 100)
+                    ai_reason = ai_result.get("reason", "")
+                    predicted_value = ai_result.get("predicted_value", 0)
+                    total = int(total * 0.7 + ai_score * 0.3)
+                grade = "A" if total >= 80 else "B" if total >= 60 else "C" if total >= 40 else "D" if total >= 20 else "F"
+                conn.execute("DELETE FROM lead_scores WHERE lead_id=?", [ld["id"]])
+                conn.execute("""INSERT INTO lead_scores (lead_id,total_score,score_grade,demographic_score,behavioral_score,
+                    engagement_score,ai_prediction_score,ai_prediction_reason,conversion_probability,predicted_deal_value,scoring_factors)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    [ld["id"], total, grade, score_result["demographic_score"], score_result["behavioral_score"],
+                     score_result["engagement_score"], ai_score, ai_reason, score_result["conversion_probability"],
+                     predicted_value, json.dumps(score_result["factors"])])
+                scored += 1
+            conn.commit()
+        return _ok({"scored": scored})
+    except Exception as e:
+        return _err(str(e), 500)
+
+# --- End early routes ---
+
 @app.get("/api/leads/{lead_id}")
 async def get_lead(lead_id: int, user=Depends(require_auth)):
     """Get single lead with details."""
@@ -3763,6 +3872,34 @@ async def rescore_all_leads(user=Depends(require_admin)):
 
 # ============ JOURNEY BUILDER ============
 
+# Journey Stats (must be before {journey_id} route)
+@app.get("/api/journeys/stats")
+async def get_journey_stats(user=Depends(require_auth)):
+    """Total journeys, active, total enrollments, completions, conversion rate"""
+    with get_db() as conn:
+        stats = conn.execute("""
+            SELECT
+                COUNT(DISTINCT j.id) as total_journeys,
+                SUM(CASE WHEN j.status='active' THEN 1 ELSE 0 END) as active_journeys,
+                SUM(j.entry_count) as total_enrollments,
+                SUM(j.completed_count) as total_completions,
+                SUM(j.conversion_count) as total_conversions
+            FROM journeys j
+        """).fetchone()
+
+    total_enrollments = stats[2] or 0
+    conversion_rate = (stats[4] or 0) / total_enrollments if total_enrollments > 0 else 0
+
+    return _ok({
+        "total_journeys": stats[0] or 0,
+        "active_journeys": stats[1] or 0,
+        "total_enrollments": total_enrollments,
+        "total_completions": stats[3] or 0,
+        "total_conversions": stats[4] or 0,
+        "conversion_rate": round(conversion_rate, 4)
+    })
+
+
 # Journey CRUD
 @app.get("/api/journeys")
 async def get_journeys(user=Depends(require_auth)):
@@ -4224,32 +4361,7 @@ def _check_journey_condition(conn, enrollment, field, operator, value):
     return False
 
 
-# Journey Stats
-@app.get("/api/journeys/stats")
-async def get_journey_stats(user=Depends(require_auth)):
-    """Total journeys, active, total enrollments, completions, conversion rate"""
-    with get_db() as conn:
-        stats = conn.execute("""
-            SELECT
-                COUNT(DISTINCT j.id) as total_journeys,
-                SUM(CASE WHEN j.status='active' THEN 1 ELSE 0 END) as active_journeys,
-                SUM(j.entry_count) as total_enrollments,
-                SUM(j.completed_count) as total_completions,
-                SUM(j.conversion_count) as total_conversions
-            FROM journeys j
-        """).fetchone()
-
-    total_enrollments = stats[2] or 0
-    conversion_rate = (stats[4] or 0) / total_enrollments if total_enrollments > 0 else 0
-
-    return _ok({
-        "total_journeys": stats[0] or 0,
-        "active_journeys": stats[1] or 0,
-        "total_enrollments": total_enrollments,
-        "total_completions": stats[3] or 0,
-        "total_conversions": stats[4] or 0,
-        "conversion_rate": round(conversion_rate, 4)
-    })
+# (journey stats moved above {journey_id} route)
 
 
 # ─── Pricing Data ────────────────────────────────────────────────

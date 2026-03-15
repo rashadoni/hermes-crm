@@ -4103,8 +4103,7 @@ async def add_journey_step(journey_id: int, request: Request, user=Depends(requi
             VALUES (?, ?, ?, ?, ?, ?)
         """, (journey_id, step_order, step_type, json.dumps(config), yes_next_step, no_next_step))
 
-        step_id = conn.lastrowid
-        conn.commit()
+        step_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
     return _ok({"id": step_id, "step_order": step_order, "step_type": step_type})
 

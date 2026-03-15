@@ -5562,17 +5562,18 @@ async function runAiTextGeneration(entityType, entityId) {
     const body = gen.body || '';
     let html = '<div style="margin-top:14px">';
     if (subject) {
-      html += '<div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px">';
+      html += '<div style="margin-bottom:8px">';
       html += '<div style="font-size:10px;color:#67e8f9;text-transform:uppercase;margin-bottom:4px">Тема / Subject</div>';
-      html += '<div style="font-size:14px;color:#e2e8f0;font-weight:600">' + esc(subject) + '</div>';
+      html += '<input id="aiTextSubjectEdit" type="text" value="' + esc(subject).replace(/"/g,'&quot;') + '" style="width:100%;background:#0f172a;border:1px solid rgba(6,182,212,0.3);border-radius:8px;padding:8px 12px;font-size:14px;color:#e2e8f0;font-weight:600;outline:none" onfocus="this.style.borderColor=\'#06b6d4\'" onblur="this.style.borderColor=\'rgba(6,182,212,0.3)\'">';
       html += '</div>';
     }
     if (body) {
-      html += '<div style="background:#0f172a;border:1px solid rgba(71,85,105,0.3);border-radius:12px;padding:14px;white-space:pre-wrap;font-size:13px;color:#cbd5e1;line-height:1.6;max-height:300px;overflow-y:auto">';
-      html += esc(body);
+      html += '<div style="margin-bottom:8px">';
+      html += '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">' + _t('Body','Текст письма','Mətn') + ' <span style="color:#475569;font-size:9px">(' + _t('editable','можно редактировать','redaktə olunur') + ')</span></div>';
+      html += '<textarea id="aiTextBodyEdit" style="width:100%;min-height:180px;max-height:300px;background:#0f172a;border:1px solid rgba(71,85,105,0.3);border-radius:10px;padding:12px;font-size:13px;color:#cbd5e1;line-height:1.6;resize:vertical;outline:none;font-family:inherit" onfocus="this.style.borderColor=\'#06b6d4\'" onblur="this.style.borderColor=\'rgba(71,85,105,0.3)\'">' + esc(body) + '</textarea>';
       html += '</div>';
     }
-    html += '<div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">';
+    html += '<div style="display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap">';
     html += '<button class="btn btn-sm" style="background:linear-gradient(135deg,#06b6d4,#0891b2);font-size:12px" onclick="copyAiText()">📋 ' + _t('Copy','Копировать','Kopyala') + '</button>';
     if (gen.subject) {
       html += '<button class="btn btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);font-size:12px" onclick="sendAiEmail(\'' + entityType + '\',' + entityId + ')">📤 ' + _t('Send Email','Отправить email','Email göndər') + '</button>';
@@ -5582,23 +5583,30 @@ async function runAiTextGeneration(entityType, entityId) {
     html += '<div style="text-align:center;margin-top:8px;font-size:10px;color:#475569">' + _t('Generated in','Сгенерировано за','Yaradılma müddəti') + ' ' + (d.latency_ms||0) + 'ms</div>';
     html += '</div>';
     container.innerHTML = html;
-    // Store generated text for copy/send
-    window._lastAiText = { subject: subject, body: body };
   } catch(e) {
     container.innerHTML = '<div class="text-center text-red-400 py-4">⚠️ ' + esc(e.message||'Error') + '</div>';
   }
 }
 
+function _getEditedAiText() {
+  const subjectEl = document.getElementById('aiTextSubjectEdit');
+  const bodyEl = document.getElementById('aiTextBodyEdit');
+  return {
+    subject: subjectEl ? subjectEl.value : '',
+    body: bodyEl ? bodyEl.value : ''
+  };
+}
+
 function copyAiText() {
-  const t = window._lastAiText;
-  if (!t) return;
+  const t = _getEditedAiText();
+  if (!t.subject && !t.body) return;
   const full = (t.subject ? 'Subject: ' + t.subject + '\n\n' : '') + t.body;
   navigator.clipboard.writeText(full).then(() => showToast('Текст скопирован!','success')).catch(() => showToast('Ошибка копирования','error'));
 }
 
 async function sendAiEmail(entityType, entityId) {
-  const t = window._lastAiText;
-  if (!t || !t.subject) return;
+  const t = _getEditedAiText();
+  if (!t.subject) return;
   try {
     await api.post('/api/channel-messages', {
       lead_id: entityId,

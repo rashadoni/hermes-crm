@@ -13221,18 +13221,18 @@ Rules:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=800,
+            max_tokens=2048,
             messages=[{"role": "user", "content": prompt}]
         )
         text = response.content[0].text.strip()
         latency_ms = round((_time.time() - t_start) * 1000, 1)
+        logger.info("Auto-tasks raw response length: %d, stop_reason: %s", len(text), getattr(response, 'stop_reason', 'unknown'))
 
         result = {}
         try:
             import re as _re
             # Strip markdown code blocks robustly
             clean = text
-            # Try regex first: ```json ... ``` or ``` ... ```
             md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
             if md_match:
                 clean = md_match.group(1)

@@ -16974,6 +16974,7 @@ async function onLeadDrop(e, newStatus) {
         const qLabel = qScore >= 8 ? 'Отлично' : qScore >= 6 ? 'Хорошо' : qScore >= 4 ? 'Средне' : qScore > 0 ? 'Плохо' : 'Не оценено';
 
         const stepConfig = {
+          planning:       {icon:'🎯', label:'Планирование', color:'#f59e0b', desc:'AI составляет план действий'},
           kb_search:      {icon:'📚', label:'Поиск по базе знаний', color:'#22d3ee', desc:'Поиск релевантных статей в KB'},
           llm_call:       {icon:'🧠', label:'Вызов LLM', color:'#818cf8', desc:'Запрос к Claude API'},
           tool_exec:      {icon:'⚙️', label:'Выполнение инструмента', color:'#f59e0b', desc:'Вызов инструмента CRM'},
@@ -17073,7 +17074,9 @@ async function onLeadDrop(e, newStatus) {
 
           // Detail card
           h += '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;font-size:12px;color:#94a3b8">';
-          if (step.step === 'kb_search') {
+          if (step.step === 'planning') {
+            h += '<div style="font-size:12px;color:#e2e8f0;white-space:pre-line">' + esc(step.plan || '') + '</div>';
+          } else if (step.step === 'kb_search') {
             h += '<div style="display:flex;gap:12px;margin-bottom:6px"><span>📊 Найдено: <strong style="color:#e2e8f0">' + (step.articles_found||0) + '</strong></span>';
             h += '<span>✅ Выбрано: <strong style="color:#22c55e">' + (step.articles_selected||0) + '</strong></span></div>';
             if (step.articles && step.articles.length) {
@@ -17145,6 +17148,23 @@ async function onLeadDrop(e, newStatus) {
           h += '</div>';
         }
 
+        // Root Cause Analysis
+        if (logData.root_cause && logData.root_cause !== 'none') {
+          const rcColors = {kb_gap:'#22d3ee', wrong_tool:'#f59e0b', prompt_issue:'#a78bfa', hallucination:'#ef4444', context_loss:'#64748b'};
+          const rcLabels = {kb_gap:'Пробел в базе знаний', wrong_tool:'Неверный инструмент', prompt_issue:'Проблема промпта', hallucination:'Галлюцинация', context_loss:'Потеря контекста'};
+          const rcColor = rcColors[logData.root_cause] || '#f87171';
+          const rcLabel = rcLabels[logData.root_cause] || logData.root_cause;
+          h += '<div style="margin-top:10px;padding:14px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px">';
+          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">';
+          h += '<span style="font-size:11px;color:#f87171;font-weight:700;text-transform:uppercase;letter-spacing:1px">🔍 Root Cause Analysis</span>';
+          h += '<span style="background:' + rcColor + '15;color:' + rcColor + ';padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid ' + rcColor + '30">' + rcLabel + '</span>';
+          h += '</div>';
+          if (logData.root_cause_detail) {
+            h += '<div style="font-size:12px;color:#fca5a5;line-height:1.5">' + esc(logData.root_cause_detail) + '</div>';
+          }
+          h += '</div>';
+        }
+
         h += '</div>'; // bottom section
         h += '</div>'; // padding wrapper
 
@@ -17198,6 +17218,8 @@ async function onLeadDrop(e, newStatus) {
         _builderTools = data.available_tools || [];
         _builderModels = data.available_models || [];
         renderAgentBuilder();
+        loadGuardrails();
+        loadTopics();
       } catch(e) {
         root.innerHTML = '<div style="color:#f87171;padding:20px">Error: ' + e.message + '</div>';
       }
@@ -17278,7 +17300,36 @@ async function onLeadDrop(e, newStatus) {
           '<button onclick="openConfigEditor(0)" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 22px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">✨ Новая конфигурация</button>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px;margin-bottom:24px">' + configCards + '</div>' +
-        '<div id="configEditorPanel"></div>';
+        '<div id="configEditorPanel"></div>' +
+        // Guardrails section
+        '<div style="margin-top:32px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+            '<div><h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px">🛡️ Правила и ограничения</h3>' +
+            '<p style="margin:4px 0 0;font-size:12px;color:#64748b">Что агенту запрещено делать</p></div>' +
+            '<button onclick="openGuardrailEditor(0)" style="background:linear-gradient(135deg,#ef4444,#dc2626);border:none;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">+ Новое правило</button>' +
+          '</div>' +
+          '<div id="guardrailsList"></div>' +
+        '</div>' +
+        // Topics section
+        '<div style="margin-top:32px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+            '<div><h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px">📂 Темы базы знаний</h3>' +
+            '<p style="margin:4px 0 0;font-size:12px;color:#64748b">Категоризация знаний для точного поиска</p></div>' +
+            '<button onclick="openTopicEditor(0)" style="background:linear-gradient(135deg,#22d3ee,#0891b2);border:none;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">+ Новая тема</button>' +
+          '</div>' +
+          '<div id="topicsList"></div>' +
+        '</div>' +
+        // NL Config
+        '<div style="margin-top:32px;padding:24px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border:1px dashed rgba(99,102,241,0.3);border-radius:16px;text-align:center">' +
+          '<div style="font-size:28px;margin-bottom:8px">🪄</div>' +
+          '<h3 style="font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 6px">Создать конфигурацию по описанию</h3>' +
+          '<p style="font-size:12px;color:#64748b;margin:0 0 14px">Опишите роль агента обычным текстом, и AI создаст конфигурацию автоматически</p>' +
+          '<div style="display:flex;gap:8px;max-width:500px;margin:0 auto">' +
+            '<input id="nlConfigInput" placeholder="Например: агент техподдержки, быстрые ответы, без скидок..." style="flex:1;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px" />' +
+            '<button onclick="generateNLConfig()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🪄 Создать</button>' +
+          '</div>' +
+          '<div id="nlConfigResult" style="margin-top:12px"></div>' +
+        '</div>';
     }
 
     async function activateConfig(configId) {
@@ -17538,6 +17589,145 @@ async function onLeadDrop(e, newStatus) {
         loadAgentBuilder();
         openConfigEditor(configId);
       } catch(e) { alert('Ошибка: ' + e.message); }
+    }
+
+    // ── Guardrails Management ──
+    async function loadGuardrails() {
+        const el = document.getElementById('guardrailsList');
+        if (!el) return;
+        try {
+            const resp = await api.get('/api/ai/guardrails');
+            const rules = (resp.data || resp).guardrails || [];
+            if (!rules.length) {
+                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#0f172a;border:1px dashed #1e293b;border-radius:12px">Правила пока не добавлены</div>';
+                return;
+            }
+            el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' + rules.map(r =>
+                '<div style="background:#0f172a;border:1px solid ' + (r.is_active ? 'rgba(239,68,68,0.2)' : '#1e293b') + ';border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px">' +
+                  '<span style="font-size:20px">🛡️</span>' +
+                  '<div style="flex:1">' +
+                    '<div style="font-size:13px;font-weight:600;color:#e2e8f0">' + esc(r.rule_name) + (r.is_active ? '' : ' <span style="color:#475569;font-size:10px">(выкл)</span>') + '</div>' +
+                    '<div style="font-size:11px;color:#64748b;margin-top:2px">' + esc(r.prompt_injection || '').slice(0,100) + '</div>' +
+                  '</div>' +
+                  '<button onclick="deleteGuardrail(' + r.id + ')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);color:#fca5a5;padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer">🗑️</button>' +
+                '</div>'
+            ).join('') + '</div>';
+        } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
+    }
+
+    async function openGuardrailEditor(id) {
+        const name = prompt('Название правила (например: "Запрет скидок"):');
+        if (!name) return;
+        const rule = prompt('Инструкция для AI (например: "Никогда не обещай скидки и не обсуждай ценообразование"):');
+        if (!rule) return;
+        try {
+            await api.post('/api/ai/guardrails', {rule_name: name, prompt_injection: rule, rule_type: 'restriction'});
+            loadGuardrails();
+        } catch(e) { alert('Ошибка: ' + e.message); }
+    }
+
+    async function deleteGuardrail(id) {
+        if (!confirm('Удалить это правило?')) return;
+        try {
+            await api.remove('/api/ai/guardrails/' + id);
+            loadGuardrails();
+        } catch(e) { alert('Ошибка: ' + e.message); }
+    }
+
+    // ── Topics Management ──
+    async function loadTopics() {
+        const el = document.getElementById('topicsList');
+        if (!el) return;
+        try {
+            const resp = await api.get('/api/ai/kb-topics');
+            const topics = (resp.data || resp).topics || [];
+            if (!topics.length) {
+                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#0f172a;border:1px dashed #1e293b;border-radius:12px">Темы пока не добавлены</div>';
+                return;
+            }
+            el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' + topics.map(t =>
+                '<div style="background:#0f172a;border:1px solid rgba(34,211,238,0.15);border-radius:12px;padding:14px 18px">' +
+                  '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+                    '<span style="font-size:14px;font-weight:600;color:#e2e8f0">📂 ' + esc(t.name) + '</span>' +
+                    '<button onclick="deleteTopic(' + t.id + ')" style="background:none;border:none;color:#475569;cursor:pointer;font-size:12px">✕</button>' +
+                  '</div>' +
+                  '<div style="font-size:11px;color:#64748b">' + esc(t.description || '') + '</div>' +
+                  (t.keywords ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + t.keywords.split(',').map(k => '<span style="background:#1e293b;color:#22d3ee;padding:2px 8px;border-radius:6px;font-size:10px">' + esc(k.trim()) + '</span>').join('') + '</div>' : '') +
+                '</div>'
+            ).join('') + '</div>';
+        } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
+    }
+
+    async function openTopicEditor(id) {
+        const name = prompt('Название темы (например: "Биллинг"):');
+        if (!name) return;
+        const desc = prompt('Описание темы:') || '';
+        const keywords = prompt('Ключевые слова через запятую (например: "оплата, счёт, тариф"):') || '';
+        try {
+            await api.post('/api/ai/kb-topics', {name, description: desc, keywords});
+            loadTopics();
+        } catch(e) { alert('Ошибка: ' + e.message); }
+    }
+
+    async function deleteTopic(id) {
+        if (!confirm('Удалить эту тему?')) return;
+        try {
+            await api.remove('/api/ai/kb-topics/' + id);
+            loadTopics();
+        } catch(e) { alert('Ошибка: ' + e.message); }
+    }
+
+    // ── Natural Language Config Generator ──
+    async function generateNLConfig() {
+        const input = document.getElementById('nlConfigInput');
+        const result = document.getElementById('nlConfigResult');
+        if (!input || !result) return;
+        const desc = input.value.trim();
+        if (!desc) { alert('Опишите роль агента'); return; }
+        result.innerHTML = '<div style="color:#a78bfa;font-size:12px"><div style="display:inline-block;width:16px;height:16px;border:2px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div> Генерирую конфигурацию...</div>';
+        try {
+            const resp = await api.post('/api/ai/agent-configs/generate', {description: desc});
+            const cfg = (resp.data || resp).generated_config;
+            if (!cfg) throw new Error('No config returned');
+            result.innerHTML = '<div style="background:#0f172a;border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px;text-align:left;margin-top:10px">' +
+              '<div style="font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px">✅ ' + esc(cfg.config_name || 'Generated Config') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Модель: ' + esc(cfg.model || '') + ' • Токены: ' + (cfg.max_tokens||1024) + ' • Температура: ' + (cfg.temperature||1) + '</div>' +
+              (cfg.guardrails && cfg.guardrails.length ? '<div style="font-size:11px;color:#fca5a5;margin-bottom:8px">Правила: ' + cfg.guardrails.map(g => esc(g)).join(', ') + '</div>' : '') +
+              '<button onclick="applyGeneratedConfig()" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:8px 20px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">✅ Создать эту конфигурацию</button>' +
+            '</div>';
+            window._generatedConfig = cfg;
+        } catch(e) { result.innerHTML = '<div style="color:#f87171;font-size:12px">Ошибка: ' + e.message + '</div>'; }
+    }
+
+    async function applyGeneratedConfig() {
+        const cfg = window._generatedConfig;
+        if (!cfg) return;
+        try {
+            await api.post('/api/ai/agent-configs', {
+                config_name: cfg.config_name || 'AI Generated',
+                model: cfg.model || 'claude-haiku-4-5-20251001',
+                max_tokens: cfg.max_tokens || 1024,
+                temperature: cfg.temperature || 1.0,
+                tools_enabled: cfg.tools_enabled || [],
+                kb_enabled: cfg.kb_enabled !== false,
+                kb_max_articles: cfg.kb_max_articles || 3,
+                max_tool_iterations: cfg.max_tool_iterations || 3,
+                max_history_messages: cfg.max_history_messages || 10,
+                system_prompt_template: cfg.system_prompt_template || '',
+                notes: 'Generated from NL description'
+            });
+            // Create guardrails if any
+            if (cfg.guardrails && cfg.guardrails.length) {
+                for (const rule of cfg.guardrails) {
+                    try {
+                        await api.post('/api/ai/guardrails', {rule_name: rule, prompt_injection: rule, rule_type: 'restriction'});
+                    } catch(e) {}
+                }
+            }
+            _builderLoaded = false;
+            loadAgentBuilder();
+            document.getElementById('nlConfigResult').innerHTML = '<div style="color:#22c55e;font-size:12px">✅ Конфигурация создана!</div>';
+        } catch(e) { alert('Ошибка: ' + e.message); }
     }
 
 </script>

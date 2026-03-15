@@ -8961,6 +8961,8 @@ def _ensure_ai_tables(conn):
             trace_json TEXT DEFAULT '[]',
             quality_score REAL,
             quality_notes TEXT,
+            root_cause TEXT DEFAULT '',
+            root_cause_detail TEXT DEFAULT '',
             is_copilot INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now'))
         );
@@ -8989,6 +8991,8 @@ def _ensure_ai_tables(conn):
             kb_min_score REAL DEFAULT 0.001,
             max_tool_iterations INTEGER DEFAULT 3,
             max_history_messages INTEGER DEFAULT 10,
+            pii_masking_enabled INTEGER DEFAULT 1,
+            planning_enabled INTEGER DEFAULT 1,
             version INTEGER DEFAULT 1,
             notes TEXT DEFAULT '',
             created_by TEXT DEFAULT '',
@@ -9004,7 +9008,73 @@ def _ensure_ai_tables(conn):
             change_note TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS ai_guardrails (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_name TEXT DEFAULT '',
+            rule_type TEXT DEFAULT 'restriction',
+            description TEXT DEFAULT '',
+            prompt_injection TEXT DEFAULT '',
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS ai_kb_topics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            keywords TEXT DEFAULT '',
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
     """)
+
+
+def _migrate_ai_tables(conn):
+    """Safely add new columns to existing tables if they don't exist."""
+    # Add root_cause columns to ai_interaction_logs
+    for col, default in [("root_cause", "''"), ("root_cause_detail", "''")]:
+        try:
+            conn.execute(f"ALTER TABLE ai_interaction_logs ADD COLUMN {col} TEXT DEFAULT {default}")
+        except Exception:
+            pass  # Column already exists
+    # Add new columns to ai_agent_configs
+    for col, default in [("pii_masking_enabled", "1"), ("planning_enabled", "1")]:
+        try:
+            conn.execute(f"ALTER TABLE ai_agent_configs ADD COLUMN {col} INTEGER DEFAULT {default}")
+        except Exception:
+            pass  # Column already exists
+
+
+def _mask_pii(text: str) -> str:
+    """Mask personally identifiable information in text.
+
+    Masks:
+    - Phone numbers (international formats) → [ТЕЛЕФОН]
+    - Email addresses → [EMAIL]
+    - Credit card numbers (16 digits) → [КАРТА]
+    - Passport/ID numbers (patterns like AA1234567) → [ДОКУМЕНТ]
+    - IP addresses → [IP]
+    """
+    if not text:
+        return text
+
+    # Phone numbers (various international formats)
+    text = re.sub(r'(?:\+\d{1,3}\s?)?(?:\(\d{1,4}\)\s?)?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}', '[ТЕЛЕФОН]', text)
+
+    # Email addresses
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL]', text)
+
+    # Credit card numbers (16 digits)
+    text = re.sub(r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b', '[КАРТА]', text)
+    text = re.sub(r'\b\d{16}\b', '[КАРТА]', text)
+
+    # Passport/ID numbers (pattern: 2 letters + 7 digits, or similar)
+    text = re.sub(r'\b[A-Z]{2}\d{7}\b', '[ДОКУМЕНТ]', text)
+    text = re.sub(r'\b\d{10,12}\b(?=[^0-9]|$)', '[ДОКУМЕНТ]', text)
+
+    # IP addresses
+    text = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '[IP]', text)
+
+    return text
 
 
 def _get_ai_api_key():
@@ -9126,6 +9196,7 @@ def _get_active_agent_config():
     try:
         with get_db() as conn:
             _ensure_ai_tables(conn)
+            _migrate_ai_tables(conn)
             row = conn.execute("SELECT * FROM ai_agent_configs WHERE is_active=1 ORDER BY id DESC LIMIT 1").fetchone()
             if row:
                 d = dict(row)
@@ -9148,6 +9219,8 @@ def _get_active_agent_config():
         "kb_min_score": 0.001,
         "max_tool_iterations": 3,
         "max_history_messages": 10,
+        "pii_masking_enabled": 1,
+        "planning_enabled": 1,
         "version": 0,
         "notes": ""
     }
@@ -9284,6 +9357,38 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 )
                 new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
                 tnum = f"TK-{new_id:04d}"
+
+                # Generate contextual summary using AI (Feature 3)
+                try:
+                    api_key = _get_ai_api_key()
+                    if api_key:
+                        import anthropic as _anth
+                        _client = _anth.Anthropic(api_key=api_key)
+                        transcript_text = "\n\n---\n\n".join(transcript_lines) if transcript_lines else "No transcript"
+                        summary_prompt = f"Summarize this support chat conversation in 3-4 bullet points for a human agent. Focus on: the customer's problem, what was tried, and what needs to happen next.\n\nTranscript:\n{transcript_text[:2000]}"
+                        summary_resp = _client.messages.create(
+                            model="claude-haiku-4-5-20251001",
+                            max_tokens=300,
+                            messages=[{"role": "user", "content": summary_prompt}]
+                        )
+                        ai_summary = summary_resp.content[0].text.strip()
+                        # Add as first comment on the ticket
+                        conn.execute(
+                            "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal) VALUES (?,?,?,?)",
+                            [new_id, assigned, f"🤖 AI Summary:\n\n{ai_summary}", 1]
+                        )
+                except Exception as ex:
+                    logger.warning("Escalation summary error: %s", ex)
+
+                # Send email notification (Feature 7)
+                try:
+                    if assigned:
+                        agent_email_row = conn.execute("SELECT email, full_name FROM users WHERE id=?", [assigned]).fetchone()
+                        if agent_email_row:
+                            _send_escalation_notification(agent_email_row[0], agent_email_row[1], tnum, reason, summary, pu_info)
+                except Exception as ex:
+                    logger.warning("Escalation notification error: %s", ex)
+
                 # Send notification
                 try:
                     _ensure_portal_notifications_table(conn)
@@ -9369,7 +9474,10 @@ def _get_relevant_kb_articles(query: str, conn, limit: int = 3) -> list:
 
 
 def _quality_auditor_sync(log_id: int, user_message: str, ai_response: str, kb_articles: list):
-    """Quality Auditor — rates AI response quality 1-10 using a mini-prompt. Runs in a thread."""
+    """Quality Auditor — rates AI response quality 1-10 using a mini-prompt. Runs in a thread.
+
+    Feature 4: Includes root cause analysis for low scores.
+    """
     try:
         api_key = _get_ai_api_key()
         if not api_key:
@@ -9378,21 +9486,26 @@ def _quality_auditor_sync(log_id: int, user_message: str, ai_response: str, kb_a
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         kb_info = ", ".join([a.get("title", "") for a in kb_articles]) if kb_articles else "None"
-        audit_prompt = f"""Rate this AI support response on a scale of 1-10. Consider:
-- Accuracy: Is the information correct and relevant?
-- Helpfulness: Does it solve the user's problem?
-- Tone: Is it professional and friendly?
-- Completeness: Does it address the full question?
+        # Enhanced audit prompt with root cause analysis (Feature 4)
+        audit_prompt = f"""Analyze this AI support interaction and provide:
+1. Quality score (1-10) based on accuracy, helpfulness, tone, completeness
+2. If score < 7, identify the root cause of any issues from these categories:
+   - kb_gap: Knowledge base didn't have relevant information
+   - wrong_tool: AI used the wrong tool or missed using a tool
+   - prompt_issue: System prompt instructions were unclear or missing
+   - hallucination: AI made up information not from KB or tools
+   - context_loss: AI lost track of conversation context
+   - none: No issues found
 
 User question: {user_message[:300]}
 AI response: {ai_response[:500]}
 KB articles used: {kb_info}
 
-Respond ONLY in this exact JSON format, nothing else:
-{{"score": 7, "notes": "Brief explanation"}}"""
+Respond ONLY in this exact JSON format:
+{{"score": 7, "notes": "Brief explanation", "root_cause": "none", "root_cause_detail": ""}}"""
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=100,
+            max_tokens=200,
             messages=[{"role": "user", "content": audit_prompt}]
         )
         raw = resp.content[0].text.strip()
@@ -9405,10 +9518,13 @@ Respond ONLY in this exact JSON format, nothing else:
         audit_data = json.loads(raw)
         score = float(audit_data.get("score", 0))
         notes = audit_data.get("notes", "")[:200]
+        root_cause = audit_data.get("root_cause", "none")
+        root_cause_detail = audit_data.get("root_cause_detail", "")[:300]
         with get_db() as conn:
             _ensure_ai_tables(conn)
-            conn.execute("UPDATE ai_interaction_logs SET quality_score=?, quality_notes=? WHERE id=?",
-                        [score, notes, log_id])
+            _migrate_ai_tables(conn)
+            conn.execute("UPDATE ai_interaction_logs SET quality_score=?, quality_notes=?, root_cause=?, root_cause_detail=? WHERE id=?",
+                        [score, notes, root_cause, root_cause_detail, log_id])
             # Alert if low quality
             if score < 5:
                 session_row = conn.execute("SELECT session_id FROM ai_interaction_logs WHERE id=?", [log_id]).fetchone()
@@ -9416,11 +9532,11 @@ Respond ONLY in this exact JSON format, nothing else:
                 conn.execute(
                     "INSERT INTO ai_alerts (type, severity, message, session_id, log_id, metadata) VALUES (?,?,?,?,?,?)",
                     ["low_quality", "critical" if score < 3 else "warning",
-                     f"Low quality score: {score}/10 — {notes}",
+                     f"Low quality score: {score}/10 — {notes} (root cause: {root_cause})",
                      sid, log_id,
-                     json.dumps({"score": score, "notes": notes})]
+                     json.dumps({"score": score, "notes": notes, "root_cause": root_cause, "root_cause_detail": root_cause_detail})]
                 )
-        logger.info("Quality Auditor: log_id=%d score=%.1f notes=%s", log_id, score, notes)
+        logger.info("Quality Auditor: log_id=%d score=%.1f root_cause=%s", log_id, score, root_cause)
     except Exception as e:
         logger.warning("Quality Auditor error for log_id=%d: %s", log_id, e)
 
@@ -9461,6 +9577,47 @@ def _check_alerts(session_id: int, latency_ms: float, total_tokens: int, log_id:
                 )
     except Exception as e:
         logger.warning("Alert check error: %s", e)
+
+
+def _send_escalation_notification(agent_email, agent_name, ticket_num, reason, summary, client_info):
+    """Send email notification for AI escalation. Uses SMTP if configured."""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import dotenv as _dotenv
+        _env = _dotenv.dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
+        smtp_host = _env.get("SMTP_HOST", "")
+        smtp_port = int(_env.get("SMTP_PORT", "587"))
+        smtp_user = _env.get("SMTP_USER", "")
+        smtp_pass = _env.get("SMTP_PASS", "")
+        smtp_from = _env.get("SMTP_FROM", smtp_user)
+        if not all([smtp_host, smtp_user, smtp_pass]):
+            logger.info("SMTP not configured, skipping escalation email")
+            return
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🚨 AI Escalation: {ticket_num} — {reason[:50]}"
+        msg["From"] = smtp_from
+        msg["To"] = agent_email
+        html = f"""<div style="font-family:Arial,sans-serif;max-width:600px">
+            <h2 style="color:#ef4444">🚨 Эскалация от AI-агента</h2>
+            <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:8px;color:#666">Тикет:</td><td style="padding:8px;font-weight:bold">{ticket_num}</td></tr>
+                <tr><td style="padding:8px;color:#666">Клиент:</td><td style="padding:8px">{client_info}</td></tr>
+                <tr><td style="padding:8px;color:#666">Причина:</td><td style="padding:8px">{reason}</td></tr>
+            </table>
+            <h3>Резюме диалога:</h3>
+            <p style="background:#f8f9fa;padding:12px;border-radius:8px">{summary[:500]}</p>
+            <p><a href="https://hermescrm.xyz/#/tickets" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none">Открыть в CRM</a></p>
+        </div>"""
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, agent_email, msg.as_string())
+        logger.info("Escalation email sent to %s for %s", agent_email, ticket_num)
+    except Exception as e:
+        logger.warning("Failed to send escalation email: %s", e)
 
 
 @app.post("/api/portal/chat")
@@ -9539,6 +9696,26 @@ async def portal_chat(request: Request):
     except Exception:
         pass
 
+    # ── Feature 5: Topic detection for KB ──
+    detected_topic = None
+    try:
+        with get_db() as conn:
+            topics = conn.execute("SELECT id, name, keywords FROM ai_kb_topics WHERE is_active=1").fetchall()
+            if topics:
+                msg_lower = user_message.lower()
+                best_match = None
+                best_score = 0
+                for t in topics:
+                    kws = [k.strip().lower() for k in (t[2] or '').split(',') if k.strip()]
+                    score = sum(1 for k in kws if k in msg_lower)
+                    if score > best_score:
+                        best_score = score
+                        best_match = t[1]  # topic name
+                if best_score > 0:
+                    detected_topic = best_match
+    except Exception:
+        pass
+
     # ── Step 1: RAG KB Search (with trace) ──
     kb_context = ""
     kb_articles_used = []
@@ -9580,6 +9757,18 @@ async def portal_chat(request: Request):
     if proactive_context:
         system_prompt += proactive_context
 
+    # ── Feature 2: Load and inject guardrails ──
+    guardrails_text = ""
+    try:
+        with get_db() as conn:
+            rules = conn.execute("SELECT rule_name, prompt_injection FROM ai_guardrails WHERE is_active=1").fetchall()
+            if rules:
+                guardrails_text = "\n\nSTRICT RULES (NEVER VIOLATE):\n" + "\n".join([f"- {r[0]}: {r[1]}" for r in rules])
+    except Exception:
+        pass
+    if guardrails_text:
+        system_prompt += guardrails_text
+
     # Build messages (use config for history limit)
     _history_limit = agent_cfg.get("max_history_messages", 10)
     messages = []
@@ -9597,6 +9786,15 @@ async def portal_chat(request: Request):
     else:
         active_tools = AI_TOOLS
 
+    # ── Feature 1: PII Masking ──
+    original_user_message = user_message
+    pii_masking_enabled = agent_cfg.get("pii_masking_enabled", 1)
+    if pii_masking_enabled:
+        masked_user_message = _mask_pii(user_message)
+        # Apply masking to the last message in the messages array (the current user message)
+        if messages and messages[-1]["role"] == "user":
+            messages[-1]["content"] = masked_user_message
+
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
@@ -9607,6 +9805,26 @@ async def portal_chat(request: Request):
         model_used = agent_cfg.get("model", "claude-haiku-4-5-20251001")
         _max_tokens = agent_cfg.get("max_tokens", 1024)
         _max_iterations = agent_cfg.get("max_tool_iterations", 3)
+
+        # ── Feature 6: Planning step for complex queries ──
+        planning_enabled = agent_cfg.get("planning_enabled", 1)
+        plan_text = ""
+        if planning_enabled and len(user_message.split()) > 10:
+            t_plan = _time.time()
+            try:
+                plan_resp = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": f"You are a support agent planner. Given this user query, create a brief 2-3 step action plan. Be concise.\n\nQuery: {original_user_message[:300]}\n\nAvailable tools: {', '.join([t['name'] for t in active_tools])}\n\nPlan (2-3 steps, one line each):"}]
+                )
+                plan_text = plan_resp.content[0].text.strip()
+            except Exception:
+                pass
+            plan_ms = round((_time.time() - t_plan) * 1000, 1)
+            if plan_text:
+                trace.append({"step": "planning", "plan": plan_text, "duration_ms": plan_ms})
+                # Inject plan into system prompt
+                system_prompt += f"\n\nYOUR ACTION PLAN for this query:\n{plan_text}\nFollow this plan step by step."
 
         # ── Step 2-4: Tool use loop with trace ──
         tool_iterations = 0
@@ -9924,7 +10142,7 @@ async def ai_interaction_logs(request: Request, user=Depends(require_auth)):
             query = """SELECT l.id, l.session_id, l.message_index, l.user_message, l.ai_response,
                        l.latency_ms, l.prompt_tokens, l.completion_tokens, l.cost_usd,
                        l.model, l.tools_called, l.tool_iterations, l.stop_reason,
-                       l.kb_articles_used, l.quality_score, l.quality_notes, l.created_at,
+                       l.kb_articles_used, l.quality_score, l.quality_notes, l.root_cause, l.root_cause_detail, l.created_at,
                        s.portal_user_id, pu.full_name, pu.email
                        FROM ai_interaction_logs l
                        LEFT JOIN ai_chat_sessions s ON l.session_id = s.id
@@ -9959,8 +10177,9 @@ async def ai_interaction_logs(request: Request, user=Depends(require_auth)):
                     "tool_iterations": r[11], "stop_reason": r[12],
                     "kb_articles_used": json.loads(r[13]) if r[13] else [],
                     "quality_score": r[14], "quality_notes": r[15],
-                    "created_at": r[16],
-                    "user_name": r[18] or "Unknown", "user_email": r[19] or ""
+                    "root_cause": r[16], "root_cause_detail": r[17],
+                    "created_at": r[18],
+                    "user_name": r[20] or "Unknown", "user_email": r[21] or ""
                 })
             return _ok(logs)
     except Exception as e:
@@ -10303,6 +10522,220 @@ async def ai_agent_config_rollback(config_id: int, version_id: int, request: Req
             """, [config_id, new_version, ver_row["snapshot_json"], user_email,
                   f"Rollback to version {ver_row['version']}"])
             return _ok({"success": True, "new_version": new_version})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+# ── Feature 8: Natural Language Config Generation ──
+
+@app.post("/api/ai/agent-configs/generate")
+async def generate_agent_config(request: Request):
+    """Generate agent config from natural language description."""
+    require_auth(request)
+    data = await request.json()
+    description = (data.get("description") or "").strip()
+    if not description:
+        _err("Description is required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        _err("AI not configured", 500)
+
+    import anthropic
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""Based on this description, generate an AI agent configuration as JSON.
+
+Description: {description}
+
+Available tools: get_tickets, create_ticket, get_contracts, get_documents, escalate_to_human
+Available models: claude-haiku-4-5-20251001 (fast, cheap), claude-sonnet-4-5-20250514 (balanced), claude-opus-4-0-20250514 (powerful)
+
+Return ONLY valid JSON:
+{{
+    "config_name": "descriptive name",
+    "model": "model-id",
+    "max_tokens": "integer 256-4096",
+    "temperature": "float 0.0-2.0",
+    "tools_enabled": ["tool1", "tool2"],
+    "kb_enabled": "true/false",
+    "kb_max_articles": "integer 1-10",
+    "max_tool_iterations": "integer 1-10",
+    "max_history_messages": "integer 1-50",
+    "system_prompt_template": "custom prompt or empty string",
+    "notes": "brief description"
+}}"""
+
+    try:
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = resp.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        config = json.loads(raw)
+        # Clean up config values
+        config["max_tokens"] = min(int(config.get("max_tokens", 1024)), 4096)
+        config["temperature"] = max(0, min(float(config.get("temperature", 1.0)), 2.0))
+        config["kb_max_articles"] = min(int(config.get("kb_max_articles", 3)), 10)
+        config["max_tool_iterations"] = min(int(config.get("max_tool_iterations", 3)), 10)
+        config["max_history_messages"] = min(int(config.get("max_history_messages", 10)), 50)
+        return _ok({"generated_config": config})
+    except Exception as e:
+        _err(f"Generation error: {str(e)}", 500)
+
+
+# ── Feature 2: Guardrails & Policies CRUD ──
+
+@app.get("/api/ai/guardrails")
+async def ai_guardrails_list(user=Depends(require_auth)):
+    """List all guardrails rules."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            rows = conn.execute("SELECT id, rule_name, rule_type, description, is_active, created_at FROM ai_guardrails ORDER BY created_at DESC").fetchall()
+            guardrails = []
+            for r in rows:
+                guardrails.append({
+                    "id": r[0], "rule_name": r[1], "rule_type": r[2],
+                    "description": r[3], "is_active": bool(r[4]), "created_at": r[5]
+                })
+            return _ok({"guardrails": guardrails})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.post("/api/ai/guardrails")
+async def ai_guardrails_create(request: Request, user=Depends(require_auth)):
+    """Create a new guardrail rule."""
+    try:
+        data = await request.json()
+        rule_name = data.get("rule_name", "New Rule").strip()[:200]
+        rule_type = data.get("rule_type", "restriction")
+        description = data.get("description", "").strip()[:500]
+        prompt_injection = data.get("prompt_injection", "").strip()[:2000]
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute(
+                "INSERT INTO ai_guardrails (rule_name, rule_type, description, prompt_injection, is_active) VALUES (?,?,?,?,?)",
+                [rule_name, rule_type, description, prompt_injection, 1]
+            )
+            rule_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            return _ok({"id": rule_id, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/guardrails/{rule_id}")
+async def ai_guardrails_update(rule_id: int, request: Request, user=Depends(require_auth)):
+    """Update a guardrail rule."""
+    try:
+        data = await request.json()
+        rule_name = data.get("rule_name", "").strip()[:200]
+        rule_type = data.get("rule_type", "")
+        description = data.get("description", "").strip()[:500]
+        prompt_injection = data.get("prompt_injection", "").strip()[:2000]
+        is_active = 1 if data.get("is_active", True) else 0
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute(
+                "UPDATE ai_guardrails SET rule_name=?, rule_type=?, description=?, prompt_injection=?, is_active=? WHERE id=?",
+                [rule_name, rule_type, description, prompt_injection, is_active, rule_id]
+            )
+            return _ok({"id": rule_id, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.delete("/api/ai/guardrails/{rule_id}")
+async def ai_guardrails_delete(rule_id: int, user=Depends(require_auth)):
+    """Delete a guardrail rule."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute("DELETE FROM ai_guardrails WHERE id=?", [rule_id])
+            return _ok({"success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+# ── Feature 5: KB Topics CRUD ──
+
+@app.get("/api/ai/kb-topics")
+async def ai_kb_topics_list(user=Depends(require_auth)):
+    """List all KB topics."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            rows = conn.execute("SELECT id, name, description, keywords, is_active, created_at FROM ai_kb_topics ORDER BY created_at DESC").fetchall()
+            topics = []
+            for r in rows:
+                topics.append({
+                    "id": r[0], "name": r[1], "description": r[2],
+                    "keywords": r[3], "is_active": bool(r[4]), "created_at": r[5]
+                })
+            return _ok({"topics": topics})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.post("/api/ai/kb-topics")
+async def ai_kb_topics_create(request: Request, user=Depends(require_auth)):
+    """Create a new KB topic."""
+    try:
+        data = await request.json()
+        name = data.get("name", "New Topic").strip()[:200]
+        description = data.get("description", "").strip()[:500]
+        keywords = data.get("keywords", "").strip()[:500]
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute(
+                "INSERT INTO ai_kb_topics (name, description, keywords, is_active) VALUES (?,?,?,?)",
+                [name, description, keywords, 1]
+            )
+            topic_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            return _ok({"id": topic_id, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/kb-topics/{topic_id}")
+async def ai_kb_topics_update(topic_id: int, request: Request, user=Depends(require_auth)):
+    """Update a KB topic."""
+    try:
+        data = await request.json()
+        name = data.get("name", "").strip()[:200]
+        description = data.get("description", "").strip()[:500]
+        keywords = data.get("keywords", "").strip()[:500]
+        is_active = 1 if data.get("is_active", True) else 0
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute(
+                "UPDATE ai_kb_topics SET name=?, description=?, keywords=?, is_active=? WHERE id=?",
+                [name, description, keywords, is_active, topic_id]
+            )
+            return _ok({"id": topic_id, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.delete("/api/ai/kb-topics/{topic_id}")
+async def ai_kb_topics_delete(topic_id: int, user=Depends(require_auth)):
+    """Delete a KB topic."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute("DELETE FROM ai_kb_topics WHERE id=?", [topic_id])
+            return _ok({"success": True})
     except Exception as e:
         _err(str(e), 500)
 

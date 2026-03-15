@@ -8943,6 +8943,45 @@ async def test_email(request: Request, user=Depends(require_auth)):
         return _err(str(e), 500)
 
 
+@app.post("/api/channels/debug-email")
+async def debug_email(request: Request, user=Depends(require_auth)):
+    """Debug email sending - returns detailed error info"""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    try:
+        data = await request.json()
+        to = data.get("to", "rashadrahimsoy@gmail.com")
+        smtp_host = os.getenv("SMTP_HOST", "NOT_SET")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER", "NOT_SET")
+        smtp_pass = os.getenv("SMTP_PASS", "NOT_SET")
+        smtp_from = os.getenv("SMTP_FROM", "NOT_SET")
+        env_info = {"host": smtp_host, "port": smtp_port, "user": smtp_user, "pass_set": bool(smtp_pass and smtp_pass != "NOT_SET"), "from": smtp_from}
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Debug Test from Hermes CRM"
+        msg["From"] = smtp_from
+        msg["To"] = to
+        msg.attach(MIMEText("<html><body><p>Debug email test</p></body></html>", "html"))
+        try:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+            server.set_debuglevel(0)
+            ehlo_resp = server.ehlo()
+            tls_resp = server.starttls()
+            login_resp = server.login(smtp_user, smtp_pass)
+            send_resp = server.sendmail(smtp_from, [to], msg.as_string())
+            server.quit()
+            return {"success": True, "env": env_info, "ehlo": str(ehlo_resp), "tls": str(tls_resp), "login": str(login_resp), "send": str(send_resp)}
+        except smtplib.SMTPAuthenticationError as e:
+            return {"success": False, "error": f"SMTP Auth Error: {e}", "env": env_info}
+        except smtplib.SMTPException as e:
+            return {"success": False, "error": f"SMTP Error: {e}", "env": env_info}
+        except Exception as e:
+            return {"success": False, "error": f"Connection Error: {type(e).__name__}: {e}", "env": env_info}
+    except Exception as e:
+        return {"success": False, "error": f"General Error: {e}"}
+
+
 @app.post("/api/channels/test-sms")
 async def test_sms(request: Request, user=Depends(require_auth)):
     """Send test SMS. Body: {to: "+994...", message: "optional"}"""

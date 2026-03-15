@@ -6654,12 +6654,16 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
         # SLA breach check
         if new_status in ("resolved", "closed"):
             _check_sla_breach(conn, ticket_id)
-        # ── Portal workflow: notify on status change ──
-        new_status = updates.get("status")
-        if new_status and new_status != old[0]:
+        # ── Portal workflow data (will execute OUTSIDE db block) ──
+        _wf_status_changed = False
+        _wf_old_status = old[0]
+        _wf_new_status = updates.get("status")
+        _wf_company_id = None
+        if _wf_new_status and _wf_new_status != old[0]:
             tkt = conn.execute("SELECT company_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
             if tkt and tkt[0]:
-                workflow_ticket_status_changed(conn, ticket_id, old[0], new_status, tkt[0])
+                _wf_status_changed = True
+                _wf_company_id = tkt[0]
         # Prepare notification data (send OUTSIDE db block)
         new_assigned = updates.get("assigned_to")
         _notify_assign = False
@@ -6672,6 +6676,13 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
     if _notify_assign:
         send_notification(new_assigned, "ticket_assigned",
             f"Ticket #{ticket_id}: {_notify_subj}", f"Ticket #{ticket_id} assigned to you", "ticket", ticket_id)
+    # Portal workflow: notify on status change (OUTSIDE db block)
+    if _wf_status_changed:
+        try:
+            with get_db() as wconn:
+                workflow_ticket_status_changed(wconn, ticket_id, _wf_old_status, _wf_new_status, _wf_company_id)
+        except Exception as e:
+            logger.warning("Workflow status change failed: %s", e)
     log_audit(user["user_id"], "update_ticket", "ticket", ticket_id, ip=_get_ip(request))
     return _ok({"updated": True})
 
@@ -8508,23 +8519,31 @@ def workflow_ticket_created(conn, ticket_id, company_id, subject, priority):
     """Workflow: portal user created a ticket."""
     # 1. Notify all CRM admins/managers
     admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()
-    for a in admins:
-        send_notification(a[0], "portal_ticket", f"New portal ticket: {subject}",
-                         f"Priority: {priority}. Client created ticket TK-{ticket_id:04d} from portal.",
-                         "ticket", ticket_id)
     # 2. Auto-assign based on category (round-robin among active agents)
     agents = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager','agent') AND is_active=1 ORDER BY id").fetchall()
+    assigned_to = None
     if agents:
         assigned_to = agents[ticket_id % len(agents)][0]
         conn.execute("UPDATE tickets SET assigned_to=?, first_response_at=NULL WHERE id=?", [assigned_to, ticket_id])
-        send_notification(assigned_to, "ticket_assigned",
-                         f"Ticket TK-{ticket_id:04d}: {subject}",
-                         f"Auto-assigned from portal. Priority: {priority}.", "ticket", ticket_id)
-    # 3. Send portal notification back to client
-    send_portal_notification(company_id=company_id, ntype="ticket",
-                            title=f"Ticket TK-{ticket_id:04d} created",
-                            message=f"Your ticket \"{subject}\" has been received. We will respond shortly.",
-                            entity_type="ticket", entity_id=ticket_id)
+    # 3. Notifications (use separate connections to avoid lock)
+    for a in admins:
+        try:
+            send_notification(a[0], "portal_ticket", f"New portal ticket: {subject}",
+                             f"Priority: {priority}. Client created ticket TK-{ticket_id:04d} from portal.",
+                             "ticket", ticket_id)
+        except: pass
+    if assigned_to:
+        try:
+            send_notification(assigned_to, "ticket_assigned",
+                             f"Ticket TK-{ticket_id:04d}: {subject}",
+                             f"Auto-assigned from portal. Priority: {priority}.", "ticket", ticket_id)
+        except: pass
+    try:
+        send_portal_notification(company_id=company_id, ntype="ticket",
+                                title=f"Ticket TK-{ticket_id:04d} created",
+                                message=f"Your ticket has been received. We will respond shortly.",
+                                entity_type="ticket", entity_id=ticket_id)
+    except: pass
 
 def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, company_id):
     """Workflow: CRM user changed ticket status."""
@@ -8539,10 +8558,12 @@ def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, comp
         "closed": "has been closed"
     }
     msg = status_msg.get(new_status, f"status changed to {new_status}")
-    send_portal_notification(company_id=company_id, ntype="ticket_update",
-                            title=f"Ticket {tn} {msg}",
-                            message=f"\"{subj}\" — {old_status} → {new_status}",
-                            entity_type="ticket", entity_id=ticket_id)
+    try:
+        send_portal_notification(company_id=company_id, ntype="ticket_update",
+                                title=f"Ticket {tn} {msg}",
+                                message=f"{subj} - {old_status} to {new_status}",
+                                entity_type="ticket", entity_id=ticket_id)
+    except: pass
 
 def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_from_portal=False):
     """Workflow: comment added to ticket."""
@@ -8552,17 +8573,19 @@ def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_f
     subj, assigned = ticket
     tn = f"TK-{ticket_id:04d}"
     if is_from_portal:
-        # Portal user commented → notify CRM assigned user
         if assigned:
-            send_notification(assigned, "ticket_comment",
-                             f"Portal reply on {tn}: {subj}",
-                             f"Client replied to ticket {tn}.", "ticket", ticket_id)
+            try:
+                send_notification(assigned, "ticket_comment",
+                                 f"Portal reply on {tn}: {subj}",
+                                 f"Client replied to ticket {tn}.", "ticket", ticket_id)
+            except: pass
     else:
-        # CRM user commented → notify portal users
-        send_portal_notification(company_id=company_id, ntype="ticket_update",
-                                title=f"New response on {tn}",
-                                message=f"{author_name} replied to your ticket \"{subj}\".",
-                                entity_type="ticket", entity_id=ticket_id)
+        try:
+            send_portal_notification(company_id=company_id, ntype="ticket_update",
+                                    title=f"New response on {tn}",
+                                    message=f"{author_name} replied to your ticket.",
+                                    entity_type="ticket", entity_id=ticket_id)
+        except: pass
 
 def workflow_contract_status_changed(conn, contract_id, old_status, new_status, counterparty):
     """Workflow: contract status changed."""
@@ -8693,8 +8716,12 @@ async def portal_create_ticket(request: Request):
         )
         ticket_id = cur.lastrowid
         ticket_number = f"TK-{ticket_id:04d}"
-        # ── Workflow trigger ──
-        workflow_ticket_created(conn, ticket_id, user.get("company_id"), subject, priority)
+    # ── Workflow trigger (OUTSIDE db block to avoid deadlock) ──
+    try:
+        with get_db() as wconn:
+            workflow_ticket_created(wconn, ticket_id, user.get("company_id"), subject, priority)
+    except Exception as e:
+        logger.warning("Workflow ticket_created failed: %s", e)
     return _ok({"created": True, "ticket_number": ticket_number})
 
 
@@ -8740,8 +8767,14 @@ async def portal_add_comment(ticket_id: int, request: Request):
             "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal, created_at) VALUES (?,?,?,0,datetime('now'))",
             [ticket_id, None, comment]
         )
-        # ── Workflow trigger ──
-        workflow_ticket_comment_added(conn, ticket_id, user.get("company_id"), user.get("email", "Client"), is_from_portal=True)
+        _cid = user.get("company_id")
+        _email = user.get("email", "Client")
+    # ── Workflow trigger (OUTSIDE db block) ──
+    try:
+        with get_db() as wconn:
+            workflow_ticket_comment_added(wconn, ticket_id, _cid, _email, is_from_portal=True)
+    except Exception as e:
+        logger.warning("Workflow comment notify failed: %s", e)
     return _ok({"added": True})
 
 

@@ -24,7 +24,8 @@ jobs:
             cp static/index.html static/index.html.bak
             cp static/portal.html static/portal.html.bak
             git pull origin main
-            pip install anthropic twilio --quiet 2>/dev/null || true
+            pip install anthropic twilio --quiet
+            python3 -c "from twilio.rest import Client; print('twilio OK')"
             grep -q "ANTHROPIC_API_KEY" .env 2>/dev/null || echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
             # Gmail SMTP settings
             grep -q "SMTP_HOST" .env 2>/dev/null || cat >> .env << 'SMTP_EOF'

@@ -15,6 +15,7 @@ import secrets
 import unicodedata
 import io
 import base64
+import hashlib
 import httpx
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -8330,6 +8331,17 @@ async def portal_register(request: Request):
     if not email or not password or len(password) < 6:
         _err("Email and password (min 6 chars) required", 400)
     with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS portal_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT DEFAULT '',
+            company_id INTEGER,
+            contact_id INTEGER,
+            is_active INTEGER DEFAULT 1,
+            last_login TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )""")
         # Check if contact exists
         contact = conn.execute("SELECT id, company_id FROM contacts WHERE email=?", [email]).fetchone()
         if not contact:
@@ -8352,6 +8364,17 @@ async def portal_login(request: Request):
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
     with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS portal_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT DEFAULT '',
+            company_id INTEGER,
+            contact_id INTEGER,
+            is_active INTEGER DEFAULT 1,
+            last_login TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )""")
         user = conn.execute("SELECT * FROM portal_users WHERE email=? AND is_active=1", [email]).fetchone()
         if not user:
             _err("Invalid credentials", 401)

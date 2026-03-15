@@ -211,9 +211,10 @@
     </button>
     <div class="nav-links">
       <a href="#/" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="dashboard" data-i18n="nav_dashboard">Dashboard</a>
-      <a href="#/clients" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="clients" data-i18n="nav_clients">Clients</a>
-      <a href="#/partners" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="partners" data-i18n="nav_partners">Partners</a>
+      <a href="#/clients" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="clients" data-i18n="nav_clients">Leads</a>
+      <a href="#/accounts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="accounts" data-i18n="nav_accounts">Accounts</a>
       <a href="#/contacts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="contacts" data-i18n="nav_contacts">Contacts</a>
+      <a href="#/partners" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="partners" data-i18n="nav_partners">Partners</a>
       <div class="nav-dropdown">
         <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_deals">Deals</span>
         <div class="nav-dropdown-menu">
@@ -429,6 +430,7 @@ const translations = {
 
     nav_dashboard: 'Dashboard',
     nav_clients: 'Leads',
+    nav_accounts: 'Accounts',
     nav_inactive: 'Cancelled',
     nav_partners: 'Partners',
     nav_contacts: 'Contacts',
@@ -1212,6 +1214,7 @@ const translations = {
 
     nav_dashboard: 'Панель',
     nav_clients: 'Лиды',
+    nav_accounts: 'Компании',
     nav_inactive: 'Аннулированные',
     nav_partners: 'Партнёры',
     nav_contacts: 'Контакты',
@@ -1978,6 +1981,7 @@ const translations = {
 
     nav_dashboard: 'Panel',
     nav_clients: 'Lidlər',
+    nav_accounts: 'Şirkətlər',
     nav_inactive: 'Ləğv edilmişlər',
     nav_partners: 'Tərəfdaşlar',
     nav_contacts: 'Əlaqələr',
@@ -3309,6 +3313,7 @@ async function renderPage(page) {
       case 'dashboard': await renderHomeDashboard(app); break;
       case 'analytics': await renderAnalytics(app); break;
       case 'clients': await renderCompanyList(app, 'client'); break;
+      case 'accounts': await renderAccounts(app); break;
       case 'inactive': window._leadsFilter = 'inactive'; await renderCompanyList(app, 'client'); break;
       case 'partners': await renderCompanyList(app, 'partner'); break;
       case 'contacts': await renderContacts(app); break;
@@ -6020,6 +6025,105 @@ async function showCompanyDetail(id) {
     `);
   } catch(e) {
     showToast(e.message || 'Error loading company', 'error');
+  }
+}
+
+// ─── ACCOUNTS (Компании) PAGE — Salesforce-style ───
+async function renderAccounts(el) {
+  showLoading(el);
+  const L = currentLang;
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  try {
+    const [{data:companies}, costRes, {data:actCounts}] = await Promise.all([
+      api.get('/api/companies?limit=500&q=' + encodeURIComponent(state.companiesQuery || '')),
+      api.get('/api/cost-model/client-costs').catch(() => ({data:{clients:{}}})),
+      api.get('/api/activities/company-counts').catch(() => ({data:{}})),
+    ]);
+    const costMap = costRes.data?.clients || {};
+    const activityCounts = actCounts || {};
+    const clients = companies.filter(c => c.category === 'client');
+
+    // Search
+    let filtered = clients;
+    if (state.companiesQuery) {
+      const sq = state.companiesQuery.toLowerCase();
+      filtered = filtered.filter(c => (c.name||'').toLowerCase().includes(sq) || (c.cost_code||'').toLowerCase().includes(sq) || (c.domain||'').toLowerCase().includes(sq));
+    }
+
+    // Stats
+    const totalContracts = filtered.reduce((s, c) => s + (c.contracts_count || 0), 0);
+    const totalContacts = filtered.reduce((s, c) => s + (c.contacts_count || 0), 0);
+    const withContracts = filtered.filter(c => c.contracts_count > 0).length;
+
+    let html = '';
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+    html += '<div>';
+    html += '<h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_accounts') + '</h1>';
+    html += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + filtered.length + ' ' + _t('accounts total', 'компаний всего', 'cəmi şirkət') + '</p>';
+    html += '</div>';
+    html += '<button onclick="showCompanyForm(\'client\')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(34,197,94,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">+ ' + _t('New Account', 'Новая компания', 'Yeni şirkət') + '</button>';
+    html += '</div>';
+
+    // Stats cards
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">';
+    // Total accounts
+    html += '<div style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04));border:1px solid rgba(34,197,94,0.15);border-radius:16px;padding:20px">';
+    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + filtered.length + '</div>';
+    html += '<div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Accounts', 'Компании', 'Şirkətlər') + '</div></div>';
+    // With contracts
+    html += '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px">';
+    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + withContracts + '</div>';
+    html += '<div style="font-size:12px;color:#64748b;font-weight:500">' + _t('With contracts', 'С контрактами', 'Müqaviləli') + '</div></div>';
+    // Total contacts
+    html += '<div style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:20px">';
+    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + totalContacts + '</div>';
+    html += '<div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Contacts', 'Контактов', 'Əlaqələr') + '</div></div>';
+    // Total contracts
+    html += '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px">';
+    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + totalContracts + '</div>';
+    html += '<div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Contracts', 'Контрактов', 'Müqavilələr') + '</div></div>';
+    html += '</div>';
+
+    // Search bar
+    html += '<div style="background:rgba(30,41,59,0.8);border:1px solid rgba(99,102,241,0.1);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;gap:16px;align-items:center">';
+    html += '<div style="flex:1;position:relative">';
+    html += '<input type="text" id="companiesSearch" placeholder="' + _t('Search accounts...', 'Поиск компаний...', 'Şirkət axtar...') + '" value="' + esc(state.companiesQuery || '') + '" oninput="state.companiesQuery=this.value;renderAccounts(document.getElementById(\'app\'))" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none">';
+    html += '</div></div>';
+
+    // Table
+    html += '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(99,102,241,0.1);border-radius:16px;overflow:hidden">';
+    html += '<table style="width:100%;border-collapse:collapse">';
+    html += '<thead><tr style="background:rgba(15,23,42,0.6)">';
+    html += '<th style="text-align:left;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Account Name', 'Название', 'Ad') + '</th>';
+    html += '<th style="text-align:left;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Domain', 'Домен', 'Domen') + '</th>';
+    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Contacts', 'Контакты', 'Əlaqələr') + '</th>';
+    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Contracts', 'Контракты', 'Müqavilələr') + '</th>';
+    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Users', 'Юзеры', 'İstifadəçilər') + '</th>';
+    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Activity', 'Активность', 'Fəaliyyət') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    if (filtered.length === 0) {
+      html += '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';
+    } else {
+      filtered.forEach(c => {
+        const ac = activityCounts[c.id] || {};
+        const cost = costMap[c.id];
+        const name = c.cost_code || c.name;
+        html += '<tr style="border-top:1px solid rgba(71,85,105,0.2);cursor:pointer;transition:background 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'transparent\'" onclick="location.hash=\'#/company/\'+' + c.id + '">';
+        html += '<td style="padding:14px 16px"><div style="font-weight:600;color:#e2e8f0;font-size:14px">' + esc(name) + '</div>' + (c.group_name ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + esc(c.group_name) + '</div>' : '') + '</td>';
+        html += '<td style="padding:14px 16px;color:#94a3b8;font-size:13px">' + esc(c.domain || '—') + '</td>';
+        html += '<td style="padding:14px 16px;text-align:center"><span style="background:rgba(59,130,246,0.15);color:#60a5fa;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">' + (c.contacts_count || 0) + '</span></td>';
+        html += '<td style="padding:14px 16px;text-align:center"><span style="background:' + (c.contracts_count > 0 ? 'rgba(34,197,94,0.15);color:#4ade80' : 'rgba(245,158,11,0.15);color:#fbbf24') + ';padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">' + (c.contracts_count || 0) + '</span></td>';
+        html += '<td style="padding:14px 16px;text-align:center;color:#94a3b8;font-size:13px">' + (c.user_count || '—') + '</td>';
+        html += '<td style="padding:14px 16px;text-align:center;color:#94a3b8;font-size:12px">' + (ac.count ? ac.count + ' ' + _t('acts', 'дейст.', 'fəal.') : '—') + '</td>';
+        html += '</tr>';
+      });
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  } catch(e) {
+    showToast(e.message || 'Error loading accounts', 'error');
   }
 }
 

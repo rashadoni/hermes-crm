@@ -15292,6 +15292,7 @@ async function collectAndSaveCustomFields(entityType, entityId) {
   if (Object.keys(vals).length) {
     try { await api.put('/api/custom-fields/values/' + entityType + '/' + entityId, vals); } catch(e){}
   }
+}
 
 // ─── Campaign ROI ─────────────────────────────────────────────
 async function renderCampaignRoiPage(container) {
@@ -15872,6 +15873,7 @@ async function testSmtpEmail() {
     resultEl.style.color = '#f87171';
     resultEl.innerHTML = '❌ ' + t('smtp_test_failed') + ':<br><span style="font-size:12px;color:#fca5a5;">' + (e.message || e) + '</span>';
   }
+}
 
 // ─── Web Forms ───────────────────────────────────────────────
 async function renderWebForms(el) {

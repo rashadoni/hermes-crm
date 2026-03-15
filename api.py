@@ -8943,6 +8943,14 @@ async def test_email(request: Request, user=Depends(require_auth)):
         return _err(str(e), 500)
 
 
+@app.get("/api/journeys/logs/{enrollment_id}")
+async def get_journey_logs(enrollment_id: int, user=Depends(require_auth)):
+    """Get journey processing logs for an enrollment"""
+    with get_db() as conn:
+        logs = conn.execute("SELECT * FROM journey_logs WHERE enrollment_id=? ORDER BY id DESC LIMIT 20", (enrollment_id,)).fetchall()
+        return _ok([dict(r) for r in logs])
+
+
 @app.post("/api/channels/debug-email")
 async def debug_email(request: Request, user=Depends(require_auth)):
     """Debug email sending - returns detailed error info"""

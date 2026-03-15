@@ -15580,7 +15580,7 @@ async function showSegmentForm(segId) {
         <button class="text-slate-400 hover:text-white" onclick="navigate('segments')">← ${t('seg_title')}</button>
         <h1 class="text-2xl font-bold">${segId ? _t('Edit Segment','Редактировать сегмент','Seqmenti redaktə et') : t('seg_new')}</h1>
       </div>
-      <form onsubmit="saveSegment(event, ${segId||'null'})" class="space-y-4 max-w-2xl">
+      <form onsubmit="saveSegment(event, ${segId||'null'})" class="space-y-6 max-w-3xl">
         <div>
           <label class="text-xs text-slate-500">${t('seg_name')} *</label>
           <input type="text" name="seg_name" value="${esc(seg.name)}" required class="w-full">
@@ -15589,9 +15589,12 @@ async function showSegmentForm(segId) {
           <label class="text-xs text-slate-500">${t('seg_description')}</label>
           <textarea name="seg_desc" rows="2" class="w-full">${esc(seg.description||'')}</textarea>
         </div>
-        <div class="bg-slate-800/50 rounded-lg p-4">
-          <h3 class="text-sm font-semibold mb-3">${t('seg_conditions')}</h3>
-          <div class="grid grid-cols-2 gap-3" style="font-size:13px">
+        <div class="bg-slate-800/50 border border-slate-700/40 rounded-xl p-5">
+          <h3 class="text-sm font-semibold mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            ${t('seg_conditions')}
+          </h3>
+          <div class="grid grid-cols-2 gap-4" style="font-size:13px">
             <div>
               <label class="text-xs text-slate-500">${t('seg_company')}</label>
               <input type="text" name="seg_company_name" value="${esc(c.company_name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
@@ -15638,9 +15641,15 @@ async function showSegmentForm(segId) {
             </div>
           </div>
         </div>
-        <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Yadda saxla')}</button>
-          <button type="button" class="btn btn-secondary" onclick="previewSegment()">${t('seg_preview')}</button>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn btn-primary flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            ${_t('Save','Сохранить','Yadda saxla')}
+          </button>
+          <button type="button" class="btn btn-secondary flex items-center gap-2" onclick="previewSegment()">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            ${t('seg_preview')}
+          </button>
           <button type="button" class="btn btn-secondary" onclick="navigate('segments')">${_t('Cancel','Отмена','Ləğv et')}</button>
         </div>
       </form>

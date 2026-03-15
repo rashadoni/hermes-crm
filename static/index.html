@@ -18334,13 +18334,13 @@ async function onLeadDrop(e, newStatus) {
             showToast('✅ Лид записан в путь!','success');
             document.getElementById('enrollModal')?.remove();
             // Refresh detail if open
-            if(document.getElementById('journeyDetailModal'))openJourneyDetail(journeyId);
+            const dm=document.getElementById('journeyDetailModal');if(dm){dm.remove();openJourneyDetail(journeyId);}
         }catch(e){showToast('Ошибка: '+e.message,'error');if(btn)btn.style.opacity='1';}
     }
 
     async function exitEnrollment(enrollmentId,journeyId){
         if(!confirm('Удалить лида из пути?'))return;
-        try{await api.post('/api/journeys/enrollments/'+enrollmentId+'/exit',{});showToast('Лид удалён из пути','info');openJourneyDetail(journeyId);}catch(e){showToast(e.message,'error');}
+        try{await api.post('/api/journeys/enrollments/'+enrollmentId+'/exit',{});showToast('Лид удалён из пути','info');document.getElementById('journeyDetailModal')?.remove();openJourneyDetail(journeyId);}catch(e){showToast(e.message,'error');}
     }
 
     // ─── Add Step Modal (Full Config) ───

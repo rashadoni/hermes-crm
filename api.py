@@ -482,6 +482,41 @@ async def startup_event():
     except Exception as e:
         logger.warning("Clean test segments: %s", e)
 
+    # ─── Phase 3.5: Predictive Lead Scoring tables ──────────────────
+    try:
+        with get_db() as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS lead_scores (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    lead_id INTEGER NOT NULL,
+                    total_score INTEGER DEFAULT 0,
+                    score_grade TEXT DEFAULT 'C',
+                    demographic_score INTEGER DEFAULT 0,
+                    behavioral_score INTEGER DEFAULT 0,
+                    engagement_score INTEGER DEFAULT 0,
+                    ai_prediction_score INTEGER DEFAULT 0,
+                    ai_prediction_reason TEXT,
+                    conversion_probability REAL DEFAULT 0.0,
+                    predicted_deal_value REAL DEFAULT 0.0,
+                    scoring_factors TEXT,
+                    scored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (lead_id) REFERENCES leads(id)
+                );
+                CREATE TABLE IF NOT EXISTS scoring_model_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    factor_name TEXT NOT NULL,
+                    factor_type TEXT NOT NULL,
+                    field_name TEXT,
+                    condition_operator TEXT,
+                    condition_value TEXT,
+                    score_points INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+    except Exception as e:
+        logger.warning("Predictive Lead Scoring tables: %s", e)
+
     # ─── Phase 4: Marketing Cloud tables ──────────────────────────
     try:
         with get_db() as conn:
@@ -727,6 +762,116 @@ async def startup_event():
             conn.commit()
     except Exception as e:
         logger.warning("Phase 5 campaign seed: %s", e)
+
+    # ─── Phase 6: Omni-channel tables ────────────────────────────
+    try:
+        with get_db() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS channel_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel_type TEXT NOT NULL,
+                config_name TEXT NOT NULL,
+                bot_token TEXT,
+                webhook_url TEXT,
+                api_key TEXT,
+                phone_number TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""")
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS channel_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel_type TEXT NOT NULL,
+                channel_message_id TEXT,
+                direction TEXT DEFAULT 'inbound',
+                contact_id INTEGER,
+                lead_id INTEGER,
+                sender_name TEXT,
+                sender_identifier TEXT,
+                content TEXT,
+                message_type TEXT DEFAULT 'text',
+                media_url TEXT,
+                status TEXT DEFAULT 'received',
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (contact_id) REFERENCES contacts(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id)
+            )""")
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS channel_contact_mapping (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                contact_id INTEGER,
+                lead_id INTEGER,
+                channel_type TEXT NOT NULL,
+                channel_identifier TEXT NOT NULL,
+                display_name TEXT,
+                is_verified INTEGER DEFAULT 0,
+                last_message_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(channel_type, channel_identifier)
+            )""")
+            conn.commit()
+    except Exception as e:
+        logger.warning("Phase 6 omni-channel tables: %s", e)
+
+    # ─── Phase 7: Journey Builder tables ──────────────────────────
+    try:
+        with get_db() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS journeys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT DEFAULT 'draft',
+                trigger_type TEXT NOT NULL,
+                trigger_conditions TEXT,
+                entry_count INTEGER DEFAULT 0,
+                active_count INTEGER DEFAULT 0,
+                completed_count INTEGER DEFAULT 0,
+                conversion_count INTEGER DEFAULT 0,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""")
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS journey_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                journey_id INTEGER NOT NULL,
+                step_order INTEGER NOT NULL,
+                step_type TEXT NOT NULL,
+                config TEXT,
+                yes_next_step INTEGER,
+                no_next_step INTEGER,
+                stats_entered INTEGER DEFAULT 0,
+                stats_completed INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (journey_id) REFERENCES journeys(id)
+            )""")
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS journey_enrollments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                journey_id INTEGER NOT NULL,
+                contact_id INTEGER,
+                lead_id INTEGER,
+                current_step_id INTEGER,
+                status TEXT DEFAULT 'active',
+                next_action_at TIMESTAMP,
+                enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                FOREIGN KEY (journey_id) REFERENCES journeys(id)
+            )""")
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS journey_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                enrollment_id INTEGER NOT NULL,
+                step_id INTEGER,
+                action TEXT,
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""")
+            conn.commit()
+    except Exception as e:
+        logger.warning("Phase 7 Journey Builder tables: %s", e)
 
     logger.info("Token blacklist loaded (%d tokens)", len(_token_blacklist_cache))
 
@@ -3614,6 +3759,497 @@ async def rescore_all_leads(user=Depends(require_admin)):
         calculate_lead_score(lid)
         count += 1
     return _ok({"rescored": count})
+
+
+# ============ JOURNEY BUILDER ============
+
+# Journey CRUD
+@app.get("/api/journeys")
+async def get_journeys(user=Depends(require_auth)):
+    """List all journeys with stats"""
+    with get_db() as conn:
+        journeys = conn.execute("""
+            SELECT id, name, description, status, trigger_type, entry_count,
+                   active_count, completed_count, conversion_count, created_at, updated_at
+            FROM journeys ORDER BY updated_at DESC
+        """).fetchall()
+        cols = [d[0] for d in conn.execute("SELECT * FROM journeys LIMIT 0").description]
+    return _ok([dict(zip(cols, row)) for row in journeys])
+
+
+@app.post("/api/journeys")
+async def create_journey(request: Request, user=Depends(require_auth)):
+    """Create journey: {name, description, trigger_type, trigger_conditions}"""
+    data = await request.json()
+    name = data.get("name", "").strip()
+    description = data.get("description", "").strip()
+    trigger_type = data.get("trigger_type", "").strip()
+    trigger_conditions = data.get("trigger_conditions", {})
+
+    if not name:
+        return _err("Journey name is required", 400)
+    if not trigger_type:
+        return _err("Trigger type is required", 400)
+
+    with get_db() as conn:
+        conn.execute("""
+            INSERT INTO journeys (name, description, status, trigger_type, trigger_conditions, created_by)
+            VALUES (?, ?, 'draft', ?, ?, ?)
+        """, (name, description, trigger_type, json.dumps(trigger_conditions), user.get("id")))
+        journey_id = conn.lastrowid
+        conn.commit()
+
+    return _ok({"id": journey_id, "name": name, "status": "draft"})
+
+
+@app.get("/api/journeys/{journey_id}")
+async def get_journey(journey_id: int, user=Depends(require_auth)):
+    """Get journey with all steps and stats"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT * FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        steps = conn.execute("""
+            SELECT id, step_order, step_type, config, yes_next_step, no_next_step,
+                   stats_entered, stats_completed
+            FROM journey_steps WHERE journey_id=? ORDER BY step_order
+        """, (journey_id,)).fetchall()
+
+        step_cols = [d[0] for d in conn.execute("SELECT * FROM journey_steps LIMIT 0").description]
+        journey_cols = [d[0] for d in conn.execute("SELECT * FROM journeys LIMIT 0").description]
+
+    journey_dict = dict(zip(journey_cols, journey))
+    journey_dict["steps"] = [dict(zip(step_cols, row)) for row in steps]
+    return _ok(journey_dict)
+
+
+@app.put("/api/journeys/{journey_id}")
+async def update_journey(journey_id: int, request: Request, user=Depends(require_auth)):
+    """Update journey metadata"""
+    data = await request.json()
+
+    with get_db() as conn:
+        journey = conn.execute("SELECT * FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        updates = []
+        vals = []
+        if "name" in data:
+            updates.append("name=?")
+            vals.append(data["name"])
+        if "description" in data:
+            updates.append("description=?")
+            vals.append(data["description"])
+        if "trigger_conditions" in data:
+            updates.append("trigger_conditions=?")
+            vals.append(json.dumps(data["trigger_conditions"]))
+
+        if updates:
+            updates.append("updated_at=CURRENT_TIMESTAMP")
+            vals.append(journey_id)
+            conn.execute(f"UPDATE journeys SET {','.join(updates)} WHERE id=?", vals)
+            conn.commit()
+
+    return _ok({"message": "Journey updated"})
+
+
+@app.delete("/api/journeys/{journey_id}")
+async def delete_journey(journey_id: int, user=Depends(require_admin)):
+    """Delete journey (only if draft)"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT status FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+        if journey[0] != "draft":
+            return _err("Can only delete draft journeys", 400)
+
+        conn.execute("DELETE FROM journey_logs WHERE enrollment_id IN (SELECT id FROM journey_enrollments WHERE journey_id=?)", (journey_id,))
+        conn.execute("DELETE FROM journey_enrollments WHERE journey_id=?", (journey_id,))
+        conn.execute("DELETE FROM journey_steps WHERE journey_id=?", (journey_id,))
+        conn.execute("DELETE FROM journeys WHERE id=?", (journey_id,))
+        conn.commit()
+
+    return _ok({"message": "Journey deleted"})
+
+
+# Journey Steps CRUD
+@app.get("/api/journeys/{journey_id}/steps")
+async def get_journey_steps(journey_id: int, user=Depends(require_auth)):
+    """Get all steps for a journey, ordered by step_order"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT id FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        steps = conn.execute("""
+            SELECT id, journey_id, step_order, step_type, config, yes_next_step, no_next_step,
+                   stats_entered, stats_completed, created_at
+            FROM journey_steps WHERE journey_id=? ORDER BY step_order
+        """, (journey_id,)).fetchall()
+
+        step_cols = [d[0] for d in conn.execute("SELECT * FROM journey_steps LIMIT 0").description]
+
+    return _ok([dict(zip(step_cols, row)) for row in steps])
+
+
+@app.post("/api/journeys/{journey_id}/steps")
+async def add_journey_step(journey_id: int, request: Request, user=Depends(require_auth)):
+    """Add step: {step_type, step_order, config, yes_next_step, no_next_step}"""
+    data = await request.json()
+
+    with get_db() as conn:
+        journey = conn.execute("SELECT id FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        step_type = data.get("step_type", "").strip()
+        step_order = data.get("step_order", 1)
+        config = data.get("config", {})
+        yes_next_step = data.get("yes_next_step")
+        no_next_step = data.get("no_next_step")
+
+        if not step_type:
+            return _err("Step type is required", 400)
+
+        conn.execute("""
+            INSERT INTO journey_steps
+            (journey_id, step_order, step_type, config, yes_next_step, no_next_step)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (journey_id, step_order, step_type, json.dumps(config), yes_next_step, no_next_step))
+
+        step_id = conn.lastrowid
+        conn.commit()
+
+    return _ok({"id": step_id, "step_order": step_order, "step_type": step_type})
+
+
+@app.put("/api/journeys/steps/{step_id}")
+async def update_journey_step(step_id: int, request: Request, user=Depends(require_auth)):
+    """Update step config"""
+    data = await request.json()
+
+    with get_db() as conn:
+        step = conn.execute("SELECT * FROM journey_steps WHERE id=?", (step_id,)).fetchone()
+        if not step:
+            return _err("Step not found", 404)
+
+        updates = []
+        vals = []
+        if "config" in data:
+            updates.append("config=?")
+            vals.append(json.dumps(data["config"]))
+        if "yes_next_step" in data:
+            updates.append("yes_next_step=?")
+            vals.append(data["yes_next_step"])
+        if "no_next_step" in data:
+            updates.append("no_next_step=?")
+            vals.append(data["no_next_step"])
+        if "step_order" in data:
+            updates.append("step_order=?")
+            vals.append(data["step_order"])
+
+        if updates:
+            vals.append(step_id)
+            conn.execute(f"UPDATE journey_steps SET {','.join(updates)} WHERE id=?", vals)
+            conn.commit()
+
+    return _ok({"message": "Step updated"})
+
+
+@app.delete("/api/journeys/steps/{step_id}")
+async def delete_journey_step(step_id: int, user=Depends(require_auth)):
+    """Delete step and reorder remaining"""
+    with get_db() as conn:
+        step = conn.execute("SELECT journey_id, step_order FROM journey_steps WHERE id=?", (step_id,)).fetchone()
+        if not step:
+            return _err("Step not found", 404)
+
+        journey_id, step_order = step
+        conn.execute("DELETE FROM journey_steps WHERE id=?", (step_id,))
+        conn.commit()
+
+    return _ok({"message": "Step deleted"})
+
+
+# Journey Control
+@app.post("/api/journeys/{journey_id}/activate")
+async def activate_journey(journey_id: int, user=Depends(require_auth)):
+    """Set status='active', validate has at least 1 step"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT id FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        step_count = conn.execute("SELECT COUNT(*) FROM journey_steps WHERE journey_id=?", (journey_id,)).fetchone()[0]
+        if step_count == 0:
+            return _err("Journey must have at least one step", 400)
+
+        conn.execute("UPDATE journeys SET status='active', updated_at=CURRENT_TIMESTAMP WHERE id=?", (journey_id,))
+        conn.commit()
+
+    return _ok({"message": "Journey activated"})
+
+
+@app.post("/api/journeys/{journey_id}/pause")
+async def pause_journey(journey_id: int, user=Depends(require_auth)):
+    """Set status='paused'"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT id FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        conn.execute("UPDATE journeys SET status='paused', updated_at=CURRENT_TIMESTAMP WHERE id=?", (journey_id,))
+        conn.commit()
+
+    return _ok({"message": "Journey paused"})
+
+
+# Enrollment
+@app.post("/api/journeys/{journey_id}/enroll")
+async def enroll_in_journey(journey_id: int, request: Request, user=Depends(require_auth)):
+    """Enroll contact/lead: {contact_id or lead_id}"""
+    data = await request.json()
+    contact_id = data.get("contact_id")
+    lead_id = data.get("lead_id")
+
+    if not contact_id and not lead_id:
+        return _err("contact_id or lead_id is required", 400)
+
+    with get_db() as conn:
+        journey = conn.execute("SELECT status FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+        if journey[0] != "active":
+            return _err("Journey must be active", 400)
+
+        # Check not already enrolled
+        existing = conn.execute("""
+            SELECT id FROM journey_enrollments
+            WHERE journey_id=? AND status='active' AND (contact_id=? OR lead_id=?)
+        """, (journey_id, contact_id, lead_id)).fetchone()
+
+        if existing:
+            return _err("Already enrolled in this journey", 400)
+
+        # Get first step
+        first_step = conn.execute("""
+            SELECT id FROM journey_steps WHERE journey_id=? ORDER BY step_order LIMIT 1
+        """, (journey_id,)).fetchone()
+
+        if not first_step:
+            return _err("Journey has no steps", 400)
+
+        # Calculate next_action_at based on first step type
+        first_step_id = first_step[0]
+        step_config = conn.execute("SELECT config FROM journey_steps WHERE id=?", (first_step_id,)).fetchone()
+        config = json.loads(step_config[0] or "{}")
+        wait_days = config.get("wait_days", 0)
+
+        conn.execute("""
+            INSERT INTO journey_enrollments
+            (journey_id, contact_id, lead_id, current_step_id, status, next_action_at)
+            VALUES (?, ?, ?, ?, 'active', datetime('now', '+' || ? || ' days'))
+        """, (journey_id, contact_id, lead_id, first_step_id, wait_days))
+
+        enrollment_id = conn.lastrowid
+        conn.execute("UPDATE journeys SET entry_count=entry_count+1, active_count=active_count+1 WHERE id=?", (journey_id,))
+        conn.commit()
+
+    return _ok({"id": enrollment_id, "status": "active"})
+
+
+@app.get("/api/journeys/{journey_id}/enrollments")
+async def get_journey_enrollments(journey_id: int, user=Depends(require_auth)):
+    """List enrolled contacts/leads with status and current step"""
+    with get_db() as conn:
+        journey = conn.execute("SELECT id FROM journeys WHERE id=?", (journey_id,)).fetchone()
+        if not journey:
+            return _err("Journey not found", 404)
+
+        enrollments = conn.execute("""
+            SELECT je.id, je.journey_id, je.contact_id, je.lead_id, je.current_step_id,
+                   je.status, je.next_action_at, je.enrolled_at, je.completed_at,
+                   js.step_order, js.step_type
+            FROM journey_enrollments je
+            LEFT JOIN journey_steps js ON je.current_step_id = js.id
+            WHERE je.journey_id=? ORDER BY je.enrolled_at DESC
+        """, (journey_id,)).fetchall()
+
+        enroll_cols = [d[0] for d in conn.execute("SELECT * FROM journey_enrollments LIMIT 0").description]
+
+    result = []
+    for row in enrollments:
+        d = dict(zip(enroll_cols[:len(row)-2], row[:-2]))
+        d["step_order"] = row[-2]
+        d["step_type"] = row[-1]
+        result.append(d)
+
+    return _ok(result)
+
+
+@app.post("/api/journeys/enrollments/{enrollment_id}/exit")
+async def exit_enrollment(enrollment_id: int, user=Depends(require_auth)):
+    """Remove from journey, set status='exited'"""
+    with get_db() as conn:
+        enrollment = conn.execute("SELECT journey_id, status FROM journey_enrollments WHERE id=?", (enrollment_id,)).fetchone()
+        if not enrollment:
+            return _err("Enrollment not found", 404)
+
+        journey_id, status = enrollment
+        if status == "active":
+            conn.execute("UPDATE journeys SET active_count=active_count-1 WHERE id=?", (journey_id,))
+
+        conn.execute("UPDATE journey_enrollments SET status='exited' WHERE id=?", (enrollment_id,))
+        conn.commit()
+
+    return _ok({"message": "Exited journey"})
+
+
+# Journey Execution Engine
+@app.post("/api/journeys/process")
+async def process_journeys(user=Depends(require_auth)):
+    """Process all active enrollments where next_action_at <= now"""
+    processed = 0
+    with get_db() as conn:
+        enrollments = conn.execute("""
+            SELECT je.id, je.journey_id, je.contact_id, je.lead_id, je.current_step_id,
+                   js.step_type, js.config, js.yes_next_step, js.no_next_step, js.step_order
+            FROM journey_enrollments je
+            JOIN journey_steps js ON je.current_step_id = js.id
+            JOIN journeys j ON je.journey_id = j.id
+            WHERE je.status = 'active'
+            AND j.status = 'active'
+            AND je.next_action_at <= datetime('now')
+        """).fetchall()
+
+        for enrollment in enrollments:
+            try:
+                _process_journey_step(conn, dict(zip([d[0] for d in conn.execute("SELECT * FROM journey_enrollments LIMIT 0").description] + ["step_type", "config", "yes_next_step", "no_next_step", "step_order"], enrollment)))
+                processed += 1
+            except Exception as e:
+                logger.warning(f"Journey processing error: {e}")
+
+        conn.commit()
+
+    return _ok({"processed": processed})
+
+
+def _process_journey_step(conn, enrollment):
+    """Execute a single journey step for an enrollment"""
+    step_type = enrollment["step_type"]
+    config = json.loads(enrollment.get("config") or "{}")
+
+    if step_type == "send_email":
+        _advance_journey(conn, enrollment)
+    elif step_type == "wait":
+        _advance_journey(conn, enrollment)
+    elif step_type == "condition":
+        field = config.get("condition_field")
+        operator = config.get("condition_operator")
+        value = config.get("condition_value")
+
+        result = _check_journey_condition(conn, enrollment, field, operator, value)
+
+        if result:
+            next_step = enrollment.get("yes_next_step")
+            conn.execute("INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                        (enrollment["id"], enrollment["current_step_id"], "condition_true", json.dumps(config)))
+        else:
+            next_step = enrollment.get("no_next_step")
+            conn.execute("INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                        (enrollment["id"], enrollment["current_step_id"], "condition_false", json.dumps(config)))
+
+        if next_step:
+            _move_to_step(conn, enrollment["id"], next_step)
+        else:
+            _complete_enrollment(conn, enrollment)
+    else:
+        _advance_journey(conn, enrollment)
+
+
+def _advance_journey(conn, enrollment):
+    """Move to next step in sequence"""
+    next_step = conn.execute("""
+        SELECT id, step_type, config FROM journey_steps
+        WHERE journey_id = ? AND step_order > (
+            SELECT step_order FROM journey_steps WHERE id = ?
+        ) ORDER BY step_order LIMIT 1
+    """, (enrollment["journey_id"], enrollment["current_step_id"])).fetchone()
+
+    conn.execute("INSERT INTO journey_logs (enrollment_id, step_id, action) VALUES (?,?,?)",
+                (enrollment["id"], enrollment["current_step_id"], "completed"))
+
+    if next_step:
+        _move_to_step(conn, enrollment["id"], next_step["id"])
+    else:
+        _complete_enrollment(conn, enrollment)
+
+
+def _move_to_step(conn, enrollment_id, step_id):
+    """Move enrollment to a specific step"""
+    step = conn.execute("SELECT * FROM journey_steps WHERE id=?", (step_id,)).fetchone()
+    if not step:
+        return
+    config = json.loads(step["config"] or "{}")
+    wait_days = config.get("wait_days", 0) if step["step_type"] == "wait" else 0
+    conn.execute("""UPDATE journey_enrollments
+                    SET current_step_id = ?, next_action_at = datetime('now', '+' || ? || ' days')
+                    WHERE id = ?""", (step_id, wait_days, enrollment_id))
+
+
+def _complete_enrollment(conn, enrollment):
+    """Mark enrollment as completed"""
+    conn.execute("""UPDATE journey_enrollments SET status='completed', completed_at=datetime('now') WHERE id=?""",
+                (enrollment["id"],))
+    conn.execute("""UPDATE journeys SET completed_count = completed_count + 1, active_count = active_count - 1 WHERE id=?""",
+                (enrollment["journey_id"],))
+
+
+def _check_journey_condition(conn, enrollment, field, operator, value):
+    """Check a condition against contact/lead data"""
+    entity_id = enrollment.get("contact_id") or enrollment.get("lead_id")
+    table = "contacts" if enrollment.get("contact_id") else "leads"
+    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (entity_id,)).fetchone()
+    if not row:
+        return False
+    actual = str(dict(row).get(field, ""))
+    if operator == "equals": return actual == str(value)
+    if operator == "not_equals": return actual != str(value)
+    if operator == "contains": return str(value).lower() in actual.lower()
+    if operator == "greater_than":
+        try: return float(actual) > float(value)
+        except: return False
+    return False
+
+
+# Journey Stats
+@app.get("/api/journeys/stats")
+async def get_journey_stats(user=Depends(require_auth)):
+    """Total journeys, active, total enrollments, completions, conversion rate"""
+    with get_db() as conn:
+        stats = conn.execute("""
+            SELECT
+                COUNT(DISTINCT j.id) as total_journeys,
+                SUM(CASE WHEN j.status='active' THEN 1 ELSE 0 END) as active_journeys,
+                SUM(j.entry_count) as total_enrollments,
+                SUM(j.completed_count) as total_completions,
+                SUM(j.conversion_count) as total_conversions
+            FROM journeys j
+        """).fetchone()
+
+    total_enrollments = stats[2] or 0
+    conversion_rate = (stats[4] or 0) / total_enrollments if total_enrollments > 0 else 0
+
+    return _ok({
+        "total_journeys": stats[0] or 0,
+        "active_journeys": stats[1] or 0,
+        "total_enrollments": total_enrollments,
+        "total_completions": stats[3] or 0,
+        "total_conversions": stats[4] or 0,
+        "conversion_rate": round(conversion_rate, 4)
+    })
 
 
 # ─── Pricing Data ────────────────────────────────────────────────
@@ -7708,6 +8344,992 @@ async def cancel_enrollment(enrollment_id: int, user=Depends(require_auth)):
     with get_db() as conn:
         conn.execute("UPDATE nurture_enrollments SET status='cancelled' WHERE id=?", [enrollment_id])
     return _ok({"cancelled": True})
+
+
+# ============ OMNI-CHANNEL ============
+
+# ─── Channel Configuration CRUD ────────────────────────────────────
+
+@app.get("/api/channels/configs")
+async def get_channel_configs(user=Depends(require_auth)):
+    """List all channel configurations."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT id, channel_type, config_name, bot_token, webhook_url, api_key, phone_number, is_active, created_by, created_at, updated_at FROM channel_configs ORDER BY created_at DESC"
+            ).fetchall()
+            cols = ["id", "channel_type", "config_name", "bot_token", "webhook_url", "api_key", "phone_number", "is_active", "created_by", "created_at", "updated_at"]
+            result = [dict(zip(cols, r)) for r in rows]
+            return _ok(result)
+    except Exception as e:
+        logger.error("get_channel_configs: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/channels/configs")
+async def create_channel_config(request: Request, user=Depends(require_admin)):
+    """Create new channel configuration (telegram bot, whatsapp, etc)."""
+    try:
+        data = await request.json()
+        channel_type = data.get("channel_type", "").strip().lower()
+        config_name = data.get("config_name", "").strip()
+
+        if not channel_type or not config_name:
+            return _err("channel_type and config_name required", 400)
+
+        if channel_type not in ["telegram", "whatsapp", "email", "sms"]:
+            return _err(f"Invalid channel_type. Must be one of: telegram, whatsapp, email, sms", 400)
+
+        bot_token = data.get("bot_token", "").strip() or None
+        webhook_url = data.get("webhook_url", "").strip() or None
+        api_key = data.get("api_key", "").strip() or None
+        phone_number = data.get("phone_number", "").strip() or None
+
+        with get_db() as conn:
+            cur = conn.execute(
+                """INSERT INTO channel_configs (channel_type, config_name, bot_token, webhook_url, api_key, phone_number, is_active, created_by)
+                   VALUES (?, ?, ?, ?, ?, ?, 1, ?)""",
+                [channel_type, config_name, bot_token, webhook_url, api_key, phone_number, user["user_id"]]
+            )
+            config_id = cur.lastrowid
+            conn.commit()
+
+        log_audit(user["user_id"], "create_channel_config", "channel_config", config_id, entity_name=config_name, ip=_get_ip(request))
+        return _ok({"id": config_id, "channel_type": channel_type, "config_name": config_name})
+    except Exception as e:
+        logger.error("create_channel_config: %s", e)
+        return _err(str(e), 500)
+
+
+@app.put("/api/channels/configs/{config_id}")
+async def update_channel_config(config_id: int, request: Request, user=Depends(require_admin)):
+    """Update channel configuration."""
+    try:
+        data = await request.json()
+        allowed = {"config_name", "bot_token", "webhook_url", "api_key", "phone_number", "is_active"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+
+        if not updates:
+            return _err("No fields to update", 400)
+
+        parts = [f"{k}=?" for k in updates]
+        with get_db() as conn:
+            conn.execute(f"UPDATE channel_configs SET {','.join(parts)} WHERE id=?", list(updates.values()) + [config_id])
+            conn.commit()
+
+        log_audit(user["user_id"], "update_channel_config", "channel_config", config_id, ip=_get_ip(request))
+        return _ok({"updated": True})
+    except Exception as e:
+        logger.error("update_channel_config: %s", e)
+        return _err(str(e), 500)
+
+
+@app.delete("/api/channels/configs/{config_id}")
+async def delete_channel_config(config_id: int, user=Depends(require_admin)):
+    """Delete channel configuration."""
+    try:
+        with get_db() as conn:
+            conn.execute("DELETE FROM channel_configs WHERE id=?", [config_id])
+            conn.commit()
+
+        log_audit(user["user_id"], "delete_channel_config", "channel_config", config_id)
+        return _ok({"deleted": True})
+    except Exception as e:
+        logger.error("delete_channel_config: %s", e)
+        return _err(str(e), 500)
+
+
+# ─── Unified Inbox ────────────────────────────────────────────────
+
+@app.get("/api/channels/messages")
+async def get_channel_messages(user=Depends(require_auth), contact_id: int = None, lead_id: int = None, channel_type: str = None, limit: int = 50, offset: int = 0):
+    """Get messages with filters, including contact/lead names. Ordered by created_at DESC."""
+    try:
+        with get_db() as conn:
+            query = """
+                SELECT cm.id, cm.channel_type, cm.channel_message_id, cm.direction, cm.contact_id, cm.lead_id,
+                       cm.sender_name, cm.sender_identifier, cm.content, cm.message_type, cm.media_url, cm.status,
+                       cm.metadata, cm.created_at,
+                       c.full_name as contact_name, l.first_name || ' ' || l.last_name as lead_name
+                FROM channel_messages cm
+                LEFT JOIN contacts c ON cm.contact_id = c.id
+                LEFT JOIN leads l ON cm.lead_id = l.id
+                WHERE 1=1
+            """
+            params = []
+
+            if contact_id is not None:
+                query += " AND cm.contact_id = ?"
+                params.append(contact_id)
+
+            if lead_id is not None:
+                query += " AND cm.lead_id = ?"
+                params.append(lead_id)
+
+            if channel_type:
+                query += " AND cm.channel_type = ?"
+                params.append(channel_type.lower())
+
+            query += " ORDER BY cm.created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            rows = conn.execute(query, params).fetchall()
+            cols = ["id", "channel_type", "channel_message_id", "direction", "contact_id", "lead_id",
+                   "sender_name", "sender_identifier", "content", "message_type", "media_url", "status",
+                   "metadata", "created_at", "contact_name", "lead_name"]
+
+            result = []
+            for r in rows:
+                d = dict(zip(cols, r))
+                try:
+                    d["metadata"] = json.loads(d["metadata"] or "{}")
+                except Exception:
+                    d["metadata"] = {}
+                result.append(d)
+
+            return _ok(result)
+    except Exception as e:
+        logger.error("get_channel_messages: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/channels/conversations")
+async def get_conversations(user=Depends(require_auth), limit: int = 50, offset: int = 0):
+    """Get grouped conversations - latest message per contact/sender. Includes unread count and last message preview."""
+    try:
+        with get_db() as conn:
+            query = """
+                SELECT
+                    MAX(cm.id) as msg_id,
+                    cm.channel_type,
+                    cm.contact_id,
+                    cm.lead_id,
+                    cm.sender_identifier,
+                    COALESCE(c.full_name, l.first_name || ' ' || l.last_name, cm.sender_name, cm.sender_identifier) as display_name,
+                    cm.content as last_message,
+                    cm.created_at as last_message_at,
+                    COUNT(CASE WHEN cm.status = 'received' AND cm.direction = 'inbound' THEN 1 END) as unread_count
+                FROM channel_messages cm
+                LEFT JOIN contacts c ON cm.contact_id = c.id
+                LEFT JOIN leads l ON cm.lead_id = l.id
+                GROUP BY COALESCE(cm.contact_id, cm.lead_id, cm.sender_identifier)
+                ORDER BY last_message_at DESC
+                LIMIT ? OFFSET ?
+            """
+            rows = conn.execute(query, [limit, offset]).fetchall()
+            cols = ["msg_id", "channel_type", "contact_id", "lead_id", "sender_identifier", "display_name",
+                   "last_message", "last_message_at", "unread_count"]
+
+            result = [dict(zip(cols, r)) for r in rows]
+            return _ok(result)
+    except Exception as e:
+        logger.error("get_conversations: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/channels/conversations/{contact_id}")
+async def get_conversation_history(contact_id: int, user=Depends(require_auth)):
+    """Get all messages for a contact across ALL channels, ordered by time. Unified view of all communication."""
+    try:
+        with get_db() as conn:
+            query = """
+                SELECT id, channel_type, channel_message_id, direction, contact_id, lead_id,
+                       sender_name, sender_identifier, content, message_type, media_url, status,
+                       metadata, created_at
+                FROM channel_messages
+                WHERE contact_id = ?
+                ORDER BY created_at ASC
+            """
+            rows = conn.execute(query, [contact_id]).fetchall()
+            cols = ["id", "channel_type", "channel_message_id", "direction", "contact_id", "lead_id",
+                   "sender_name", "sender_identifier", "content", "message_type", "media_url", "status",
+                   "metadata", "created_at"]
+
+            result = []
+            for r in rows:
+                d = dict(zip(cols, r))
+                try:
+                    d["metadata"] = json.loads(d["metadata"] or "{}")
+                except Exception:
+                    d["metadata"] = {}
+                result.append(d)
+
+            return _ok(result)
+    except Exception as e:
+        logger.error("get_conversation_history: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/channels/messages/send")
+async def send_channel_message(request: Request, user=Depends(require_auth)):
+    """Send message via any channel. Body: {channel_type, contact_id, content, message_type}."""
+    try:
+        data = await request.json()
+        channel_type = data.get("channel_type", "").strip().lower()
+        contact_id = data.get("contact_id")
+        content = data.get("content", "").strip()
+        message_type = data.get("message_type", "text").strip().lower()
+
+        if not channel_type or not content:
+            return _err("channel_type and content required", 400)
+
+        if channel_type not in ["telegram", "whatsapp", "email", "sms", "portal"]:
+            return _err(f"Invalid channel_type", 400)
+
+        with get_db() as conn:
+            cur = conn.execute(
+                """INSERT INTO channel_messages (channel_type, direction, contact_id, content, message_type, status)
+                   VALUES (?, 'outbound', ?, ?, ?, 'sent')""",
+                [channel_type, contact_id, content, message_type]
+            )
+            msg_id = cur.lastrowid
+            conn.commit()
+
+            # Send notification to contact
+            if contact_id:
+                try:
+                    contact = conn.execute("SELECT user_id FROM contacts WHERE id=?", [contact_id]).fetchone()
+                    if contact and contact[0]:
+                        send_notification(contact[0], "channel_message", "New message", f"Message via {channel_type}", "channel_message", msg_id)
+                except Exception:
+                    pass
+
+        log_audit(user["user_id"], "send_channel_message", "channel_message", msg_id, ip=_get_ip(request))
+        return _ok({"id": msg_id, "status": "sent", "channel_type": channel_type})
+    except Exception as e:
+        logger.error("send_channel_message: %s", e)
+        return _err(str(e), 500)
+
+
+# ─── Telegram Webhook ─────────────────────────────────────────────
+
+@app.post("/api/webhooks/telegram/{bot_token}")
+async def telegram_webhook(bot_token: str, request: Request):
+    """Telegram webhook - no auth required, validated by bot_token matching config."""
+    try:
+        data = await request.json()
+
+        # Validate bot token matches config
+        with get_db() as conn:
+            config = conn.execute("SELECT id FROM channel_configs WHERE bot_token=? AND channel_type='telegram'", [bot_token]).fetchone()
+            if not config:
+                return _err("Invalid bot token", 401)
+
+            # Parse Telegram update
+            if "message" not in data:
+                return _ok({"ok": True})
+
+            message = data["message"]
+            telegram_id = message.get("from", {}).get("id")
+            chat_id = message.get("chat", {}).get("id")
+            sender_name = message.get("from", {}).get("first_name", "")
+            text_content = message.get("text", "")
+
+            if not telegram_id or not text_content:
+                return _ok({"ok": True})
+
+            # Auto-link to contact by telegram_id in channel_contact_mapping
+            mapping = conn.execute(
+                "SELECT contact_id, lead_id FROM channel_contact_mapping WHERE channel_type='telegram' AND channel_identifier=?",
+                [str(telegram_id)]
+            ).fetchone()
+
+            contact_id = None
+            lead_id = None
+            if mapping:
+                contact_id, lead_id = mapping
+
+            # Save to channel_messages
+            cur = conn.execute(
+                """INSERT INTO channel_messages
+                   (channel_type, channel_message_id, direction, contact_id, lead_id, sender_name, sender_identifier, content, message_type, status)
+                   VALUES ('telegram', ?, 'inbound', ?, ?, ?, ?, ?, 'text', 'received')""",
+                [str(chat_id), contact_id, lead_id, sender_name, str(telegram_id), text_content]
+            )
+            msg_id = cur.lastrowid
+            conn.commit()
+
+            # Create notification for assigned user
+            if contact_id:
+                contact = conn.execute("SELECT full_name FROM contacts WHERE id=?", [contact_id]).fetchone()
+                contact_name = contact[0] if contact else "Unknown"
+                # Find assigned user
+                assigned = conn.execute("SELECT assigned_to FROM contacts WHERE id=?", [contact_id]).fetchone()
+                if assigned and assigned[0]:
+                    send_notification(assigned[0], "telegram_message", "New Telegram message",
+                                    f"From {sender_name}: {text_content[:50]}", "channel_message", msg_id)
+
+        return _ok({"ok": True})
+    except Exception as e:
+        logger.error("telegram_webhook: %s", e)
+        return _ok({"ok": True})
+
+
+@app.post("/api/channels/telegram/setup")
+async def setup_telegram_bot(request: Request, user=Depends(require_admin)):
+    """Set webhook URL for telegram bot. POST to Telegram API."""
+    try:
+        data = await request.json()
+        config_id = data.get("config_id")
+        webhook_url = data.get("webhook_url", "").strip()
+
+        if not config_id or not webhook_url:
+            return _err("config_id and webhook_url required", 400)
+
+        with get_db() as conn:
+            config = conn.execute(
+                "SELECT bot_token, webhook_url FROM channel_configs WHERE id=? AND channel_type='telegram'",
+                [config_id]
+            ).fetchone()
+
+            if not config:
+                return _err("Telegram config not found", 404)
+
+            bot_token, existing_webhook = config
+
+            # POST to Telegram API to set webhook
+            telegram_api_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(telegram_api_url, json={"url": webhook_url})
+                    result = response.json()
+
+                    if not result.get("ok"):
+                        return _err(f"Telegram API error: {result.get('description', 'Unknown')}", 400)
+                except Exception as e:
+                    return _err(f"Failed to reach Telegram API: {str(e)}", 500)
+
+            # Save config
+            conn.execute(
+                "UPDATE channel_configs SET webhook_url=? WHERE id=?",
+                [webhook_url, config_id]
+            )
+            conn.commit()
+
+        log_audit(user["user_id"], "setup_telegram_bot", "channel_config", config_id, ip=_get_ip(request))
+        return _ok({"configured": True, "webhook_url": webhook_url})
+    except Exception as e:
+        logger.error("setup_telegram_bot: %s", e)
+        return _err(str(e), 500)
+
+
+# ─── WhatsApp Webhook ─────────────────────────────────────────────
+
+@app.post("/api/webhooks/whatsapp")
+async def whatsapp_webhook(request: Request):
+    """Parse WhatsApp webhook (Twilio/Meta format). Auto-link to contact by phone number."""
+    try:
+        data = await request.json()
+
+        # Parse WhatsApp webhook structure
+        # This is simplified - actual WhatsApp webhook is more complex
+        from_phone = data.get("From", "").replace("whatsapp:", "")
+        message_body = data.get("Body", "").strip()
+
+        if not from_phone or not message_body:
+            return _ok({"success": True})
+
+        with get_db() as conn:
+            # Auto-link to contact by phone number
+            mapping = conn.execute(
+                "SELECT contact_id FROM channel_contact_mapping WHERE channel_type='whatsapp' AND channel_identifier=?",
+                [from_phone]
+            ).fetchone()
+
+            contact_id = None
+            if mapping:
+                contact_id = mapping[0]
+            else:
+                # Try to find contact by phone
+                contact = conn.execute(
+                    "SELECT id FROM contacts WHERE phone=? OR phone_secondary=?",
+                    [from_phone, from_phone]
+                ).fetchone()
+                if contact:
+                    contact_id = contact[0]
+
+            # Save to channel_messages
+            cur = conn.execute(
+                """INSERT INTO channel_messages
+                   (channel_type, direction, contact_id, sender_identifier, content, message_type, status)
+                   VALUES ('whatsapp', 'inbound', ?, ?, ?, 'text', 'received')""",
+                [contact_id, from_phone, message_body]
+            )
+            msg_id = cur.lastrowid
+            conn.commit()
+
+            # Create notification for assigned user
+            if contact_id:
+                assigned = conn.execute("SELECT assigned_to FROM contacts WHERE id=?", [contact_id]).fetchone()
+                if assigned and assigned[0]:
+                    send_notification(assigned[0], "whatsapp_message", "New WhatsApp message",
+                                    f"{message_body[:50]}", "channel_message", msg_id)
+
+        return _ok({"success": True})
+    except Exception as e:
+        logger.error("whatsapp_webhook: %s", e)
+        return _ok({"success": True})
+
+
+@app.get("/api/webhooks/whatsapp")
+async def whatsapp_webhook_verify(request: Request):
+    """WhatsApp webhook verification - Meta requires GET with hub.challenge."""
+    try:
+        hub_mode = request.query_params.get("hub.mode")
+        hub_token = request.query_params.get("hub.verify_token")
+        hub_challenge = request.query_params.get("hub.challenge")
+
+        # In production, validate hub_token against your stored verification token
+        WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "verify_token")
+
+        if hub_mode == "subscribe" and hub_token == WHATSAPP_VERIFY_TOKEN:
+            return Response(content=hub_challenge, media_type="text/plain")
+
+        return _err("Invalid verification token", 403)
+    except Exception as e:
+        logger.error("whatsapp_webhook_verify: %s", e)
+        return _err("Verification failed", 403)
+
+
+# ─── Channel Stats ────────────────────────────────────────────────
+
+@app.get("/api/channels/stats")
+async def get_channel_stats(user=Depends(require_auth)):
+    """Get channel statistics: message counts, conversation count, unread count, avg response time."""
+    try:
+        with get_db() as conn:
+            stats = {
+                "messages_by_channel": {},
+                "conversations_count": 0,
+                "unread_count": 0,
+                "avg_response_time_hours": 0
+            }
+
+            # Count messages by channel
+            channels = conn.execute("""
+                SELECT channel_type, COUNT(*) as count,
+                       SUM(CASE WHEN direction='inbound' THEN 1 ELSE 0 END) as inbound,
+                       SUM(CASE WHEN direction='outbound' THEN 1 ELSE 0 END) as outbound
+                FROM channel_messages
+                GROUP BY channel_type
+            """).fetchall()
+
+            for channel_type, total, inbound, outbound in channels:
+                stats["messages_by_channel"][channel_type] = {
+                    "total": total,
+                    "inbound": inbound or 0,
+                    "outbound": outbound or 0
+                }
+
+            # Conversation count
+            conv_count = conn.execute("""
+                SELECT COUNT(DISTINCT COALESCE(contact_id, lead_id, sender_identifier))
+                FROM channel_messages
+            """).fetchone()
+            stats["conversations_count"] = conv_count[0] if conv_count else 0
+
+            # Unread count
+            unread = conn.execute("""
+                SELECT COUNT(*)
+                FROM channel_messages
+                WHERE direction='inbound' AND status='received'
+            """).fetchone()
+            stats["unread_count"] = unread[0] if unread else 0
+
+            return _ok(stats)
+    except Exception as e:
+        logger.error("get_channel_stats: %s", e)
+        return _err(str(e), 500)
+
+
+# ─── Contact-Channel Mapping ──────────────────────────────────────
+
+@app.post("/api/channels/link-contact")
+async def link_contact_to_channel(request: Request, user=Depends(require_auth)):
+    """Link a contact to a channel identifier (e.g., contact_id + telegram_id)."""
+    try:
+        data = await request.json()
+        contact_id = data.get("contact_id")
+        channel_type = data.get("channel_type", "").strip().lower()
+        channel_identifier = data.get("channel_identifier", "").strip()
+        display_name = data.get("display_name", "").strip()
+
+        if not contact_id or not channel_type or not channel_identifier:
+            return _err("contact_id, channel_type, and channel_identifier required", 400)
+
+        with get_db() as conn:
+            # Check if contact exists
+            contact = conn.execute("SELECT id FROM contacts WHERE id=?", [contact_id]).fetchone()
+            if not contact:
+                return _err("Contact not found", 404)
+
+            # INSERT or IGNORE (UNIQUE constraint will prevent duplicates)
+            try:
+                cur = conn.execute(
+                    """INSERT INTO channel_contact_mapping (contact_id, channel_type, channel_identifier, display_name, is_verified)
+                       VALUES (?, ?, ?, ?, 1)""",
+                    [contact_id, channel_type, channel_identifier, display_name or channel_identifier]
+                )
+                mapping_id = cur.lastrowid
+            except Exception:
+                # Already exists, just return success
+                mapping = conn.execute(
+                    "SELECT id FROM channel_contact_mapping WHERE channel_type=? AND channel_identifier=?",
+                    [channel_type, channel_identifier]
+                ).fetchone()
+                mapping_id = mapping[0] if mapping else 0
+
+            conn.commit()
+
+        log_audit(user["user_id"], "link_contact_channel", "channel_contact_mapping", mapping_id, ip=_get_ip(request))
+        return _ok({"id": mapping_id, "contact_id": contact_id, "channel_type": channel_type})
+    except Exception as e:
+        logger.error("link_contact_to_channel: %s", e)
+        return _err(str(e), 500)
+
+
+# ============ PREDICTIVE LEAD SCORING ============
+
+def _calculate_predictive_score(lead_data, deals_history, activities):
+    """Calculate multi-factor lead score using demographic, behavioral, and engagement factors."""
+    score = {"demographic": 0, "behavioral": 0, "engagement": 0, "factors": []}
+
+    # Demographic scoring (based on lead data)
+    if lead_data.get("company"):
+        score["demographic"] += 15
+        score["factors"].append({"factor": "Has company", "points": 15})
+    if lead_data.get("email") and "@" in str(lead_data.get("email", "")):
+        score["demographic"] += 10
+        corporate_domains = ["gmail.com", "yahoo.com", "hotmail.com", "mail.ru"]
+        domain = lead_data["email"].split("@")[1].lower()
+        if domain not in corporate_domains:
+            score["demographic"] += 10
+            score["factors"].append({"factor": "Corporate email", "points": 10})
+    if lead_data.get("phone"):
+        score["demographic"] += 10
+        score["factors"].append({"factor": "Has phone", "points": 10})
+    if lead_data.get("source") in ["referral", "partner"]:
+        score["demographic"] += 20
+        score["factors"].append({"factor": f"Source: {lead_data['source']}", "points": 20})
+    elif lead_data.get("source") in ["website", "linkedin"]:
+        score["demographic"] += 10
+        score["factors"].append({"factor": f"Source: {lead_data['source']}", "points": 10})
+
+    # Behavioral scoring (based on activity and deals)
+    if deals_history:
+        won_deals = [d for d in deals_history if d.get("stage") in ("closed_won", "won")]
+        if won_deals:
+            score["behavioral"] += 30
+            score["factors"].append({"factor": f"{len(won_deals)} won deals in history", "points": 30})
+        active_deals = [d for d in deals_history if d.get("stage") not in ("closed_won", "won", "closed_lost", "lost")]
+        if active_deals:
+            score["behavioral"] += 15
+            score["factors"].append({"factor": f"{len(active_deals)} active deals", "points": 15})
+
+    # Engagement scoring (based on activities)
+    if activities:
+        score["engagement"] += min(len(activities) * 5, 30)
+        score["factors"].append({"factor": f"{len(activities)} activities recorded", "points": min(len(activities) * 5, 30)})
+
+    total = score["demographic"] + score["behavioral"] + score["engagement"]
+    grade = "A" if total >= 80 else "B" if total >= 60 else "C" if total >= 40 else "D" if total >= 20 else "F"
+
+    return {
+        "total_score": min(total, 100),
+        "grade": grade,
+        "demographic_score": score["demographic"],
+        "behavioral_score": score["behavioral"],
+        "engagement_score": score["engagement"],
+        "factors": score["factors"],
+        "conversion_probability": round(min(total, 100) / 100 * 0.9, 2)
+    }
+
+
+async def _ai_score_lead(lead_data, deals_history):
+    """Use Claude AI to predict lead conversion probability and deal value."""
+    try:
+        import anthropic
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return None
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        prompt = f"""Ты — аналитик продаж. Оцени вероятность конверсии этого лида в сделку.
+
+Данные лида:
+- Имя: {lead_data.get('first_name', '')} {lead_data.get('last_name', '')}
+- Компания: {lead_data.get('company', '')}
+- Должность: {lead_data.get('title', '')}
+- Источник: {lead_data.get('source', '')}
+- Статус: {lead_data.get('status', '')}
+- Email: {lead_data.get('email', '')}
+
+История сделок от этой компании: {len(deals_history)} сделок
+
+Ответь СТРОГО в JSON формате:
+{{"probability": 0.75, "predicted_value": 5000, "reason": "Краткое объяснение"}}"""
+
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=200,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        text = resp.content[0].text.strip()
+        # Extract JSON from response
+        if "{" in text:
+            json_str = text[text.index("{"):text.rindex("}") + 1]
+            result = json.loads(json_str)
+            return result
+    except Exception as e:
+        logger.warning("AI scoring error: %s", e)
+    return None
+
+
+@app.post("/api/leads/{lead_id}/predict-score")
+async def predict_lead_score(lead_id: int, user=Depends(require_auth)):
+    """Calculate and save predictive score for a single lead."""
+    try:
+        with get_db() as conn:
+            # 1. Get lead data
+            lead = conn.execute("SELECT * FROM leads WHERE id=?", [lead_id]).fetchone()
+            if not lead:
+                return _err("Lead not found", 404)
+            lead_data = dict(zip([d[0] for d in conn.execute("SELECT * FROM leads LIMIT 0").description], lead))
+
+            # 2. Get related deals (by contact or company match)
+            deals = conn.execute(
+                """SELECT stage, amount, probability FROM deals
+                   WHERE (contact_id IN (SELECT id FROM contacts WHERE lead_id=?)
+                   OR company_id=(SELECT company_id FROM leads WHERE id=?))""",
+                [lead_id, lead_id]
+            ).fetchall()
+            deals_history = [dict(zip(["stage", "amount", "probability"], d)) for d in deals] if deals else []
+
+            # 3. Get activities for this lead
+            activities = conn.execute(
+                "SELECT id FROM activities WHERE lead_id=? ORDER BY created_at DESC LIMIT 20",
+                [lead_id]
+            ).fetchall()
+
+            # 4. Calculate rule-based score
+            rule_score = _calculate_predictive_score(lead_data, deals_history, [a[0] for a in activities] if activities else [])
+
+            # 5. Call AI scoring
+            ai_result = await _ai_score_lead(lead_data, deals_history)
+            ai_prediction_score = 0
+            ai_prediction_reason = ""
+            if ai_result:
+                ai_prediction_score = int(ai_result.get("probability", 0) * 100)
+                ai_prediction_reason = ai_result.get("reason", "")
+
+            # 6. Combine scores (70% rule-based, 30% AI)
+            final_score = int(rule_score["total_score"] * 0.7 + ai_prediction_score * 0.3)
+            final_grade = "A" if final_score >= 80 else "B" if final_score >= 60 else "C" if final_score >= 40 else "D" if final_score >= 20 else "F"
+
+            # 7. Save to lead_scores table
+            conn.execute("""
+                INSERT OR REPLACE INTO lead_scores
+                (lead_id, total_score, score_grade, demographic_score, behavioral_score, engagement_score,
+                 ai_prediction_score, ai_prediction_reason, conversion_probability, predicted_deal_value,
+                 scoring_factors, scored_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, [
+                lead_id, final_score, final_grade,
+                rule_score["demographic_score"],
+                rule_score["behavioral_score"],
+                rule_score["engagement_score"],
+                ai_prediction_score,
+                ai_prediction_reason,
+                rule_score["conversion_probability"],
+                ai_result.get("predicted_value", 0) if ai_result else 0,
+                json.dumps(rule_score["factors"])
+            ])
+
+            # 8. Return full score breakdown
+            return _ok({
+                "lead_id": lead_id,
+                "total_score": final_score,
+                "grade": final_grade,
+                "demographic_score": rule_score["demographic_score"],
+                "behavioral_score": rule_score["behavioral_score"],
+                "engagement_score": rule_score["engagement_score"],
+                "ai_prediction_score": ai_prediction_score,
+                "ai_prediction_reason": ai_prediction_reason,
+                "conversion_probability": rule_score["conversion_probability"],
+                "factors": rule_score["factors"],
+                "rule_score_breakdown": {
+                    "total": rule_score["total_score"],
+                    "demographic": rule_score["demographic_score"],
+                    "behavioral": rule_score["behavioral_score"],
+                    "engagement": rule_score["engagement_score"]
+                }
+            })
+    except Exception as e:
+        logger.error("Predict lead score error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/leads/predict-all")
+async def predict_all_leads(user=Depends(require_admin)):
+    """Score all active leads where status != 'converted'. Returns summary stats."""
+    try:
+        with get_db() as conn:
+            # Get all active leads
+            leads = conn.execute(
+                "SELECT id FROM leads WHERE status NOT IN ('converted', 'lost', 'rejected')"
+            ).fetchall()
+
+            total_scored = 0
+            grade_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
+
+            for (lead_id,) in leads:
+                try:
+                    # Get lead data
+                    lead = conn.execute("SELECT * FROM leads WHERE id=?", [lead_id]).fetchone()
+                    if not lead:
+                        continue
+                    lead_data = dict(zip([d[0] for d in conn.execute("SELECT * FROM leads LIMIT 0").description], lead))
+
+                    # Get deals
+                    deals = conn.execute(
+                        """SELECT stage, amount, probability FROM deals
+                           WHERE (contact_id IN (SELECT id FROM contacts WHERE lead_id=?)
+                           OR company_id=(SELECT company_id FROM leads WHERE id=?))""",
+                        [lead_id, lead_id]
+                    ).fetchall()
+                    deals_history = [dict(zip(["stage", "amount", "probability"], d)) for d in deals] if deals else []
+
+                    # Get activities
+                    activities = conn.execute(
+                        "SELECT id FROM activities WHERE lead_id=? ORDER BY created_at DESC LIMIT 20",
+                        [lead_id]
+                    ).fetchall()
+
+                    # Calculate rule-based score
+                    rule_score = _calculate_predictive_score(lead_data, deals_history, [a[0] for a in activities] if activities else [])
+
+                    # Save without AI (for bulk operation)
+                    final_score = rule_score["total_score"]
+                    final_grade = rule_score["grade"]
+
+                    conn.execute("""
+                        INSERT OR REPLACE INTO lead_scores
+                        (lead_id, total_score, score_grade, demographic_score, behavioral_score, engagement_score,
+                         conversion_probability, scoring_factors, scored_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """, [
+                        lead_id, final_score, final_grade,
+                        rule_score["demographic_score"],
+                        rule_score["behavioral_score"],
+                        rule_score["engagement_score"],
+                        rule_score["conversion_probability"],
+                        json.dumps(rule_score["factors"])
+                    ])
+
+                    total_scored += 1
+                    grade_counts[final_grade] += 1
+                except Exception as e:
+                    logger.warning("Error scoring lead %d: %s", lead_id, e)
+                    continue
+
+            return _ok({
+                "total_scored": total_scored,
+                "grade_distribution": grade_counts,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+    except Exception as e:
+        logger.error("Predict all leads error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/leads/top-prospects")
+async def get_top_prospects(user=Depends(require_auth), limit: int = 10):
+    """Get highest-scored leads with full score breakdown."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT l.id, l.first_name, l.last_name, l.company, l.email, l.phone,
+                       l.status, ls.total_score, ls.score_grade, ls.demographic_score,
+                       ls.behavioral_score, ls.engagement_score, ls.conversion_probability,
+                       ls.scoring_factors, ls.scored_at
+                FROM leads l
+                LEFT JOIN lead_scores ls ON l.id = ls.lead_id
+                WHERE l.status NOT IN ('converted', 'lost', 'rejected')
+                ORDER BY ls.total_score DESC NULLS LAST
+                LIMIT ?
+            """, [limit]).fetchall()
+
+            cols = [d[0] for d in conn.execute("""
+                SELECT l.id, l.first_name, l.last_name, l.company, l.email, l.phone,
+                       l.status, ls.total_score, ls.score_grade, ls.demographic_score,
+                       ls.behavioral_score, ls.engagement_score, ls.conversion_probability,
+                       ls.scoring_factors, ls.scored_at
+                FROM leads l
+                LEFT JOIN lead_scores ls ON l.id = ls.lead_id
+                LIMIT 0
+            """).description]
+
+            result = []
+            for row in rows:
+                d = dict(zip(cols, row))
+                try:
+                    d["scoring_factors"] = json.loads(d["scoring_factors"] or "[]")
+                except Exception:
+                    d["scoring_factors"] = []
+                result.append(d)
+
+            return _ok(result)
+    except Exception as e:
+        logger.error("Get top prospects error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/leads/{lead_id}/score")
+async def get_lead_score(lead_id: int, user=Depends(require_auth)):
+    """Get latest predictive score for a specific lead."""
+    try:
+        with get_db() as conn:
+            row = conn.execute("""
+                SELECT id, lead_id, total_score, score_grade, demographic_score, behavioral_score,
+                       engagement_score, ai_prediction_score, ai_prediction_reason, conversion_probability,
+                       predicted_deal_value, scoring_factors, scored_at
+                FROM lead_scores WHERE lead_id=? ORDER BY scored_at DESC LIMIT 1
+            """, [lead_id]).fetchone()
+
+            if not row:
+                return _err("No score found for this lead", 404)
+
+            cols = [d[0] for d in conn.execute("""
+                SELECT id, lead_id, total_score, score_grade, demographic_score, behavioral_score,
+                       engagement_score, ai_prediction_score, ai_prediction_reason, conversion_probability,
+                       predicted_deal_value, scoring_factors, scored_at
+                FROM lead_scores LIMIT 0
+            """).description]
+
+            d = dict(zip(cols, row))
+            try:
+                d["scoring_factors"] = json.loads(d["scoring_factors"] or "[]")
+            except Exception:
+                d["scoring_factors"] = []
+
+            return _ok(d)
+    except Exception as e:
+        logger.error("Get lead score error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/leads/scoring/stats")
+async def get_scoring_stats(user=Depends(require_auth)):
+    """Get scoring statistics: grade distribution, avg conversion probability, top sources."""
+    try:
+        with get_db() as conn:
+            # Grade distribution
+            grade_dist = conn.execute("""
+                SELECT score_grade, COUNT(*) as count
+                FROM lead_scores
+                GROUP BY score_grade
+            """).fetchall()
+
+            grades = {}
+            for grade, count in grade_dist:
+                grades[grade] = count
+
+            # Average conversion probability
+            avg_prob = conn.execute("""
+                SELECT AVG(conversion_probability)
+                FROM lead_scores
+            """).fetchone()[0] or 0.0
+
+            # Top sources by average score
+            top_sources = conn.execute("""
+                SELECT l.source, AVG(ls.total_score) as avg_score, COUNT(ls.id) as count
+                FROM lead_scores ls
+                JOIN leads l ON ls.lead_id = l.id
+                WHERE l.source IS NOT NULL
+                GROUP BY l.source
+                ORDER BY avg_score DESC
+                LIMIT 5
+            """).fetchall()
+
+            sources = []
+            for source, avg_score, count in top_sources:
+                sources.append({"source": source, "avg_score": round(avg_score, 2), "count": count})
+
+            return _ok({
+                "grade_distribution": grades,
+                "avg_conversion_probability": round(avg_prob, 2),
+                "top_sources_by_score": sources
+            })
+    except Exception as e:
+        logger.error("Get scoring stats error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/leads/scoring/config")
+async def get_scoring_config(user=Depends(require_auth)):
+    """Get current scoring model configuration."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT id, factor_name, factor_type, field_name, condition_operator,
+                       condition_value, score_points, is_active, created_at
+                FROM scoring_model_config
+                ORDER BY factor_type, factor_name
+            """).fetchall()
+
+            cols = [d[0] for d in conn.execute("""
+                SELECT id, factor_name, factor_type, field_name, condition_operator,
+                       condition_value, score_points, is_active, created_at
+                FROM scoring_model_config LIMIT 0
+            """).description]
+
+            result = []
+            for row in rows:
+                result.append(dict(zip(cols, row)))
+
+            return _ok(result)
+    except Exception as e:
+        logger.error("Get scoring config error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/leads/scoring/config")
+async def save_scoring_config(request: Request, user=Depends(require_admin)):
+    """Save or update scoring factor rules."""
+    try:
+        data = await request.json()
+        factors = data.get("factors", [])
+
+        with get_db() as conn:
+            # Clear existing active factors
+            conn.execute("DELETE FROM scoring_model_config")
+
+            # Insert new factors
+            for factor in factors:
+                conn.execute("""
+                    INSERT INTO scoring_model_config
+                    (factor_name, factor_type, field_name, condition_operator, condition_value,
+                     score_points, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, [
+                    factor.get("factor_name"),
+                    factor.get("factor_type"),
+                    factor.get("field_name"),
+                    factor.get("condition_operator"),
+                    factor.get("condition_value"),
+                    factor.get("score_points", 0),
+                    1
+                ])
+
+            log_audit(user["user_id"], "update_scoring_config", "scoring_model", 0,
+                     details=f"Updated {len(factors)} scoring factors", ip=_get_ip(request))
+
+            return _ok({"saved": True, "factor_count": len(factors)})
+    except Exception as e:
+        logger.error("Save scoring config error: %s", e)
+        return _err(str(e), 500)
 
 
 # ─── Custom Fields ────────────────────────────────────────────────

@@ -9559,7 +9559,7 @@ async def agent_performance(user=Depends(require_auth)):
             agent_data = []
             for (agent_id,) in agents:
                 agent_info = conn.execute(
-                    "SELECT id, first_name, last_name, email FROM users WHERE id=?",
+                    "SELECT id, full_name, email FROM users WHERE id=?",
                     [agent_id]
                 ).fetchone()
                 if not agent_info:
@@ -9588,8 +9588,8 @@ async def agent_performance(user=Depends(require_auth)):
 
                 agent_data.append({
                     "agent_id": agent_id,
-                    "agent_name": f"{agent_info[1]} {agent_info[2]}",
-                    "email": agent_info[3],
+                    "agent_name": agent_info[1] or "Unknown",
+                    "email": agent_info[2] or "",
                     "total_tickets": total_tickets,
                     "open_tickets": open_tickets,
                     "closed_tickets": closed_tickets,
@@ -9641,20 +9641,21 @@ async def get_escalation_updates(request: Request):
 
             ticket_id = ticket[0]
 
-            # Get comments/activity on the ticket
+            # Get comments on the ticket from ticket_comments table
             comments = conn.execute("""
-                SELECT id, author_id, content, created_at FROM activity
-                WHERE entity_type='ticket' AND entity_id=? AND activity_type='comment'
-                ORDER BY created_at DESC LIMIT 10
+                SELECT tc.id, tc.user_id, tc.content, tc.created_at
+                FROM ticket_comments tc
+                WHERE tc.ticket_id=? AND tc.is_internal=0
+                ORDER BY tc.created_at DESC LIMIT 10
             """, [ticket_id]).fetchall()
 
             comment_list = []
             for comment in comments:
                 comment_author = conn.execute(
-                    "SELECT first_name, last_name FROM users WHERE id=?",
+                    "SELECT full_name FROM users WHERE id=?",
                     [comment[1]]
                 ).fetchone()
-                author_name = f"{comment_author[0]} {comment_author[1]}" if comment_author else "Agent"
+                author_name = comment_author[0] if comment_author and comment_author[0] else "Agent"
                 comment_list.append({
                     "id": comment[0],
                     "author": author_name,

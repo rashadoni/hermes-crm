@@ -7778,7 +7778,7 @@ async function runNlAnalytics() {
   container.innerHTML = '<div class="text-center py-4"><div class="inline-block w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-slate-400 mt-2">' + _t('AI analyzing...','AI анализирует...','AI təhlil edir...') + '</p></div>';
   try {
     const res = await api.post('/api/ai/nl-analytics', { question: question, language: L });
-    const d = res.data || res;
+    const d = res;
     let html = '<div style="margin-top:12px">';
     // Answer
     if (d.answer) {

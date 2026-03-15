@@ -24,8 +24,16 @@ jobs:
             cp static/index.html static/index.html.bak
             cp static/portal.html static/portal.html.bak
             git pull origin main
-            pip install anthropic twilio --quiet
-            python3 -c "from twilio.rest import Client; print('twilio OK')"
+            # Install in venv if exists, otherwise system pip
+            if [ -d "/opt/hermes_crm/venv" ]; then
+              /opt/hermes_crm/venv/bin/pip install anthropic twilio --quiet
+              /opt/hermes_crm/venv/bin/python -c "from twilio.rest import Client; print('twilio OK in venv')"
+            else
+              pip3 install anthropic twilio --quiet
+              python3 -c "from twilio.rest import Client; print('twilio OK system')"
+            fi
+            # Also try to find which python the service uses
+            cat /etc/systemd/system/hermes-crm.service 2>/dev/null | grep -i exec || echo "no service file found"
             grep -q "ANTHROPIC_API_KEY" .env 2>/dev/null || echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
             # Gmail SMTP settings
             grep -q "SMTP_HOST" .env 2>/dev/null || cat >> .env << 'SMTP_EOF'

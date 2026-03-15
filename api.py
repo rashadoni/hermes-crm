@@ -4387,7 +4387,8 @@ async def process_journeys(user=Depends(require_auth)):
 
         for enrollment in enrollments:
             try:
-                await _process_journey_step(conn, dict(zip([d[0] for d in conn.execute("SELECT * FROM journey_enrollments LIMIT 0").description] + ["step_type", "config", "yes_next_step", "no_next_step", "step_order"], enrollment)))
+                cols = ["id", "journey_id", "contact_id", "lead_id", "current_step_id", "step_type", "config", "yes_next_step", "no_next_step", "step_order"]
+                await _process_journey_step(conn, dict(zip(cols, enrollment)))
                 processed += 1
             except Exception as e:
                 logger.warning(f"Journey processing error: {e}")

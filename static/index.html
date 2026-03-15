@@ -252,8 +252,6 @@
           <a href="#/currencies" data-page="currencies" data-i18n="cur_title">Currencies</a>
           <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
           <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
-          <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
-          <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
           <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
           <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
         </div>
@@ -1950,6 +1948,7 @@ const translations = {
     seg_has_phone: 'Telefonu var',
     seg_dynamic: 'Dinamik',
     nav_web_forms: 'Veb formalar',
+    nav_smtp_settings: 'SMTP tənzimləmələri',
     nav_2fa: '🔐 2FA Tənzimləmələr',
 
     nav_dashboard: 'Panel',
@@ -3343,8 +3342,6 @@ async function renderPage(page) {
       case 'currencies':
         if (isAdmin()) await renderCurrenciesPage(app);
         break;
-      case 'workflows': await renderWorkflowsPage(app); break;
-      case 'dashboard-settings': await renderDashboardSettings(app); break;
       case 'workflows': await renderWorkflowsPage(app); break;
       case 'dashboard-settings': await renderDashboardSettings(app); break;
       case 'smtp-settings':

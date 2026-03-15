@@ -3976,7 +3976,7 @@ async def create_journey(request: Request, user=Depends(require_auth)):
         conn.execute("""
             INSERT INTO journeys (name, description, status, trigger_type, trigger_conditions, created_by)
             VALUES (?, ?, 'draft', ?, ?, ?)
-        """, (name, description, trigger_type, json.dumps(trigger_conditions), user.get("id")))
+        """, (name, description, trigger_type, json.dumps(trigger_conditions), user.get("user_id", user.get("id"))))
         journey_id = conn.lastrowid
         conn.commit()
 

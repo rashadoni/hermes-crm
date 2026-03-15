@@ -991,7 +991,7 @@
                 if (data.has_updates && data.comments && data.comments.length > 0) {
                     data.comments.forEach(comment => {
                         if (comment.id > lastSeenCommentId) {
-                            const authorLabel = '<strong>🧑‍💼 ' + (comment.author || 'Agent') + ':</strong> ';
+                            const authorLabel = '**🧑‍💼 ' + (comment.author || 'Agent') + ':** ';
                             addChatBubble('ai', authorLabel + comment.content, ['escalate_to_human']);
                             lastSeenCommentId = comment.id;
                         }

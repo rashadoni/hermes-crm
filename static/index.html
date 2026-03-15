@@ -3478,6 +3478,9 @@ function toggleNotifications() {
       </div>
     </div>`;
   });
+  html += `<div class="p-2 border-t border-slate-700 text-center">
+    <a href="#/notifications" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium" onclick="document.getElementById('notifPanel').style.display='none'">${currentLang==='ru'?'Все уведомления':currentLang==='az'?'Bütün bildirişlər':'All notifications'} →</a>
+  </div>`;
   panel.innerHTML = html;
   panel.style.display = 'block';
 }

@@ -6035,14 +6035,16 @@ def send_notification(user_id, ntype, title, message="", entity_type=None, entit
     """Create a notification for a user."""
     try:
         with get_db() as conn:
-            # Check user preferences
-            pref = conn.execute(
-                "SELECT channel_web FROM notification_preferences WHERE user_id=? AND event_type=?",
-                (user_id, ntype)
-            ).fetchone()
-            # Default: web notifications are enabled
-            if pref and not pref[0]:
-                return
+            # Check user preferences (skip if table doesn't exist)
+            try:
+                pref = conn.execute(
+                    "SELECT channel_web FROM notification_preferences WHERE user_id=? AND event_type=?",
+                    (user_id, ntype)
+                ).fetchone()
+                if pref and not pref[0]:
+                    return
+            except Exception:
+                pass  # preferences table may not exist, allow notification
             conn.execute(
                 "INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?)",
                 (user_id, ntype, title, message, entity_type, entity_id)

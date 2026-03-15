@@ -1958,6 +1958,16 @@ async def delete_lead(lead_id: int, request: Request, user=Depends(require_admin
         existing = conn.execute("SELECT id FROM leads WHERE id=?", [lead_id]).fetchone()
         if not existing:
             _err("Lead not found", 404)
+        # Delete related records first
+        conn.execute("DELETE FROM lead_scores WHERE lead_id=?", [lead_id])
+        try:
+            conn.execute("DELETE FROM channel_messages WHERE lead_id=?", [lead_id])
+        except:
+            pass
+        try:
+            conn.execute("DELETE FROM journey_enrollments WHERE lead_id=?", [lead_id])
+        except:
+            pass
         conn.execute("DELETE FROM leads WHERE id=?", [lead_id])
         log_audit(user["user_id"], "delete_lead", "lead", lead_id, ip=_get_ip(request))
         return _ok({"message": "Lead deleted"})

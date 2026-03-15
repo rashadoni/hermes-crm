@@ -8535,11 +8535,18 @@ def _send_email_alert(to_email, subject, body):
 def workflow_ticket_created(conn, ticket_id, company_id, subject, priority):
     """Workflow: portal user created a ticket."""
     _ensure_portal_notifications_table(conn)
-    # 1. Auto-assign (round-robin among active agents)
-    agents = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager','agent') AND is_active=1 ORDER BY id").fetchall()
+    # 1. Auto-assign (least loaded agent — fewest open tickets)
+    agent_row = conn.execute("""
+        SELECT u.id FROM users u
+        LEFT JOIN (SELECT assigned_to, COUNT(*) as cnt FROM tickets WHERE status NOT IN ('closed','resolved') GROUP BY assigned_to) t
+        ON u.id = t.assigned_to
+        WHERE u.role IN ('admin','manager','agent') AND u.is_active=1
+        ORDER BY COALESCE(t.cnt, 0) ASC, u.id ASC
+        LIMIT 1
+    """).fetchone()
     assigned_to = None
-    if agents:
-        assigned_to = agents[ticket_id % len(agents)][0]
+    if agent_row:
+        assigned_to = agent_row[0]
         conn.execute("UPDATE tickets SET assigned_to=? WHERE id=?", [assigned_to, ticket_id])
     # 2. CRM notifications (direct insert)
     admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()

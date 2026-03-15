@@ -3869,6 +3869,15 @@ async function renderAnalytics(el) {
       <h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">${t('dash_title')}</h1>
       <p style="color:#64748b;font-size:14px;margin-top:4px">Analytics &amp; Reports</p>
     </div>
+    <!-- NL Analytics -->
+    <div style="background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.04));border:1px solid rgba(139,92,246,0.2);border-radius:16px;padding:16px 20px;margin-bottom:24px">
+      <div style="font-size:13px;font-weight:600;color:#c4b5fd;margin-bottom:8px">🤖 AI Аналитика — задайте вопрос на естественном языке</div>
+      <div style="display:flex;gap:8px">
+        <input id="nlQueryInput" type="text" placeholder="Например: Сколько лидов создано за последний месяц? Какой средний чек по сделкам?" style="flex:1;background:#0f172a;border:1px solid rgba(139,92,246,0.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#e2e8f0;outline:none" onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='rgba(139,92,246,0.3)'" onkeypress="if(event.key==='Enter')runNlAnalytics()">
+        <button class="btn btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:10px 20px;white-space:nowrap" onclick="runNlAnalytics()">🔍 Спросить AI</button>
+      </div>
+      <div id="nlAnalyticsResult"></div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px">
       <div onclick="location.hash='#/clients'" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(99,102,241,0.3)';this.style.boxShadow='0 4px 20px rgba(99,102,241,0.1)'" onmouseout="this.style.borderColor='rgba(99,102,241,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#818cf8">${summary.clients_total||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('dash_stat_clients')}</div></div>
       <div onclick="location.hash='#/contracts'" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(16,185,129,0.3)'" onmouseout="this.style.borderColor='rgba(16,185,129,0.15)'"><div style="font-size:28px;font-weight:800;color:#34d399">${summary.contracts_total||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('dash_stat_contracts_total')}</div></div>
@@ -7757,6 +7766,61 @@ async function deleteUser(userId) {
 
 // ─── Reports ─────────────────────────────────────────────────
 async function renderReports(el) { return renderAnalytics(el); }
+
+async function runNlAnalytics() {
+  const input = document.getElementById('nlQueryInput');
+  const container = document.getElementById('nlAnalyticsResult');
+  if (!input || !container) return;
+  const question = input.value.trim();
+  if (!question) return;
+  const L = currentLang || 'ru';
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  container.innerHTML = '<div class="text-center py-4"><div class="inline-block w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-slate-400 mt-2">' + _t('AI analyzing...','AI анализирует...','AI təhlil edir...') + '</p></div>';
+  try {
+    const res = await api.post('/api/ai/nl-analytics', { question: question, language: L });
+    const d = res.data || res;
+    let html = '<div style="margin-top:12px">';
+    // Answer
+    if (d.answer) {
+      html += '<div style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:12px 16px;margin-bottom:10px">';
+      html += '<div style="font-size:14px;color:#e2e8f0;line-height:1.5">' + esc(d.answer) + '</div>';
+      if (d.highlights && d.highlights.length) {
+        html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
+        d.highlights.forEach(function(h) { html += '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(139,92,246,0.15);color:#c4b5fd">' + esc(h) + '</span>'; });
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    // Data table
+    if (d.data && d.data.length > 0) {
+      const cols = Object.keys(d.data[0]);
+      html += '<div style="overflow-x:auto;max-height:250px;overflow-y:auto;border-radius:8px;border:1px solid rgba(71,85,105,0.2)">';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+      html += '<thead><tr>';
+      cols.forEach(function(c) { html += '<th style="background:#1e293b;padding:6px 10px;text-align:left;color:#94a3b8;font-weight:600;position:sticky;top:0">' + esc(c) + '</th>'; });
+      html += '</tr></thead><tbody>';
+      d.data.slice(0, 20).forEach(function(row, i) {
+        html += '<tr style="background:' + (i%2?'#0f172a':'#0f172a80') + '">';
+        cols.forEach(function(c) { html += '<td style="padding:5px 10px;color:#cbd5e1;border-top:1px solid rgba(71,85,105,0.1)">' + esc(String(row[c]??'')) + '</td>'; });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      if (d.row_count > 20) html += '<div style="font-size:10px;color:#475569;text-align:center;margin-top:4px">' + _t('Showing','Показано','Göstərilir') + ' 20/' + d.row_count + '</div>';
+    }
+    // SQL query (collapsible)
+    if (d.sql) {
+      html += '<details style="margin-top:8px"><summary style="font-size:10px;color:#475569;cursor:pointer">SQL запрос</summary><pre style="background:#0f172a;padding:8px;border-radius:6px;font-size:10px;color:#64748b;overflow-x:auto;margin-top:4px">' + esc(d.sql) + '</pre></details>';
+    }
+    if (d.error) {
+      html += '<div style="font-size:11px;color:#f87171;margin-top:6px">⚠️ ' + esc(d.error) + '</div>';
+    }
+    html += '<div style="text-align:right;font-size:10px;color:#475569;margin-top:4px">' + (d.latency_ms||0) + 'ms</div>';
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="text-center text-red-400 py-2 text-xs">⚠️ ' + esc(e.message||'Error') + '</div>';
+  }
+}
 
 // ─── Pricing Dashboard ───────────────────────────────────────
 let _pricingData = null;

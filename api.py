@@ -13556,6 +13556,156 @@ Rules:
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/nl-analytics")
+async def ai_nl_analytics(request: Request, user=Depends(require_auth)):
+    """Natural language query to get CRM analytics — user asks questions, AI generates SQL and answers."""
+    body = await request.json()
+    question = body.get("question", "").strip()
+    language = body.get("language", "ru")
+    if not question:
+        return _err("question required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI API key not configured", 400)
+
+    lang_map = {"ru": "Russian", "en": "English", "az": "Azerbaijani"}
+    lang_name = lang_map.get(language, "Russian")
+
+    # Get DB schema summary for AI
+    schema = """Tables:
+- leads(id, company_name, contact_name, email, phone, source, status[new/contacted/qualified/unqualified/converted], estimated_value, notes, created_at, priority)
+- deals(id, title, value_amount, stage[LEAD/QUALIFIED/PROPOSAL/NEGOTIATION/WON/LOST], contact_name, company_name, company_id, expected_close, created_at, lost_reason)
+- contacts(id, first_name, last_name, email, phone, company_id, position, created_at)
+- companies(id, name, domain, industry, category, employee_count, created_at)
+- tasks(id, title, description, status[todo/in_progress/done], priority[low/medium/high/urgent], due_date, category, lead_id, contact_id, assigned_to, created_at)
+- channel_messages(id, channel_type[email/sms/telegram/whatsapp], direction[inbound/outbound], lead_id, contact_id, content, status, created_at)
+- activities(id, activity_type, subject, content, timestamp, deal_id, lead_id, contact_id)
+- tickets(id, subject, description, status[open/in_progress/resolved/closed], priority, contact_id, assigned_to, created_at)"""
+
+    prompt = f"""You are a CRM analytics AI. The user asked a question about their CRM data. Generate a SQLite query to answer it, then provide a human-readable answer.
+
+Database schema:
+{schema}
+
+User question: {question}
+
+IMPORTANT: Generate ONLY safe SELECT queries. Never use INSERT, UPDATE, DELETE, DROP, ALTER, or any modifying statement.
+
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_name}:
+{{
+  "sql": "SELECT ... FROM ... WHERE ...",
+  "explanation": "Brief explanation of what the query does",
+  "answer": "The human-readable answer to the question (fill after seeing results)",
+  "chart_type": "number|table|bar|pie|none",
+  "chart_label": "Chart title if applicable"
+}}"""
+
+    try:
+        import anthropic, time as _time, re as _re
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+
+        result = {}
+        try:
+            clean = text
+            md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
+            if md_match:
+                clean = md_match.group(1)
+            if "{" in clean:
+                json_str = clean[clean.index("{"):clean.rindex("}") + 1]
+                result = json.loads(json_str)
+        except Exception:
+            result = {"sql": "", "answer": text[:300], "explanation": ""}
+
+        sql = result.get("sql", "")
+        query_result = []
+        query_error = None
+
+        # Execute the SQL safely
+        if sql:
+            sql_upper = sql.upper().strip()
+            forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH", "PRAGMA", "VACUUM"]
+            is_safe = sql_upper.startswith("SELECT") and not any(f in sql_upper for f in forbidden)
+            if is_safe:
+                try:
+                    with get_db() as conn:
+                        rows = conn.execute(sql).fetchall()
+                        query_result = [dict(r) for r in rows[:100]]  # Limit to 100 rows
+                except Exception as qe:
+                    query_error = str(qe)
+            else:
+                query_error = "Unsafe query blocked"
+
+        # Generate final answer with query results
+        if query_result and not query_error:
+            answer_prompt = f"""Based on the CRM query results, provide a concise human-readable answer in {lang_name}.
+
+Question: {question}
+SQL: {sql}
+Results ({len(query_result)} rows): {json.dumps(query_result[:20], ensure_ascii=False, default=str)[:2000]}
+
+Respond with ONLY raw JSON:
+{{
+  "answer": "Human-readable answer summarizing the data",
+  "highlights": ["Key finding 1", "Key finding 2"]
+}}"""
+            try:
+                resp2 = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=800,
+                    messages=[{"role": "user", "content": answer_prompt}]
+                )
+                txt2 = resp2.content[0].text.strip()
+                try:
+                    clean2 = txt2
+                    md2 = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean2)
+                    if md2: clean2 = md2.group(1)
+                    if "{" in clean2:
+                        ans = json.loads(clean2[clean2.index("{"):clean2.rindex("}") + 1])
+                        result["answer"] = ans.get("answer", "")
+                        result["highlights"] = ans.get("highlights", [])
+                except Exception:
+                    result["answer"] = txt2[:500]
+            except Exception:
+                result["answer"] = f"Найдено {len(query_result)} записей"
+
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        try:
+            with get_db() as conn:
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("INSERT INTO ai_interaction_logs (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens, cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)",
+                    [0, f"[nl-analytics] {question[:200]}", (result.get('answer',''))[:500], latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "question": question,
+            "sql": sql,
+            "explanation": result.get("explanation", ""),
+            "answer": result.get("answer", ""),
+            "highlights": result.get("highlights", []),
+            "chart_type": result.get("chart_type", "none"),
+            "chart_label": result.get("chart_label", ""),
+            "data": query_result[:50],
+            "row_count": len(query_result),
+            "error": query_error,
+            "latency_ms": latency_ms,
+        })
+    except Exception as e:
+        logger.error("nl-analytics error: %s", e, exc_info=True)
+        return _err(str(e), 500)
+
+
 @app.post("/api/ai/deal-forecast")
 async def ai_deal_forecast(request: Request, user=Depends(require_auth)):
     """AI analyzes a deal and predicts win probability, risk factors, and recommendations."""

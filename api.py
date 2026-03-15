@@ -13386,7 +13386,7 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
 }}"""
 
     try:
-        import anthropic
+        import anthropic, time as _time, re as _re
         t_start = _time.time()
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
@@ -13399,7 +13399,6 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
 
         result = {}
         try:
-            import re as _re
             clean = text
             md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
             if md_match:
@@ -13433,7 +13432,7 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
         })
     except Exception as e:
         logger.error("generate-text error: %s", e, exc_info=True)
-        return _err(str(e), 400)
+        return _err(str(e), 500)
 
 
 @app.get("/api/ai/agent-performance")

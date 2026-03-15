@@ -682,6 +682,7 @@
     let chatHistory = [];
     let chatOpen = false;
     let chatInitialized = false;
+    let chatSessionId = null;
 
     function toggleChat() {
         chatOpen = !chatOpen;
@@ -744,10 +745,20 @@
         try {
             const resp = await api('POST', '/api/portal/chat', {
                 message: msg,
-                history: chatHistory.slice(-10)
+                history: chatHistory.slice(-10),
+                session_id: chatSessionId
             });
             hideTyping();
+            if (resp.session_id) chatSessionId = resp.session_id;
+            else if (resp.data?.session_id) chatSessionId = resp.data.session_id;
             const aiText = resp.response || resp.data?.response || 'No response';
+            const toolsUsed = resp.tools_used || resp.data?.tools_used || [];
+            if (toolsUsed.length) {
+                const toolBadge = document.createElement('div');
+                toolBadge.style.cssText = 'font-size:10px;color:#8b5cf6;margin-bottom:4px;align-self:flex-start;';
+                toolBadge.textContent = '\u2699\ufe0f ' + toolsUsed.join(', ');
+                document.getElementById('chatMessages').appendChild(toolBadge);
+            }
             addChatMsg('ai', aiText);
             chatHistory.push({ role: 'assistant', content: aiText });
         } catch (e) {

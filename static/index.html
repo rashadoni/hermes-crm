@@ -261,6 +261,7 @@
           <a href="#/analytics" data-page="analytics" data-i18n="nav_reports_analytics">Reports</a>
           <a href="#/pricing" data-page="pricing" data-i18n="nav_pricing">Pricing</a>
           <a href="#/cost-model" data-page="cost-model" data-i18n="nav_cost_model">Maya</a>
+          <a href="#/ai-command-center" data-page="ai-command-center" style="color:#8b5cf6">🤖 AI Command Center</a>
         </div>
       </div>
     </div>
@@ -3268,6 +3269,7 @@ async function renderPage(page) {
       case 'reports': await renderReports(app); break;
       case 'pricing': await renderPricing(app); break;
       case 'cost-model': await renderCostModel(app); break;
+      case 'ai-command-center': await renderAICommandCenter(app); break;
       case 'muqavile': await renderMuqavile(app); break;
       case 'offers': await renderOffers(app); break;
       case 'users':
@@ -16525,6 +16527,91 @@ async function onLeadDrop(e, newStatus) {
   } catch(err) { showToast(esc(err.message), 'error'); }
   _draggedLeadId = null;
 }
+
+
+    // ─── AI Command Center ─────────────────────────────────
+    async function renderAICommandCenter(el) {
+      el.innerHTML = '<div style="text-align:center;padding:60px;color:#64748b">Loading AI Command Center...</div>';
+      try {
+        const data = await apiFetch('/api/ai/command-center');
+        const d = data.data || data;
+        const deflect = d.deflection_rate || 0;
+        const toolHtml = Object.entries(d.tool_usage || {}).map(([k,v]) => 
+          `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1e293b"><span style="color:#94a3b8">${k}</span><span style="color:#e2e8f0;font-weight:600">${v}</span></div>`
+        ).join('') || '<div style="color:#475569;padding:12px">No tools used yet</div>';
+
+        const dailyMax = Math.max(...(d.daily_sessions||[]).map(x=>x.count), 1);
+        const barsHtml = (d.daily_sessions||[]).map(x => {
+          const h = Math.max(20, (x.count / dailyMax) * 120);
+          return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+            '<span style="font-size:12px;color:#e2e8f0">' + x.count + '</span>' +
+            '<div style="width:32px;height:' + h + 'px;background:linear-gradient(to top,#3b82f6,#8b5cf6);border-radius:4px"></div>' +
+            '<span style="font-size:10px;color:#64748b">' + (x.date||'').slice(5) + '</span></div>';
+        }).join('') || '<div style="color:#475569">No data yet</div>';
+
+        const sessionsHtml = (d.recent_sessions||[]).map(s => {
+          const tools = (s.tools_used||[]).map(t => '<span style="background:#1e1b4b;color:#8b5cf6;padding:2px 6px;border-radius:4px;font-size:10px">' + t + '</span>').join(' ');
+          const esc = (s.tools_used||[]).includes('escalate_to_human');
+          return '<tr style="border-bottom:1px solid #1e293b">' +
+            '<td style="padding:8px;color:#64748b">#' + s.id + '</td>' +
+            '<td style="padding:8px">' + (s.user_name||'—') + '<br><span style="font-size:11px;color:#64748b">' + (s.user_email||'') + '</span></td>' +
+            '<td style="padding:8px;text-align:center">' + s.messages_count + '</td>' +
+            '<td style="padding:8px">' + (tools || '<span style="color:#475569">—</span>') + '</td>' +
+            '<td style="padding:8px"><span style="padding:2px 8px;border-radius:4px;font-size:11px;' + (esc ? 'background:#7f1d1d;color:#fca5a5' : 'background:#052e16;color:#4ade80') + '">' + (esc ? 'Escalated' : 'AI Resolved') + '</span></td>' +
+            '<td style="padding:8px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td></tr>';
+        }).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#475569">No sessions yet</td></tr>';
+
+        el.innerHTML = '<div style="padding:24px;max-width:1200px;margin:0 auto">' +
+          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">' +
+            '<div style="width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🤖</div>' +
+            '<div><h2 style="font-size:22px;font-weight:700;color:#e2e8f0;margin:0">AI Command Center</h2>' +
+            '<p style="color:#64748b;font-size:13px;margin:0">Hermes AI Agent Performance Dashboard</p></div></div>' +
+
+          // KPI Cards
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Total Sessions</div>' +
+              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_sessions||0) + '</div>' +
+              '<div style="font-size:12px;color:#3b82f6;margin-top:4px">Today: ' + (d.sessions_today||0) + '</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Deflection Rate</div>' +
+              '<div style="font-size:28px;font-weight:700;color:' + (deflect >= 80 ? '#4ade80' : deflect >= 50 ? '#facc15' : '#f87171') + ';margin-top:4px">' + deflect + '%</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Resolved by AI without human</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Messages</div>' +
+              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_messages||0) + '</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg ' + (d.avg_messages_per_session||0) + ' per session</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Escalations</div>' +
+              '<div style="font-size:28px;font-weight:700;color:#f87171;margin-top:4px">' + (d.escalated||0) + '</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Transferred to human</div></div>' +
+          '</div>' +
+
+          // Charts row
+          '<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px">' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Sessions (Last 7 Days)</h3>' +
+              '<div style="display:flex;align-items:flex-end;gap:12px;height:160px;padding-top:16px">' + barsHtml + '</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Tool Usage</h3>' + toolHtml + '</div>' +
+          '</div>' +
+
+          // Sessions table
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+            '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Recent Chat Sessions</h3>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+              '<thead><tr style="border-bottom:1px solid #334155">' +
+                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">ID</th>' +
+                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">User</th>' +
+                '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Msgs</th>' +
+                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Tools</th>' +
+                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Status</th>' +
+                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Date</th></tr></thead>' +
+              '<tbody>' + sessionsHtml + '</tbody></table></div></div>';
+      } catch(e) {
+        el.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171">Error loading Command Center: ' + e.message + '</div>';
+      }
+    }
 
 </script>
 

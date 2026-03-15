@@ -8918,91 +8918,293 @@ async def toggle_portal_user(portal_user_id: int, user=Depends(require_admin)):
     return _ok({"is_active": new_status})
 
 
-# ─── AI Chat Agent for Portal ───────────────────────────────────────
+# ─── AI Chat Agent for Portal (with Smart Actions + Session Tracking) ────
+
+def _ensure_ai_tables(conn):
+    """Create AI chat tables if they don't exist."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS ai_chat_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            portal_user_id INTEGER,
+            company_id INTEGER,
+            messages_count INTEGER DEFAULT 0,
+            tools_used TEXT DEFAULT '[]',
+            resolved_without_human INTEGER DEFAULT 1,
+            satisfaction INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS ai_chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER,
+            role TEXT DEFAULT 'user',
+            content TEXT DEFAULT '',
+            tool_name TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+    """)
+
+
+def _get_ai_api_key():
+    """Load Anthropic API key from .env or environment."""
+    import dotenv as _dotenv
+    _env_vals = _dotenv.dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
+    return _env_vals.get("ANTHROPIC_API_KEY", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+
+
+# ── Tool definitions for Smart Actions ──
+AI_TOOLS = [
+    {
+        "name": "get_tickets",
+        "description": "Get the user's support tickets. Returns a list of tickets with id, subject, status, priority, created_at. Use this when user asks about their tickets or wants to check ticket status.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "status_filter": {
+                    "type": "string",
+                    "description": "Optional filter: 'open', 'closed', 'all'. Default is 'all'.",
+                    "enum": ["open", "closed", "all"]
+                },
+                "ticket_id": {
+                    "type": "integer",
+                    "description": "Optional specific ticket ID to look up"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "create_ticket",
+        "description": "Create a new support ticket on behalf of the user. Use when user wants to report a problem or request help. Always confirm the subject and description with the user before creating.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string", "description": "Short ticket subject/title"},
+                "description": {"type": "string", "description": "Detailed description of the issue"},
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Ticket priority level"}
+            },
+            "required": ["subject", "description"]
+        }
+    },
+    {
+        "name": "get_contracts",
+        "description": "Get the user's company contracts. Returns contract id, subject, status, counterparty, dates.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "status_filter": {"type": "string", "description": "Optional: 'active', 'expired', 'all'", "enum": ["active", "expired", "all"]}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_documents",
+        "description": "Get documents shared with the user's company.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "escalate_to_human",
+        "description": "Escalate the conversation to a human support agent. Use when: the issue is too complex, user explicitly asks for a human, or you cannot resolve the problem.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string", "description": "Brief reason for escalation"},
+                "summary": {"type": "string", "description": "Summary of the conversation so far for the human agent"}
+            },
+            "required": ["reason", "summary"]
+        }
+    }
+]
+
+
+def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user_id: int) -> str:
+    """Execute a tool and return the result as a string."""
+    try:
+        with get_db() as conn:
+            if tool_name == "get_tickets":
+                tid = tool_input.get("ticket_id")
+                sf = tool_input.get("status_filter", "all")
+                if tid:
+                    row = conn.execute(
+                        "SELECT id, ticket_number, subject, status, priority, created_at, updated_at FROM tickets WHERE id=? AND company_id=?",
+                        [tid, company_id]
+                    ).fetchone()
+                    if row:
+                        cols = ["id", "ticket_number", "subject", "status", "priority", "created_at", "updated_at"]
+                        return json.dumps(dict(zip(cols, row)), ensure_ascii=False)
+                    return json.dumps({"error": f"Ticket #{tid} not found"})
+                query = "SELECT id, ticket_number, subject, status, priority, created_at FROM tickets WHERE company_id=?"
+                params = [company_id]
+                if sf == "open":
+                    query += " AND status NOT IN ('closed','resolved')"
+                elif sf == "closed":
+                    query += " AND status IN ('closed','resolved')"
+                query += " ORDER BY created_at DESC LIMIT 10"
+                rows = conn.execute(query, params).fetchall()
+                cols = ["id", "ticket_number", "subject", "status", "priority", "created_at"]
+                return json.dumps([dict(zip(cols, r)) for r in rows], ensure_ascii=False)
+
+            elif tool_name == "create_ticket":
+                subj = tool_input.get("subject", "New ticket")
+                desc = tool_input.get("description", "")
+                prio = tool_input.get("priority", "medium")
+                # Generate ticket number
+                last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()
+                next_id = (last[0] or 0) + 1
+                tnum = f"TK-{next_id:04d}"
+                # Auto-assign (least loaded)
+                agent_row = conn.execute("""
+                    SELECT u.id FROM users u
+                    LEFT JOIN (SELECT assigned_to, COUNT(*) as cnt FROM tickets WHERE status NOT IN ('closed','resolved') GROUP BY assigned_to) t
+                    ON u.id = t.assigned_to
+                    WHERE u.role IN ('admin','manager','agent') AND u.is_active=1
+                    ORDER BY COALESCE(t.cnt, 0) ASC, u.id ASC LIMIT 1
+                """).fetchone()
+                assigned = agent_row[0] if agent_row else None
+                conn.execute(
+                    "INSERT INTO tickets (ticket_number, subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?,?)",
+                    [tnum, subj, f"[Created by AI Agent for portal user #{portal_user_id}]\n\n{desc}", "new", prio, company_id, assigned, '["ai-created"]']
+                )
+                new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                return json.dumps({"success": True, "ticket_id": new_id, "ticket_number": tnum, "subject": subj, "priority": prio, "assigned_to": assigned}, ensure_ascii=False)
+
+            elif tool_name == "get_contracts":
+                sf = tool_input.get("status_filter", "all")
+                query = """SELECT id, subject, status, counterparty, start_date, end_date, total_value
+                          FROM contracts WHERE counterparty IN (SELECT name FROM companies WHERE id=?)"""
+                params = [company_id]
+                if sf == "active":
+                    query += " AND status='active'"
+                elif sf == "expired":
+                    query += " AND status='expired'"
+                query += " ORDER BY created_at DESC LIMIT 10"
+                rows = conn.execute(query, params).fetchall()
+                cols = ["id", "subject", "status", "counterparty", "start_date", "end_date", "total_value"]
+                return json.dumps([dict(zip(cols, r)) for r in rows], ensure_ascii=False)
+
+            elif tool_name == "get_documents":
+                rows = conn.execute(
+                    "SELECT id, name, type, status, created_at FROM documents WHERE company_id=? ORDER BY created_at DESC LIMIT 10",
+                    [company_id]
+                ).fetchall()
+                cols = ["id", "name", "type", "status", "created_at"]
+                return json.dumps([dict(zip(cols, r)) for r in rows], ensure_ascii=False)
+
+            elif tool_name == "escalate_to_human":
+                reason = tool_input.get("reason", "User requested human support")
+                summary = tool_input.get("summary", "")
+                # Create an escalation ticket
+                last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()
+                next_id = (last[0] or 0) + 1
+                tnum = f"TK-{next_id:04d}"
+                agent_row = conn.execute("""
+                    SELECT u.id FROM users u WHERE u.role IN ('admin','manager') AND u.is_active=1 ORDER BY u.id ASC LIMIT 1
+                """).fetchone()
+                assigned = agent_row[0] if agent_row else None
+                conn.execute(
+                    "INSERT INTO tickets (ticket_number, subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?,?)",
+                    [tnum, f"[AI Escalation] {reason}", f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}", "new", "high", company_id, assigned, '["ai-escalation"]']
+                )
+                new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                # Send notification
+                try:
+                    _ensure_portal_notifications_table(conn)
+                    conn.execute(
+                        "INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                        [portal_user_id, company_id, "ticket", f"Escalation ticket {tnum} created", reason, "ticket", new_id]
+                    )
+                except Exception:
+                    pass
+                return json.dumps({"success": True, "ticket_id": new_id, "ticket_number": tnum, "message": "Escalated to human agent"}, ensure_ascii=False)
+
+            return json.dumps({"error": f"Unknown tool: {tool_name}"})
+    except Exception as e:
+        logger.error("Tool execution error (%s): %s", tool_name, e)
+        return json.dumps({"error": str(e)})
+
 
 @app.post("/api/portal/chat")
 async def portal_chat(request: Request):
-    """AI chat agent for portal users. Uses Claude Haiku + Knowledge Base RAG."""
+    """AI chat agent with Smart Actions (Tool Use) + session tracking."""
     user = _portal_require_auth(request)
     data = await request.json()
     user_message = (data.get("message") or "").strip()
     history = data.get("history") or []
+    session_id = data.get("session_id")
     if not user_message:
         _err("Message is required", 400)
 
-    # Load API key
-    import dotenv as _dotenv
-    _env_vals = _dotenv.dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
-    api_key = _env_vals.get("ANTHROPIC_API_KEY", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+    api_key = _get_ai_api_key()
     if not api_key:
         _err("AI agent not configured", 500)
 
-    # RAG: load published KB articles
+    company_id = user.get("company_id")
+    portal_user_id = user.get("portal_user_id")
+
+    # Session tracking
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            if not session_id:
+                conn.execute(
+                    "INSERT INTO ai_chat_sessions (portal_user_id, company_id) VALUES (?,?)",
+                    [portal_user_id, company_id]
+                )
+                session_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            # Log user message
+            conn.execute("INSERT INTO ai_chat_messages (session_id, role, content) VALUES (?,?,?)",
+                        [session_id, "user", user_message])
+            conn.execute("UPDATE ai_chat_sessions SET messages_count=messages_count+1, updated_at=datetime('now') WHERE id=?",
+                        [session_id])
+    except Exception as e:
+        logger.warning("Chat session tracking error: %s", e)
+        session_id = session_id or 0
+
+    # RAG: load KB articles
     kb_context = ""
     try:
         with get_db() as conn:
             articles = conn.execute(
-                "SELECT title, content, category FROM kb_articles WHERE status='published' ORDER BY views DESC LIMIT 20"
+                "SELECT title, content, category FROM kb_articles WHERE status='published' ORDER BY views DESC LIMIT 15"
             ).fetchall()
             if articles:
                 kb_parts = []
                 for a in articles:
-                    kb_parts.append(f"### {a[0]} (category: {a[1] if len(a) > 2 else 'general'})\n{a[1] if len(a) > 1 else ''}")
+                    kb_parts.append(f"### {a[0]} (category: {a[2] if len(a) > 2 else 'general'})\n{a[1] if len(a) > 1 else ''}")
                 kb_context = "\n\n".join(kb_parts)
     except Exception as e:
-        logger.warning("Failed to load KB for chat: %s", e)
+        logger.warning("Failed to load KB: %s", e)
 
-    # Load user's company info and recent tickets for context
-    user_context = ""
-    try:
-        with get_db() as conn:
-            company_id = user.get("company_id")
-            if company_id:
-                comp = conn.execute("SELECT name FROM companies WHERE id=?", [company_id]).fetchone()
-                if comp:
-                    user_context += f"\nUser's company: {comp[0]}"
-                # Recent tickets
-                recent = conn.execute(
-                    "SELECT id, subject, status, priority FROM tickets WHERE company_id=? ORDER BY created_at DESC LIMIT 5",
-                    [company_id]
-                ).fetchall()
-                if recent:
-                    user_context += "\nRecent tickets:"
-                    for t in recent:
-                        user_context += f"\n- #{t[0]}: {t[1]} (status: {t[2]}, priority: {t[3]})"
-                # Active contracts
-                contracts = conn.execute(
-                    "SELECT id, subject, status FROM contracts WHERE counterparty IN (SELECT name FROM companies WHERE id=?) ORDER BY created_at DESC LIMIT 5",
-                    [company_id]
-                ).fetchall()
-                if contracts:
-                    user_context += "\nActive contracts:"
-                    for c in contracts:
-                        user_context += f"\n- #{c[0]}: {c[1]} (status: {c[2]})"
-    except Exception as e:
-        logger.warning("Failed to load user context for chat: %s", e)
+    system_prompt = f"""You are Hermes AI Assistant — a helpful, professional support agent for the Hermes CRM client portal.
 
-    system_prompt = f"""You are Hermes AI Assistant — a helpful support agent for the Hermes CRM client portal.
-You help customers with questions about their tickets, contracts, services, and general IT support topics.
+CAPABILITIES (use tools when appropriate):
+- get_tickets: Look up user's support tickets, check status
+- create_ticket: Create a new support ticket (always confirm details with user first!)
+- get_contracts: Check contract information
+- get_documents: List shared documents
+- escalate_to_human: Transfer to a human agent when needed
 
-IMPORTANT RULES:
-- Be friendly, professional, and concise
-- Answer in the same language the user writes in (Russian, Azerbaijani, or English)
-- If you don't know something, say so honestly and suggest creating a support ticket
-- Never make up ticket numbers or statuses — only reference real data provided in context
-- For complex issues, suggest the user creates a new support ticket
-- Keep responses under 300 words
+RULES:
+- Be friendly, professional, and concise (max 200 words)
+- Answer in the SAME LANGUAGE the user writes in (Russian, Azerbaijani, or English)
+- Use tools to get REAL data — never make up ticket numbers or statuses
+- Before creating a ticket, confirm subject and description with user
+- If you cannot help or user asks for human — use escalate_to_human tool
+- Format tool results nicely for the user
 
-{f"KNOWLEDGE BASE ARTICLES:{chr(10)}{kb_context}" if kb_context else "No knowledge base articles available yet."}
-
-{f"USER CONTEXT:{user_context}" if user_context else ""}
+{f"KNOWLEDGE BASE:{chr(10)}{kb_context}" if kb_context else ""}
 
 Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Company ID: {company_id}
 """
 
-    # Build messages for Claude
+    # Build messages
     messages = []
-    for h in history[-10:]:  # Last 10 messages for context
+    for h in history[-10:]:
         role = h.get("role", "user")
         content = h.get("content", "")
         if role in ("user", "assistant") and content:
@@ -9012,17 +9214,156 @@ Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=messages
-        )
-        ai_text = response.content[0].text if response.content else "Sorry, I couldn't generate a response."
-        return _ok({"response": ai_text})
+        tools_used = []
+
+        # Tool use loop (max 3 iterations)
+        for _iteration in range(3):
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=messages,
+                tools=AI_TOOLS
+            )
+
+            # Check if model wants to use a tool
+            if response.stop_reason == "tool_use":
+                # Collect all text + tool_use blocks
+                assistant_content = []
+                tool_results = []
+                for block in response.content:
+                    if block.type == "text":
+                        assistant_content.append(block)
+                    elif block.type == "tool_use":
+                        assistant_content.append(block)
+                        tool_name = block.name
+                        tool_input = block.input
+                        tools_used.append(tool_name)
+                        logger.info("AI Tool call: %s(%s)", tool_name, json.dumps(tool_input, ensure_ascii=False))
+                        result = _execute_tool(tool_name, tool_input, company_id, portal_user_id)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result
+                        })
+
+                messages.append({"role": "assistant", "content": assistant_content})
+                messages.append({"role": "user", "content": tool_results})
+                continue  # Let model process tool results
+            else:
+                # Final text response
+                break
+
+        # Extract final text
+        ai_text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                ai_text += block.text
+
+        if not ai_text:
+            ai_text = "I've completed the action. Is there anything else I can help with?"
+
+        # Log AI response and tools
+        try:
+            with get_db() as conn:
+                conn.execute("INSERT INTO ai_chat_messages (session_id, role, content) VALUES (?,?,?)",
+                            [session_id, "assistant", ai_text])
+                if tools_used:
+                    conn.execute("UPDATE ai_chat_sessions SET tools_used=?, updated_at=datetime('now') WHERE id=?",
+                                [json.dumps(tools_used), session_id])
+        except Exception:
+            pass
+
+        return _ok({"response": ai_text, "session_id": session_id, "tools_used": tools_used})
     except Exception as e:
         logger.error("AI chat error: %s", e)
         _err(f"AI service error: {str(e)}", 500)
+
+
+# ─── Command Center API ─────────────────────────────────────────────
+
+@app.get("/api/ai/command-center")
+async def ai_command_center(user=Depends(require_auth)):
+    """AI Agent Command Center — metrics dashboard for admins."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            # Total sessions
+            total = conn.execute("SELECT COUNT(*) FROM ai_chat_sessions").fetchone()[0]
+            # Sessions today
+            today = conn.execute("SELECT COUNT(*) FROM ai_chat_sessions WHERE date(created_at)=date('now')").fetchone()[0]
+            # Total messages
+            total_msgs = conn.execute("SELECT COUNT(*) FROM ai_chat_messages").fetchone()[0]
+            # Resolved without human (no escalate_to_human tool used)
+            resolved = conn.execute("SELECT COUNT(*) FROM ai_chat_sessions WHERE tools_used NOT LIKE '%escalate%'").fetchone()[0]
+            escalated = conn.execute("SELECT COUNT(*) FROM ai_chat_sessions WHERE tools_used LIKE '%escalate%'").fetchone()[0]
+            # Deflection rate
+            deflection_rate = round((resolved / total * 100) if total > 0 else 0, 1)
+            # Avg messages per session
+            avg_msgs = conn.execute("SELECT AVG(messages_count) FROM ai_chat_sessions").fetchone()[0] or 0
+            # Tool usage stats
+            all_tools = conn.execute("SELECT tools_used FROM ai_chat_sessions WHERE tools_used != '[]'").fetchall()
+            tool_counts = {}
+            for row in all_tools:
+                try:
+                    for t in json.loads(row[0]):
+                        tool_counts[t] = tool_counts.get(t, 0) + 1
+                except Exception:
+                    pass
+            # Sessions by day (last 7 days)
+            daily = conn.execute("""
+                SELECT date(created_at) as day, COUNT(*) as cnt
+                FROM ai_chat_sessions
+                WHERE created_at >= datetime('now', '-7 days')
+                GROUP BY date(created_at) ORDER BY day
+            """).fetchall()
+            daily_data = [{"date": r[0], "count": r[1]} for r in daily]
+            # Recent sessions
+            recent = conn.execute("""
+                SELECT s.id, s.portal_user_id, s.messages_count, s.tools_used, s.created_at,
+                       pu.full_name, pu.email
+                FROM ai_chat_sessions s
+                LEFT JOIN portal_users pu ON s.portal_user_id = pu.id
+                ORDER BY s.created_at DESC LIMIT 20
+            """).fetchall()
+            recent_sessions = []
+            for r in recent:
+                recent_sessions.append({
+                    "id": r[0], "portal_user_id": r[1], "messages_count": r[2],
+                    "tools_used": json.loads(r[3]) if r[3] else [],
+                    "created_at": r[4], "user_name": r[5] or "Unknown", "user_email": r[6] or ""
+                })
+
+            return _ok({
+                "total_sessions": total,
+                "sessions_today": today,
+                "total_messages": total_msgs,
+                "resolved_without_human": resolved,
+                "escalated": escalated,
+                "deflection_rate": deflection_rate,
+                "avg_messages_per_session": round(avg_msgs, 1),
+                "tool_usage": tool_counts,
+                "daily_sessions": daily_data,
+                "recent_sessions": recent_sessions
+            })
+    except Exception as e:
+        logger.error("Command center error: %s", e)
+        _err(str(e), 500)
+
+
+@app.get("/api/ai/chat-session/{session_id}")
+async def ai_chat_session_detail(session_id: int, user=Depends(require_auth)):
+    """Get full chat session transcript for admins."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            msgs = conn.execute(
+                "SELECT role, content, tool_name, created_at FROM ai_chat_messages WHERE session_id=? ORDER BY created_at",
+                [session_id]
+            ).fetchall()
+            return _ok([{"role": r[0], "content": r[1], "tool": r[2], "time": r[3]} for r in msgs])
+    except Exception as e:
+        _err(str(e), 500)
 
 
 # Serve portal SPA

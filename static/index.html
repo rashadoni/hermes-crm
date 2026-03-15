@@ -7791,30 +7791,25 @@ async function runNlAnalytics() {
       }
       html += '</div>';
     }
-    // Data table
-    if (d.data && d.data.length > 0) {
+    // Data table (show only when there are multiple rows — skip single COUNT/SUM results since answer already covers them)
+    if (d.data && d.data.length > 1) {
       const cols = Object.keys(d.data[0]);
       html += '<div style="overflow-x:auto;max-height:250px;overflow-y:auto;border-radius:8px;border:1px solid rgba(71,85,105,0.2)">';
-      html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
       html += '<thead><tr>';
-      cols.forEach(function(c) { html += '<th style="background:#1e293b;padding:6px 10px;text-align:left;color:#94a3b8;font-weight:600;position:sticky;top:0">' + esc(c) + '</th>'; });
+      cols.forEach(function(c) { html += '<th style="background:#1e293b;padding:8px 12px;text-align:left;color:#94a3b8;font-weight:600;position:sticky;top:0">' + esc(c) + '</th>'; });
       html += '</tr></thead><tbody>';
       d.data.slice(0, 20).forEach(function(row, i) {
         html += '<tr style="background:' + (i%2?'#0f172a':'#0f172a80') + '">';
-        cols.forEach(function(c) { html += '<td style="padding:5px 10px;color:#cbd5e1;border-top:1px solid rgba(71,85,105,0.1)">' + esc(String(row[c]??'')) + '</td>'; });
+        cols.forEach(function(c) { html += '<td style="padding:6px 12px;color:#cbd5e1;border-top:1px solid rgba(71,85,105,0.1)">' + esc(String(row[c]??'')) + '</td>'; });
         html += '</tr>';
       });
       html += '</tbody></table></div>';
       if (d.row_count > 20) html += '<div style="font-size:10px;color:#475569;text-align:center;margin-top:4px">' + _t('Showing','Показано','Göstərilir') + ' 20/' + d.row_count + '</div>';
     }
-    // SQL query (collapsible)
-    if (d.sql) {
-      html += '<details style="margin-top:8px"><summary style="font-size:10px;color:#475569;cursor:pointer">SQL запрос</summary><pre style="background:#0f172a;padding:8px;border-radius:6px;font-size:10px;color:#64748b;overflow-x:auto;margin-top:4px">' + esc(d.sql) + '</pre></details>';
-    }
     if (d.error) {
       html += '<div style="font-size:11px;color:#f87171;margin-top:6px">⚠️ ' + esc(d.error) + '</div>';
     }
-    html += '<div style="text-align:right;font-size:10px;color:#475569;margin-top:4px">' + (d.latency_ms||0) + 'ms</div>';
     html += '</div>';
     container.innerHTML = html;
   } catch(e) {

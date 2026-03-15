@@ -326,19 +326,15 @@
             } catch(e) { showToast(e.message); }
         }
 
-        function generateNotifications() {
-            const now = new Date();
-            notifications = [
-                { id: 1, title: L === 'ru' ? '\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432 Hermes Portal' : 'Welcome to Hermes Portal',
-                  text: L === 'ru' ? '\u0412\u0430\u0448 \u0430\u043a\u043a\u0430\u0443\u043d\u0442 \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d' : 'Your account is set up and ready',
-                  time: new Date(now - 3600000).toLocaleString(), unread: true },
-                { id: 2, title: L === 'ru' ? '\u041d\u043e\u0432\u044b\u0439 \u043a\u043e\u043d\u0442\u0440\u0430\u043a\u0442' : 'New contract available',
-                  text: L === 'ru' ? '\u0414\u043e\u0433\u043e\u0432\u043e\u0440 \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438 \u0444\u0430\u0440\u043c\u043f\u0440\u0435\u043f\u0430\u0440\u0430\u0442\u043e\u0432 2026 \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d' : 'Supply contract 2026 has been added',
-                  time: new Date(now - 7200000).toLocaleString(), unread: true },
-                { id: 3, title: L === 'ru' ? '\u0422\u0438\u043a\u0435\u0442 \u043e\u0431\u043d\u043e\u0432\u043b\u0451\u043d' : 'Ticket updated',
-                  text: L === 'ru' ? '\u0412\u0430\u0448 \u0442\u0438\u043a\u0435\u0442 TK-0009 \u043f\u043e\u043b\u0443\u0447\u0438\u043b \u043e\u0442\u0432\u0435\u0442' : 'Your ticket TK-0009 received a response',
-                  time: new Date(now - 86400000).toLocaleString(), unread: false }
-            ];
+        async function loadNotifications() {
+            try {
+                const data = await api('GET', '/api/portal/notifications');
+                notifications = (data || []).map(n => ({
+                    id: n.id, title: n.title, text: n.message || '',
+                    time: n.created_at ? new Date(n.created_at).toLocaleString() : '',
+                    unread: !n.is_read, entity_type: n.entity_type, entity_id: n.entity_id
+                }));
+            } catch(e) { notifications = []; }
         }
 
         // ═══════════════════ HELPERS ═══════════════════
@@ -401,8 +397,14 @@
         }
 
         function toggleNotifs() { showNotifPanel = !showNotifPanel; render(); }
-        function markAllRead() { notifications.forEach(n => n.unread = false); render(); }
-        function readNotif(id) { const n = notifications.find(x => x.id === id); if (n) n.unread = false; render(); }
+        async function markAllRead() {
+            try { await api('POST', '/api/portal/notifications/read', { all: true }); } catch(e) {}
+            notifications.forEach(n => n.unread = false); render();
+        }
+        async function readNotif(id) {
+            try { await api('POST', '/api/portal/notifications/read', { id: id }); } catch(e) {}
+            const n = notifications.find(x => x.id === id); if (n) n.unread = false; render();
+        }
 
         // ═══════════════════ DASHBOARD ═══════════════════
         async function renderDashboard() {
@@ -602,6 +604,7 @@
         async function render() {
             const app = document.getElementById('app');
             if (!currentUser) { app.innerHTML = currentPage === 'register' ? renderRegisterPage() : renderLoginPage(); return; }
+            if (!notifications.length) loadNotifications().then(() => { const tb = document.querySelector('.notif-bell'); if(tb) { const u = notifications.filter(n=>n.unread).length; const badge = tb.querySelector('.notif-count'); if(u && !badge) { tb.insertAdjacentHTML('beforeend','<span class="notif-count">' + u + '</span>'); } } });
 
             const pageNames = { dashboard: t('dashboard'), tickets: t('tickets'), contracts: t('contracts'), documents: t('documents'), profile: t('profile') };
             app.innerHTML = renderSidebar() + renderNotifPanel() +

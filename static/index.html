@@ -17823,48 +17823,70 @@ async function onLeadDrop(e, newStatus) {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async function renderOmniChannelPage(container) {
-        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">📡 Omni-Channel / Бір каналды платформа</h2><div id="omniContent"><div class="loading">Загрузка...</div></div></div>';
-
+        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">📡 Omni-Channel</h2><div id="omniContent"><div class="loading">Загрузка...</div></div></div>';
         try {
-            const [convRes, statsRes] = await Promise.allSettled([
+            const [convRes, statsRes, leadsRes] = await Promise.allSettled([
                 api.get('/api/channels/conversations'),
-                api.get('/api/channels/stats')
+                api.get('/api/channels/stats'),
+                api.get('/api/leads?limit=100')
             ]);
-            const conversations = convRes.status==='fulfilled' ? (convRes.value.data || []) : [];
+            const messages = convRes.status==='fulfilled' ? (convRes.value.data || []) : [];
             const stats = statsRes.status==='fulfilled' ? (statsRes.value.data || {}) : {};
+            const leads = leadsRes.status==='fulfilled' ? (leadsRes.value.data?.leads || leadsRes.value.data || []) : [];
+
+            // Group messages by contact_id to form conversations
+            const convMap = {};
+            messages.forEach(m => {
+                const cid = m.contact_id || m.lead_id || 0;
+                if(!convMap[cid]) convMap[cid] = {id:cid, msgs:[], last:m, channel:m.channel_type};
+                convMap[cid].msgs.push(m);
+                if(m.created_at > (convMap[cid].last.created_at||'')) convMap[cid].last = m;
+            });
+            const convList = Object.values(convMap).sort((a,b)=>(b.last.created_at||'').localeCompare(a.last.created_at||''));
+
+            // Store leads for new-message modal
+            window._omniLeads = leads;
 
             let h = '';
-            // Stats cards
+            // Stats
             h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">';
-            h += _statCard('💬', 'Сообщения / Mesajlar', stats.total_messages || 0, '#3b82f6');
-            h += _statCard('📥', 'Входящие / Gələn', stats.inbound || 0, '#22c55e');
-            h += _statCard('📤', 'Исходящие / Gedən', stats.outbound || 0, '#f59e0b');
-            h += _statCard('👥', 'Диалоги / Dialoqular', stats.conversations || 0, '#8b5cf6');
+            h += _statCard('💬', 'Сообщения', stats.total_messages || messages.length, '#3b82f6');
+            h += _statCard('📥', 'Входящие', stats.inbound || messages.filter(m=>m.direction==='inbound').length, '#22c55e');
+            h += _statCard('📤', 'Исходящие', stats.outbound || messages.filter(m=>m.direction==='outbound').length, '#f59e0b');
+            h += _statCard('👥', 'Диалоги', stats.conversations || convList.length, '#8b5cf6');
             h += '</div>';
 
-            // Channel filter tabs
+            // Action bar
             h += '<div style="display:flex;gap:8px;margin-bottom:16px">';
-            ['all','telegram','whatsapp','email','sms','portal'].forEach(ch => {
-                const icons = {all:'🌐',telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱',portal:'🖥️'};
-                h += `<button onclick="filterOmniChannel('${ch}')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:${ch==='all'?'#3b82f6':'#1e293b'};color:#e2e8f0;cursor:pointer" id="omniTab_${ch}">${icons[ch]||''} ${ch==='all'?'Все':ch}</button>`;
+            h += '<button onclick="openOmniNewMsg()" style="padding:10px 20px;border-radius:8px;background:#8b5cf6;color:white;border:none;cursor:pointer;font-weight:600">✉️ Новое сообщение</button>';
+            const chTabs = ['all','email','sms','telegram','whatsapp'];
+            const chIcons = {all:'🌐',email:'📧',sms:'📱',telegram:'✈️',whatsapp:'💚'};
+            chTabs.forEach(ch=>{
+                h += `<button onclick="filterOmniChannel('${ch}')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:${ch==='all'?'#3b82f622':'#1e293b'};color:#e2e8f0;cursor:pointer" id="omniTab_${ch}">${chIcons[ch]} ${ch==='all'?'Все':ch.toUpperCase()}</button>`;
             });
             h += '</div>';
 
-            // Conversations list + chat area
-            h += '<div style="display:grid;grid-template-columns:350px 1fr;gap:16px;height:500px">';
+            // Layout: conversation list + chat
+            h += '<div style="display:grid;grid-template-columns:360px 1fr;gap:16px;height:480px">';
 
-            // Left: conversation list
+            // Left: conversations
             h += '<div id="omniConvList" style="background:#0f172a;border-radius:12px;border:1px solid rgba(255,255,255,0.1);overflow-y:auto">';
-            if (conversations.length === 0) {
-                h += '<div style="padding:40px;text-align:center;color:#64748b">Нет сообщений</div>';
+            if(convList.length===0){
+                h += '<div style="padding:40px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📭</div><div style="color:#64748b">Нет сообщений.<br>Нажмите "Новое сообщение"</div></div>';
             } else {
-                conversations.forEach(c => {
-                    const chIcon = {telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱',portal:'🖥️'}[c.channel_type] || '💬';
-                    h += `<div onclick="loadConversation(${c.contact_id||0})" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;display:flex;align-items:center;gap:12px" class="conv-item">`;
-                    h += `<span style="font-size:20px">${chIcon}</span>`;
-                    h += `<div style="flex:1;min-width:0"><div style="color:#e2e8f0;font-weight:500">${esc(c.contact_name||c.sender_name||'Unknown')}</div>`;
-                    h += `<div style="color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((c.last_message||'').substring(0,50))}</div></div>`;
-                    if (c.unread_count > 0) h += `<span style="background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px">${c.unread_count}</span>`;
+                convList.forEach(c=>{
+                    const m = c.last;
+                    const chIcon = chIcons[m.channel_type]||'💬';
+                    const name = m.sender_name || 'Лид #'+c.id;
+                    // Try to find lead name
+                    const lead = leads.find(l=>l.id===c.id);
+                    const displayName = lead ? lead.contact_name : name;
+                    h += `<div onclick="loadOmniConversation(${c.id})" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.15s" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" class="omni-conv" data-channel="${m.channel_type}">`;
+                    h += `<div style="width:40px;height:40px;border-radius:50%;background:#8b5cf622;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${chIcon}</div>`;
+                    h += `<div style="flex:1;min-width:0"><div style="color:#e2e8f0;font-weight:500;font-size:14px">${esc(displayName)}</div>`;
+                    h += `<div style="color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((m.content||'').substring(0,60))}</div></div>`;
+                    h += `<div style="text-align:right;flex-shrink:0"><div style="color:#64748b;font-size:11px">${m.created_at ? new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}) : ''}</div>`;
+                    h += `<div style="color:#94a3b8;font-size:11px;margin-top:2px">${c.msgs.length} сообщ.</div></div>`;
                     h += '</div>';
                 });
             }
@@ -17872,14 +17894,13 @@ async function onLeadDrop(e, newStatus) {
 
             // Right: chat area
             h += '<div id="omniChatArea" style="background:#0f172a;border-radius:12px;border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column">';
-            h += '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#64748b">Выберите диалог / Dialoqu seçin</div>';
+            h += '<div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="text-align:center"><div style="font-size:48px;margin-bottom:12px">💬</div><div style="color:#64748b">Выберите диалог или начните новый</div></div></div>';
             h += '</div>';
-
             h += '</div>';
 
             document.getElementById('omniContent').innerHTML = h;
         } catch(e) {
-            document.getElementById('omniContent').innerHTML = '<div style="color:#ef4444">Ошибка загрузки: '+e.message+'</div>';
+            document.getElementById('omniContent').innerHTML = '<div style="color:#ef4444">Ошибка: '+e.message+'</div>';
         }
     }
 
@@ -17891,29 +17912,92 @@ async function onLeadDrop(e, newStatus) {
         </div>`;
     }
 
-    async function loadConversation(contactId) {
+    function openOmniNewMsg(){
+        const leads = window._omniLeads || [];
+        const m = document.createElement('div');m.id='omniNewMsgModal';
+        m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center';
+        let opts='';leads.forEach(l=>{
+            const info = [l.email,l.phone].filter(Boolean).join(' · ');
+            opts+=`<option value="${l.id}">${esc(l.contact_name||'Лид #'+l.id)} — ${esc(info)}</option>`;
+        });
+        m.innerHTML=`<div style="background:#1e293b;border-radius:14px;padding:24px;width:540px">
+            <h4 style="color:#e2e8f0;margin:0 0 16px">✉️ Новое сообщение</h4>
+            <label style="color:#94a3b8;font-size:12px">Получатель (лид)</label>
+            <select id="omniNewTo" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px">${opts}</select>
+            <label style="color:#94a3b8;font-size:12px">Канал</label>
+            <select id="omniNewChannel" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px">
+                <option value="email">📧 Email</option><option value="sms">📱 SMS</option></select>
+            <label style="color:#94a3b8;font-size:12px">Тема (только для email)</label>
+            <input id="omniNewSubject" placeholder="Тема письма..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px;box-sizing:border-box">
+            <label style="color:#94a3b8;font-size:12px">Сообщение</label>
+            <textarea id="omniNewContent" rows="4" placeholder="Текст сообщения..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
+            <div style="display:flex;gap:12px;justify-content:flex-end">
+                <button onclick="document.getElementById('omniNewMsgModal')?.remove()" style="padding:8px 18px;border-radius:8px;background:#334155;color:#e2e8f0;border:none;cursor:pointer;font-size:13px">Отмена</button>
+                <button onclick="sendOmniNewMsg()" style="padding:8px 18px;border-radius:8px;background:#8b5cf6;color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600" id="omniSendBtn">📤 Отправить</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+    }
+
+    async function sendOmniNewMsg(){
+        const leadId = parseInt(document.getElementById('omniNewTo')?.value);
+        const channel = document.getElementById('omniNewChannel')?.value;
+        const subject = document.getElementById('omniNewSubject')?.value?.trim();
+        const content = document.getElementById('omniNewContent')?.value?.trim();
+        if(!content){showToast('Введите текст сообщения','error');return;}
+        const btn=document.getElementById('omniSendBtn');if(btn){btn.disabled=true;btn.textContent='⏳ Отправка...';}
+        try{
+            const res = await api.post('/api/channels/messages/send',{lead_id:leadId,channel_type:channel,content:content,subject:subject});
+            const d = res.data||{};
+            if(d.status==='sent'){
+                showToast(`✅ ${channel==='email'?'Email':'SMS'} отправлен!`,'success');
+                document.getElementById('omniNewMsgModal')?.remove();
+                renderOmniChannelPage(document.getElementById('app'));
+            } else {
+                showToast('Ошибка: '+(d.error||'не удалось отправить'),'error');
+                if(btn){btn.disabled=false;btn.textContent='📤 Отправить';}
+            }
+        }catch(e){showToast('Ошибка: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent='📤 Отправить';}}
+    }
+
+    async function loadOmniConversation(entityId) {
         const area = document.getElementById('omniChatArea');
         area.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b">Загрузка...</div>';
         try {
-            const res = await api.get('/api/channels/conversations/'+contactId);
+            const res = await api.get('/api/channels/conversations/'+entityId+'?type=lead');
             const msgs = res.data || [];
-            let h = '<div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px">';
+            const lead = (window._omniLeads||[]).find(l=>l.id===entityId);
+            const name = lead ? lead.contact_name : 'Лид #'+entityId;
+            let h = '';
+            // Header
+            h += `<div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:10px">`;
+            h += `<div style="width:36px;height:36px;border-radius:50%;background:#8b5cf622;display:flex;align-items:center;justify-content:center;font-size:16px">${(name[0]||'?').toUpperCase()}</div>`;
+            h += `<div><div style="color:#e2e8f0;font-weight:600">${esc(name)}</div>`;
+            h += `<div style="color:#64748b;font-size:11px">${lead?esc([lead.email,lead.phone].filter(Boolean).join(' · ')):''}</div></div></div>`;
+            // Messages
+            h += '<div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px">';
+            if(msgs.length===0){
+                h += '<div style="text-align:center;color:#64748b;padding:40px">Нет сообщений</div>';
+            }
             msgs.forEach(m => {
                 const isOut = m.direction === 'outbound';
-                const chIcon = {telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱',portal:'🖥️'}[m.channel_type]||'💬';
+                const chIcons = {telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱',portal:'🖥️'};
+                const chIcon = chIcons[m.channel_type]||'💬';
+                const statusIcon = m.status==='sent'?'✅':m.status==='failed'?'❌':'⏳';
                 h += `<div style="display:flex;justify-content:${isOut?'flex-end':'flex-start'}">`;
-                h += `<div style="max-width:70%;padding:10px 14px;border-radius:12px;background:${isOut?'#3b82f6':'#1e293b'};color:#e2e8f0">`;
-                h += `<div style="font-size:11px;color:${isOut?'#bfdbfe':'#64748b'};margin-bottom:4px">${chIcon} ${m.channel_type} · ${new Date(m.created_at).toLocaleString()}</div>`;
-                h += `<div>${esc(m.content||'')}</div>`;
+                h += `<div style="max-width:70%;padding:10px 14px;border-radius:${isOut?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${isOut?'linear-gradient(135deg,#3b82f6,#8b5cf6)':'#1e293b'};color:#e2e8f0">`;
+                h += `<div style="font-size:11px;color:${isOut?'#c4b5fd':'#64748b'};margin-bottom:4px">${chIcon} ${m.channel_type.toUpperCase()} · ${statusIcon} · ${m.created_at ? new Date(m.created_at).toLocaleString('ru',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}) : ''}</div>`;
+                h += `<div style="word-break:break-word">${esc(m.content||'')}</div>`;
                 h += '</div></div>';
             });
             h += '</div>';
             // Send box
             h += `<div style="padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px">`;
             h += `<select id="omniSendChannel" style="padding:8px;border-radius:8px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1)">
-                <option value="email">📧 Email</option><option value="telegram">✈️ Telegram</option><option value="whatsapp">💚 WhatsApp</option><option value="sms">📱 SMS</option></select>`;
-            h += `<input id="omniSendMsg" placeholder="Сообщение..." style="flex:1;padding:8px 12px;border-radius:8px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1)" onkeypress="if(event.key==='Enter')sendOmniMessage(${contactId})">`;
-            h += `<button onclick="sendOmniMessage(${contactId})" style="padding:8px 16px;border-radius:8px;background:#3b82f6;color:white;border:none;cursor:pointer">📤</button>`;
+                <option value="email">📧 Email</option><option value="sms">📱 SMS</option></select>`;
+            h += `<input id="omniSendMsg" placeholder="Сообщение..." style="flex:1;padding:8px 12px;border-radius:8px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1)" onkeypress="if(event.key==='Enter')sendOmniReply(${entityId})">`;
+            h += `<button onclick="sendOmniReply(${entityId})" style="padding:8px 16px;border-radius:8px;background:#3b82f6;color:white;border:none;cursor:pointer;font-weight:600">📤</button>`;
             h += '</div>';
             area.innerHTML = h;
         } catch(e) {
@@ -17921,22 +18005,26 @@ async function onLeadDrop(e, newStatus) {
         }
     }
 
-    async function sendOmniMessage(contactId) {
+    async function sendOmniReply(entityId) {
         const content = document.getElementById('omniSendMsg')?.value?.trim();
         const channel = document.getElementById('omniSendChannel')?.value;
         if (!content) return;
         try {
-            await api.post('/api/channels/messages/send', {contact_id: contactId, channel_type: channel, content: content});
+            const res = await api.post('/api/channels/messages/send', {lead_id: entityId, channel_type: channel, content: content});
+            const d = res.data||{};
             document.getElementById('omniSendMsg').value = '';
-            loadConversation(contactId);
-        } catch(e) { showToast('Ошибка отправки: '+e.message, 'error'); }
+            if(d.status==='sent') showToast('✅ Отправлено','success');
+            else showToast('⚠️ '+(d.error||'Ошибка'),'error');
+            loadOmniConversation(entityId);
+        } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
     function filterOmniChannel(ch) {
         document.querySelectorAll('[id^="omniTab_"]').forEach(b => b.style.background = '#1e293b');
-        document.getElementById('omniTab_'+ch).style.background = '#3b82f6';
-        // Re-fetch with filter
-        renderOmniChannelPage(document.getElementById('app') || document.querySelector('[id]'));
+        document.getElementById('omniTab_'+ch).style.background = '#3b82f622';
+        document.querySelectorAll('.omni-conv').forEach(el => {
+            el.style.display = (ch==='all' || el.dataset.channel===ch) ? 'flex' : 'none';
+        });
     }
 
     // ─── Channel Configs Page ───

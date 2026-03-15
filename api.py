@@ -8841,34 +8841,23 @@ async def get_conversations(user=Depends(require_auth), limit: int = 50, offset:
         return _err(str(e), 500)
 
 
-@app.get("/api/channels/conversations/{contact_id}")
-async def get_conversation_history(contact_id: int, user=Depends(require_auth)):
-    """Get all messages for a contact across ALL channels, ordered by time. Unified view of all communication."""
+@app.get("/api/channels/conversations/{entity_id}")
+async def get_conversation_history(entity_id: int, request: Request, user=Depends(require_auth)):
+    """Get all messages for a contact or lead across ALL channels, ordered by time."""
     try:
+        entity_type = request.query_params.get("type", "lead")
         with get_db() as conn:
-            query = """
-                SELECT id, channel_type, channel_message_id, direction, contact_id, lead_id,
-                       sender_name, sender_identifier, content, message_type, media_url, status,
-                       metadata, created_at
-                FROM channel_messages
-                WHERE contact_id = ?
-                ORDER BY created_at ASC
-            """
-            rows = conn.execute(query, [contact_id]).fetchall()
-            cols = ["id", "channel_type", "channel_message_id", "direction", "contact_id", "lead_id",
-                   "sender_name", "sender_identifier", "content", "message_type", "media_url", "status",
-                   "metadata", "created_at"]
-
-            result = []
-            for r in rows:
-                d = dict(zip(cols, r))
-                try:
-                    d["metadata"] = json.loads(d["metadata"] or "{}")
-                except Exception:
-                    d["metadata"] = {}
-                result.append(d)
-
-            return _ok(result)
+            if entity_type == "lead":
+                rows = conn.execute(
+                    "SELECT * FROM channel_messages WHERE contact_id=? OR lead_id=? ORDER BY created_at ASC",
+                    [entity_id, entity_id]
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM channel_messages WHERE contact_id=? ORDER BY created_at ASC",
+                    [entity_id]
+                ).fetchall()
+            return _ok([dict(r) for r in rows])
     except Exception as e:
         logger.error("get_conversation_history: %s", e)
         return _err(str(e), 500)
@@ -8890,26 +8879,69 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
         if channel_type not in ["telegram", "whatsapp", "email", "sms", "portal"]:
             return _err(f"Invalid channel_type", 400)
 
+        lead_id = data.get("lead_id")
+        subject = data.get("subject", "").strip()
+
         with get_db() as conn:
+            # Look up recipient email/phone from contact or lead
+            recipient_email = None
+            recipient_phone = None
+            recipient_name = None
+
+            if contact_id:
+                entity = conn.execute("SELECT * FROM contacts WHERE id=?", [contact_id]).fetchone()
+                if entity:
+                    entity = dict(entity)
+                    recipient_email = entity.get("email")
+                    recipient_phone = entity.get("phone")
+                    recipient_name = entity.get("full_name") or entity.get("contact_name", "")
+            elif lead_id:
+                entity = conn.execute("SELECT * FROM leads WHERE id=?", [lead_id]).fetchone()
+                if entity:
+                    entity = dict(entity)
+                    recipient_email = entity.get("email")
+                    recipient_phone = entity.get("phone")
+                    recipient_name = entity.get("contact_name") or entity.get("full_name", "")
+
+            # Save message to DB
             cur = conn.execute(
                 """INSERT INTO channel_messages (channel_type, direction, contact_id, content, message_type, status)
-                   VALUES (?, 'outbound', ?, ?, ?, 'sent')""",
-                [channel_type, contact_id, content, message_type]
+                   VALUES (?, 'outbound', ?, ?, ?, 'pending')""",
+                [channel_type, contact_id or lead_id, content, message_type]
             )
             msg_id = cur.lastrowid
+
+            # Actually deliver the message
+            delivery_status = "saved"
+            delivery_error = None
+
+            if channel_type == "email" and recipient_email:
+                subj = subject or "Сообщение от Hermes CRM"
+                body_html = content if "<" in content else f"<html><body><p>{content}</p></body></html>"
+                success = await send_email(recipient_email, subj, body_html)
+                delivery_status = "sent" if success else "failed"
+                if not success:
+                    delivery_error = "Email delivery failed"
+            elif channel_type == "sms" and recipient_phone:
+                phone = recipient_phone if recipient_phone.startswith("+") else "+" + recipient_phone
+                success = await send_sms(phone, content)
+                delivery_status = "sent" if success else "failed"
+                if not success:
+                    delivery_error = "SMS delivery failed"
+            elif channel_type in ("email", "sms"):
+                delivery_status = "failed"
+                delivery_error = f"No {'email' if channel_type=='email' else 'phone'} for recipient"
+            else:
+                delivery_status = "sent"  # telegram/whatsapp/portal - just save for now
+
+            conn.execute("UPDATE channel_messages SET status=? WHERE id=?", [delivery_status, msg_id])
             conn.commit()
 
-            # Send notification to contact
-            if contact_id:
-                try:
-                    contact = conn.execute("SELECT user_id FROM contacts WHERE id=?", [contact_id]).fetchone()
-                    if contact and contact[0]:
-                        send_notification(contact[0], "channel_message", "New message", f"Message via {channel_type}", "channel_message", msg_id)
-                except Exception:
-                    pass
-
         log_audit(user["user_id"], "send_channel_message", "channel_message", msg_id, ip=_get_ip(request))
-        return _ok({"id": msg_id, "status": "sent", "channel_type": channel_type})
+        result = {"id": msg_id, "status": delivery_status, "channel_type": channel_type}
+        if delivery_error:
+            result["error"] = delivery_error
+        return _ok(result)
     except Exception as e:
         logger.error("send_channel_message: %s", e)
         return _err(str(e), 500)

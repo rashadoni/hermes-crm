@@ -8943,6 +8943,38 @@ def _ensure_ai_tables(conn):
             tool_name TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS ai_interaction_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER,
+            message_index INTEGER DEFAULT 0,
+            user_message TEXT DEFAULT '',
+            ai_response TEXT DEFAULT '',
+            latency_ms REAL DEFAULT 0,
+            prompt_tokens INTEGER DEFAULT 0,
+            completion_tokens INTEGER DEFAULT 0,
+            cost_usd REAL DEFAULT 0,
+            model TEXT DEFAULT '',
+            tools_called TEXT DEFAULT '[]',
+            tool_iterations INTEGER DEFAULT 0,
+            stop_reason TEXT DEFAULT '',
+            kb_articles_used TEXT DEFAULT '[]',
+            trace_json TEXT DEFAULT '[]',
+            quality_score REAL,
+            quality_notes TEXT,
+            is_copilot INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS ai_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT DEFAULT '',
+            severity TEXT DEFAULT 'warning',
+            message TEXT DEFAULT '',
+            session_id INTEGER,
+            log_id INTEGER,
+            metadata TEXT DEFAULT '{}',
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
     """)
 
 
@@ -9237,9 +9269,95 @@ def _get_relevant_kb_articles(query: str, conn, limit: int = 3) -> list:
         return []
 
 
+async def _quality_auditor(log_id: int, user_message: str, ai_response: str, kb_articles: list):
+    """Async Quality Auditor — rates AI response quality 1-10 using a mini-prompt."""
+    import asyncio
+    await asyncio.sleep(0.1)  # yield to event loop
+    try:
+        api_key = _get_ai_api_key()
+        if not api_key:
+            return
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        kb_info = ", ".join([a.get("title", "") for a in kb_articles]) if kb_articles else "None"
+        audit_prompt = f"""Rate this AI support response on a scale of 1-10. Consider:
+- Accuracy: Is the information correct and relevant?
+- Helpfulness: Does it solve the user's problem?
+- Tone: Is it professional and friendly?
+- Completeness: Does it address the full question?
+
+User question: {user_message[:300]}
+AI response: {ai_response[:500]}
+KB articles used: {kb_info}
+
+Respond ONLY in this exact JSON format, nothing else:
+{{"score": 7, "notes": "Brief explanation"}}"""
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=100,
+            messages=[{"role": "user", "content": audit_prompt}]
+        )
+        raw = resp.content[0].text.strip()
+        # Parse JSON from response
+        audit_data = json.loads(raw)
+        score = float(audit_data.get("score", 0))
+        notes = audit_data.get("notes", "")[:200]
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute("UPDATE ai_interaction_logs SET quality_score=?, quality_notes=? WHERE id=?",
+                        [score, notes, log_id])
+            # Alert if low quality
+            if score < 5:
+                session_row = conn.execute("SELECT session_id FROM ai_interaction_logs WHERE id=?", [log_id]).fetchone()
+                sid = session_row[0] if session_row else None
+                conn.execute(
+                    "INSERT INTO ai_alerts (type, severity, message, session_id, log_id, metadata) VALUES (?,?,?,?,?,?)",
+                    ["low_quality", "critical" if score < 3 else "warning",
+                     f"Low quality score: {score}/10 — {notes}",
+                     sid, log_id,
+                     json.dumps({"score": score, "notes": notes})]
+                )
+        logger.info("Quality Auditor: log_id=%d score=%.1f", log_id, score)
+    except Exception as e:
+        logger.warning("Quality Auditor error: %s", e)
+
+
+def _check_alerts(session_id: int, latency_ms: float, total_tokens: int, log_id: int):
+    """Check alert conditions and create alerts if triggered."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            # Alert: High latency (>10s)
+            if latency_ms > 10000:
+                conn.execute(
+                    "INSERT INTO ai_alerts (type, severity, message, session_id, log_id, metadata) VALUES (?,?,?,?,?,?)",
+                    ["high_latency", "warning",
+                     f"High latency: {latency_ms:.0f}ms ({latency_ms/1000:.1f}s)",
+                     session_id, log_id,
+                     json.dumps({"latency_ms": latency_ms})]
+                )
+            # Alert: Token spike (>3x avg of last 24h)
+            avg_row = conn.execute(
+                "SELECT AVG(prompt_tokens + completion_tokens) FROM ai_interaction_logs WHERE created_at >= datetime('now', '-1 day') AND id != ?",
+                [log_id]
+            ).fetchone()
+            avg_tokens = avg_row[0] if avg_row and avg_row[0] else 0
+            if avg_tokens > 0 and total_tokens > avg_tokens * 3:
+                conn.execute(
+                    "INSERT INTO ai_alerts (type, severity, message, session_id, log_id, metadata) VALUES (?,?,?,?,?,?)",
+                    ["token_spike", "warning",
+                     f"Token spike: {total_tokens} tokens (avg: {avg_tokens:.0f})",
+                     session_id, log_id,
+                     json.dumps({"tokens": total_tokens, "avg_24h": round(avg_tokens)})]
+                )
+    except Exception as e:
+        logger.warning("Alert check error: %s", e)
+
+
 @app.post("/api/portal/chat")
 async def portal_chat(request: Request):
-    """AI chat agent with Smart Actions (Tool Use) + session tracking."""
+    """AI chat agent with Smart Actions (Tool Use) + session tracking + observability."""
+    import time as _time
     user = _portal_require_auth(request)
     data = await request.json()
     user_message = (data.get("message") or "").strip()
@@ -9255,7 +9373,12 @@ async def portal_chat(request: Request):
     company_id = user.get("company_id")
     portal_user_id = user.get("portal_user_id")
 
+    # ── Trace collector ──
+    trace = []
+    t_total_start = _time.time()
+
     # Session tracking
+    msg_index = 0
     try:
         with get_db() as conn:
             _ensure_ai_tables(conn)
@@ -9270,13 +9393,15 @@ async def portal_chat(request: Request):
                         [session_id, "user", user_message])
             conn.execute("UPDATE ai_chat_sessions SET messages_count=messages_count+1, updated_at=datetime('now') WHERE id=?",
                         [session_id])
+            msg_index = conn.execute("SELECT COUNT(*) FROM ai_chat_messages WHERE session_id=? AND role='user'", [session_id]).fetchone()[0]
     except Exception as e:
         logger.warning("Chat session tracking error: %s", e)
         session_id = session_id or 0
 
-    # RAG: TF-IDF similarity search for relevant KB articles
+    # ── Step 1: RAG KB Search (with trace) ──
     kb_context = ""
     kb_articles_used = []
+    t_kb = _time.time()
     try:
         with get_db() as conn:
             relevant_articles = _get_relevant_kb_articles(user_message, conn, limit=3)
@@ -9284,10 +9409,18 @@ async def portal_chat(request: Request):
                 kb_parts = []
                 for a in relevant_articles:
                     kb_parts.append(f"### {a['title']} (ID: {a['id']}, category: {a.get('category', 'general')})\n{a['content'][:500]}")
-                    kb_articles_used.append({"id": a["id"], "title": a["title"]})
+                    kb_articles_used.append({"id": a["id"], "title": a["title"], "score": round(a.get("score", 0), 4)})
                 kb_context = "\n\n".join(kb_parts)
     except Exception as e:
         logger.warning("Failed to load KB: %s", e)
+    kb_ms = round((_time.time() - t_kb) * 1000, 1)
+    trace.append({
+        "step": "kb_search",
+        "articles_found": len(relevant_articles) if 'relevant_articles' in dir() else 0,
+        "articles_selected": len(kb_articles_used),
+        "articles": [{"id": a["id"], "title": a["title"], "score": a.get("score", 0)} for a in kb_articles_used],
+        "duration_ms": kb_ms
+    })
 
     system_prompt = f"""You are Hermes AI Assistant — a helpful, professional support agent for the Hermes CRM client portal.
 
@@ -9344,20 +9477,40 @@ Company ID: {company_id}
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         tools_used = []
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        final_stop_reason = ""
+        model_used = "claude-haiku-4-5-20251001"
 
-        # Tool use loop (max 3 iterations)
+        # ── Step 2-4: Tool use loop with trace ──
+        tool_iterations = 0
         for _iteration in range(3):
+            t_llm = _time.time()
             response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=model_used,
                 max_tokens=1024,
                 system=system_prompt,
                 messages=messages,
                 tools=AI_TOOLS
             )
+            llm_ms = round((_time.time() - t_llm) * 1000, 1)
+            total_prompt_tokens += getattr(response.usage, 'input_tokens', 0)
+            total_completion_tokens += getattr(response.usage, 'output_tokens', 0)
+            final_stop_reason = response.stop_reason
+
+            trace.append({
+                "step": "llm_call",
+                "iteration": _iteration + 1,
+                "model": model_used,
+                "prompt_tokens": getattr(response.usage, 'input_tokens', 0),
+                "completion_tokens": getattr(response.usage, 'output_tokens', 0),
+                "stop_reason": response.stop_reason,
+                "duration_ms": llm_ms
+            })
 
             # Check if model wants to use a tool
             if response.stop_reason == "tool_use":
-                # Collect all text + tool_use blocks
+                tool_iterations += 1
                 assistant_content = []
                 tool_results = []
                 for block in response.content:
@@ -9369,18 +9522,26 @@ Company ID: {company_id}
                         tool_input = block.input
                         tools_used.append(tool_name)
                         logger.info("AI Tool call: %s(%s)", tool_name, json.dumps(tool_input, ensure_ascii=False))
+                        t_tool = _time.time()
                         result = _execute_tool(tool_name, tool_input, company_id, portal_user_id, session_id)
+                        tool_ms = round((_time.time() - t_tool) * 1000, 1)
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
                             "content": result
                         })
+                        trace.append({
+                            "step": "tool_exec",
+                            "tool": tool_name,
+                            "input": {k: str(v)[:100] for k, v in tool_input.items()} if tool_input else {},
+                            "result_size": len(result),
+                            "duration_ms": tool_ms
+                        })
 
                 messages.append({"role": "assistant", "content": assistant_content})
                 messages.append({"role": "user", "content": tool_results})
-                continue  # Let model process tool results
+                continue
             else:
-                # Final text response
                 break
 
         # Extract final text
@@ -9392,26 +9553,23 @@ Company ID: {company_id}
         if not ai_text:
             ai_text = "I've completed the action. Is there anything else I can help with?"
 
-        # Detect quality score (check for low-confidence indicators)
+        # ── Step 5: Quality indicators (with trace) ──
         quality_indicators = {
             "low_confidence": False,
             "has_uncertainty_phrases": False,
             "suggested_escalation": False,
-            "no_kb_match": not kb_articles_used  # True if no KB articles were relevant
+            "no_kb_match": not kb_articles_used
         }
 
         uncertainty_phrases = [
-            # English
             "i'm not sure", "i don't know", "i cannot", "i can't",
             "unable to", "not available", "no information", "don't have access",
             "need clarification", "unclear", "i don't have enough",
             "cannot find", "no relevant", "beyond my capabilities",
-            # Russian
             "не уверен", "не знаю", "не могу", "не нашёл", "не нашел",
             "нет информации", "не имею доступа", "не в моих силах",
             "к сожалению, у меня нет", "недостаточно информации",
             "не удалось найти", "рекомендую создать тикет", "создать тикет",
-            # Azerbaijani
             "əmin deyiləm", "bilmirəm", "tapa bilmədim", "məlumat yoxdur",
             "tiket yaratmağı", "dəstək komandası"
         ]
@@ -9422,7 +9580,6 @@ Company ID: {company_id}
                 quality_indicators["has_uncertainty_phrases"] = True
                 break
 
-        # Suggest escalation if: uncertainty detected OR no KB match AND user has asked 1+ questions
         should_suggest = quality_indicators["has_uncertainty_phrases"] or (quality_indicators["no_kb_match"] and "escalate_to_human" not in tools_used and "create_ticket" not in tools_used)
         if should_suggest:
             try:
@@ -9437,7 +9594,20 @@ Company ID: {company_id}
             except Exception:
                 pass
 
-        # Log AI response and tools
+        trace.append({
+            "step": "quality_check",
+            "uncertainty_detected": quality_indicators["has_uncertainty_phrases"],
+            "no_kb_match": quality_indicators["no_kb_match"],
+            "escalation_suggested": quality_indicators["suggested_escalation"]
+        })
+
+        # ── Calculate totals ──
+        total_latency_ms = round((_time.time() - t_total_start) * 1000, 1)
+        # Haiku pricing: $0.80/M input, $4/M output
+        cost_usd = round((total_prompt_tokens * 0.0000008) + (total_completion_tokens * 0.000004), 6)
+
+        # ── Log AI response and tools ──
+        log_id = 0
         try:
             with get_db() as conn:
                 conn.execute("INSERT INTO ai_chat_messages (session_id, role, content) VALUES (?,?,?)",
@@ -9445,10 +9615,40 @@ Company ID: {company_id}
                 if tools_used:
                     conn.execute("UPDATE ai_chat_sessions SET tools_used=?, updated_at=datetime('now') WHERE id=?",
                                 [json.dumps(tools_used), session_id])
-        except Exception:
-            pass
+                # ── Interaction Log (Phase 5) ──
+                conn.execute("""INSERT INTO ai_interaction_logs
+                    (session_id, message_index, user_message, ai_response, latency_ms,
+                     prompt_tokens, completion_tokens, cost_usd, model, tools_called,
+                     tool_iterations, stop_reason, kb_articles_used, trace_json)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    [session_id, msg_index, user_message, ai_text, total_latency_ms,
+                     total_prompt_tokens, total_completion_tokens, cost_usd, model_used,
+                     json.dumps(tools_used), tool_iterations, final_stop_reason,
+                     json.dumps(kb_articles_used, ensure_ascii=False),
+                     json.dumps(trace, ensure_ascii=False)])
+                log_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        except Exception as ex:
+            logger.warning("Interaction log error: %s", ex)
 
-        return _ok({"response": ai_text, "session_id": session_id, "tools_used": tools_used, "quality_indicators": quality_indicators, "kb_articles": kb_articles_used})
+        # ── Alert checks (sync, fast) ──
+        if log_id:
+            _check_alerts(session_id, total_latency_ms, total_prompt_tokens + total_completion_tokens, log_id)
+
+        # ── Quality Auditor (async, non-blocking) ──
+        if log_id:
+            import asyncio
+            asyncio.create_task(_quality_auditor(log_id, user_message, ai_text, kb_articles_used))
+
+        return _ok({
+            "response": ai_text,
+            "session_id": session_id,
+            "tools_used": tools_used,
+            "quality_indicators": quality_indicators,
+            "kb_articles": kb_articles_used,
+            "latency_ms": total_latency_ms,
+            "tokens": {"prompt": total_prompt_tokens, "completion": total_completion_tokens},
+            "cost_usd": cost_usd
+        })
     except Exception as e:
         logger.error("AI chat error: %s", e)
         _err(f"AI service error: {str(e)}", 500)
@@ -9526,6 +9726,19 @@ async def ai_command_center(user=Depends(require_auth)):
             ).fetchone()[0]
             fcr_rate = round((fcr_count / total * 100) if total > 0 else 0, 1)
 
+            # ── Phase 5: Observability metrics from interaction logs ──
+            avg_latency_row = conn.execute("SELECT AVG(latency_ms) FROM ai_interaction_logs").fetchone()
+            avg_latency = round(avg_latency_row[0], 0) if avg_latency_row and avg_latency_row[0] else 0
+            total_cost_row = conn.execute("SELECT SUM(cost_usd) FROM ai_interaction_logs").fetchone()
+            total_cost = round(total_cost_row[0], 4) if total_cost_row and total_cost_row[0] else 0
+            avg_quality_row = conn.execute("SELECT AVG(quality_score) FROM ai_interaction_logs WHERE quality_score IS NOT NULL").fetchone()
+            avg_quality = round(avg_quality_row[0], 1) if avg_quality_row and avg_quality_row[0] else 0
+            total_tokens_row = conn.execute("SELECT SUM(prompt_tokens), SUM(completion_tokens) FROM ai_interaction_logs").fetchone()
+            total_prompt_tok = total_tokens_row[0] or 0 if total_tokens_row else 0
+            total_compl_tok = total_tokens_row[1] or 0 if total_tokens_row else 0
+            # Unread alerts count
+            unread_alerts = conn.execute("SELECT COUNT(*) FROM ai_alerts WHERE is_read=0").fetchone()[0]
+
             return _ok({
                 "total_sessions": total,
                 "sessions_today": today,
@@ -9539,7 +9752,13 @@ async def ai_command_center(user=Depends(require_auth)):
                 "first_contact_resolution_rate": fcr_rate,
                 "tool_usage": tool_counts,
                 "daily_sessions": daily_data,
-                "recent_sessions": recent_sessions
+                "recent_sessions": recent_sessions,
+                "avg_latency_ms": avg_latency,
+                "total_cost_usd": total_cost,
+                "avg_quality_score": avg_quality,
+                "total_prompt_tokens": total_prompt_tok,
+                "total_completion_tokens": total_compl_tok,
+                "unread_alerts": unread_alerts
             })
     except Exception as e:
         logger.error("Command center error: %s", e)
@@ -9557,6 +9776,157 @@ async def ai_chat_session_detail(session_id: int, user=Depends(require_auth)):
                 [session_id]
             ).fetchall()
             return _ok([{"role": r[0], "content": r[1], "tool": r[2], "time": r[3]} for r in msgs])
+    except Exception as e:
+        _err(str(e), 500)
+
+
+# ─── Phase 5: Interaction Logs & Alerts API ─────────────────────────
+
+@app.get("/api/ai/interaction-logs")
+async def ai_interaction_logs(request: Request, user=Depends(require_auth)):
+    """Get interaction logs with optional filters."""
+    try:
+        session_filter = request.query_params.get("session_id")
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        min_quality = request.query_params.get("min_quality")
+        max_quality = request.query_params.get("max_quality")
+        limit = int(request.query_params.get("limit", 50))
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            query = """SELECT l.id, l.session_id, l.message_index, l.user_message, l.ai_response,
+                       l.latency_ms, l.prompt_tokens, l.completion_tokens, l.cost_usd,
+                       l.model, l.tools_called, l.tool_iterations, l.stop_reason,
+                       l.kb_articles_used, l.quality_score, l.quality_notes, l.created_at,
+                       s.portal_user_id, pu.full_name, pu.email
+                       FROM ai_interaction_logs l
+                       LEFT JOIN ai_chat_sessions s ON l.session_id = s.id
+                       LEFT JOIN portal_users pu ON s.portal_user_id = pu.id
+                       WHERE 1=1"""
+            params = []
+            if session_filter:
+                query += " AND l.session_id=?"
+                params.append(int(session_filter))
+            if date_from:
+                query += " AND l.created_at >= ?"
+                params.append(date_from)
+            if date_to:
+                query += " AND l.created_at <= ?"
+                params.append(date_to)
+            if min_quality:
+                query += " AND l.quality_score >= ?"
+                params.append(float(min_quality))
+            if max_quality:
+                query += " AND l.quality_score <= ?"
+                params.append(float(max_quality))
+            query += f" ORDER BY l.created_at DESC LIMIT {min(limit, 200)}"
+            rows = conn.execute(query, params).fetchall()
+            logs = []
+            for r in rows:
+                logs.append({
+                    "id": r[0], "session_id": r[1], "message_index": r[2],
+                    "user_message": r[3][:200] if r[3] else "", "ai_response": r[4][:200] if r[4] else "",
+                    "latency_ms": r[5], "prompt_tokens": r[6], "completion_tokens": r[7],
+                    "cost_usd": r[8], "model": r[9],
+                    "tools_called": json.loads(r[10]) if r[10] else [],
+                    "tool_iterations": r[11], "stop_reason": r[12],
+                    "kb_articles_used": json.loads(r[13]) if r[13] else [],
+                    "quality_score": r[14], "quality_notes": r[15],
+                    "created_at": r[16],
+                    "user_name": r[18] or "Unknown", "user_email": r[19] or ""
+                })
+            return _ok(logs)
+    except Exception as e:
+        logger.error("Interaction logs error: %s", e)
+        _err(str(e), 500)
+
+
+@app.get("/api/ai/interaction-logs/{log_id}")
+async def ai_interaction_log_detail(log_id: int, user=Depends(require_auth)):
+    """Get detailed interaction log with full trace."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            r = conn.execute("""SELECT l.*, s.portal_user_id, pu.full_name, pu.email
+                       FROM ai_interaction_logs l
+                       LEFT JOIN ai_chat_sessions s ON l.session_id = s.id
+                       LEFT JOIN portal_users pu ON s.portal_user_id = pu.id
+                       WHERE l.id=?""", [log_id]).fetchone()
+            if not r:
+                _err("Log not found", 404)
+            cols = [d[0] for d in conn.execute("PRAGMA table_info(ai_interaction_logs)").fetchall()]
+            # Build dict from columns
+            log_data = {}
+            for i, col_info in enumerate(conn.execute("PRAGMA table_info(ai_interaction_logs)").fetchall()):
+                col_name = col_info[1]
+                val = r[i]
+                if col_name in ("tools_called", "kb_articles_used", "trace_json", "metadata") and val:
+                    try:
+                        val = json.loads(val)
+                    except Exception:
+                        pass
+                log_data[col_name] = val
+            # Add user info
+            log_data["user_name"] = r[-2] or "Unknown"
+            log_data["user_email"] = r[-1] or ""
+            return _ok(log_data)
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.get("/api/ai/alerts")
+async def ai_alerts_list(request: Request, user=Depends(require_auth)):
+    """Get AI alerts with optional filters."""
+    try:
+        is_read_filter = request.query_params.get("is_read")
+        alert_type = request.query_params.get("type")
+        limit = int(request.query_params.get("limit", 50))
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            query = "SELECT id, type, severity, message, session_id, log_id, metadata, is_read, created_at FROM ai_alerts WHERE 1=1"
+            params = []
+            if is_read_filter is not None:
+                query += " AND is_read=?"
+                params.append(int(is_read_filter))
+            if alert_type:
+                query += " AND type=?"
+                params.append(alert_type)
+            query += f" ORDER BY created_at DESC LIMIT {min(limit, 200)}"
+            rows = conn.execute(query, params).fetchall()
+            alerts = []
+            for r in rows:
+                alerts.append({
+                    "id": r[0], "type": r[1], "severity": r[2], "message": r[3],
+                    "session_id": r[4], "log_id": r[5],
+                    "metadata": json.loads(r[6]) if r[6] else {},
+                    "is_read": bool(r[7]), "created_at": r[8]
+                })
+            return _ok(alerts)
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/alerts/{alert_id}/read")
+async def ai_alert_mark_read(alert_id: int, user=Depends(require_auth)):
+    """Mark an alert as read."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute("UPDATE ai_alerts SET is_read=1 WHERE id=?", [alert_id])
+            return _ok({"success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/alerts/read-all")
+async def ai_alerts_mark_all_read(user=Depends(require_auth)):
+    """Mark all alerts as read."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute("UPDATE ai_alerts SET is_read=1 WHERE is_read=0")
+            return _ok({"success": True})
     except Exception as e:
         _err(str(e), 500)
 

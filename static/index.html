@@ -16592,8 +16592,9 @@ async function onLeadDrop(e, newStatus) {
             '<td style="padding:12px 10px;text-align:center"><span style="background:#1e293b;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600;color:#94a3b8">' + s.messages_count + '</span></td>' +
             '<td style="padding:12px 10px">' + (tools || '<span style="color:#475569;font-size:12px">\u2014</span>') + '</td>' +
             '<td style="padding:12px 10px"><span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:0.3px;' + (isEsc ? 'background:rgba(239,68,68,0.12);color:#fca5a5' : 'background:rgba(34,197,94,0.12);color:#86efac') + '"><span style="width:6px;height:6px;border-radius:50%;background:' + (isEsc?'#ef4444':'#22c55e') + '"></span>' + (isEsc ? _t('Escalated','\u042d\u0441\u043a\u0430\u043b\u0430\u0446\u0438\u044f','Eskalasiya') : _t('AI Resolved','AI \u0440\u0435\u0448\u0438\u043b','AI h\u0259ll etdi')) + '</span></td>' +
-            '<td style="padding:12px 10px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td></tr>';
-        }).join('') || '<tr><td colspan="6" style="padding:32px;text-align:center;color:#475569;font-size:14px">' + _t('No sessions yet','\u041d\u0435\u0442 \u0441\u0435\u0441\u0441\u0438\u0439','Sessiya yoxdur') + '</td></tr>';
+            '<td style="padding:12px 10px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td>' +
+            '<td style="padding:12px 10px;text-align:center"><a onclick="showTraceViewer(' + s.id + ')" style="color:#60a5fa;font-size:11px;cursor:pointer;text-decoration:none;padding:4px 10px;background:rgba(96,165,250,0.1);border-radius:6px;border:1px solid rgba(96,165,250,0.2)" title="Debug Trace">\u{1f50d}</a></td></tr>';
+        }).join('') || '<tr><td colspan="7" style="padding:32px;text-align:center;color:#475569;font-size:14px">' + _t('No sessions yet','Нет сессий','Sessiya yoxdur') + '</td></tr>';
 
         // Deflection rate bar
         const deflectBarColor = deflect >= 80 ? '#22c55e' : deflect >= 50 ? '#eab308' : '#ef4444';
@@ -16618,21 +16619,48 @@ async function onLeadDrop(e, newStatus) {
             kpiCard('\u26a1', 'FCR', fcr + '%', _t('First contact resolve','\u0420\u0435\u0448\u0435\u043d\u043e \u0441 \u043f\u0435\u0440\u0432\u043e\u0433\u043e \u0440\u0430\u0437\u0430','Ilk t\u0259masda h\u0259ll'), fcr >= 80 ? '#4ade80' : fcr >= 50 ? '#facc15' : '#f87171', '#0f172a') +
           '</div>' +
 
-          // Secondary metrics row - 3 smaller cards
-          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">' +
+          // Secondary metrics row - 6 smaller cards (3 original + 3 Phase 5)
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
               '<div style="width:42px;height:42px;background:rgba(59,130,246,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{23f1}\ufe0f</div>' +
-              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Avg Resolution','\u0421\u0440. \u0432\u0440\u0435\u043c\u044f \u0440\u0435\u0448\u0435\u043d\u0438\u044f','Ort. h\u0259ll vaxt\u0131') + '</div>' +
-              '<div style="font-size:22px;font-weight:700;color:#e2e8f0;margin-top:2px">' + resTime + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('min','\u043c\u0438\u043d','d\u0259q') + '</span></div></div></div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Avg Resolution','Ср. время решения','Ort. həll vaxtı') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#e2e8f0;margin-top:2px">' + resTime + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('min','мин','dəq') + '</span></div></div></div>' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
               '<div style="width:42px;height:42px;background:rgba(139,92,246,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f4e8}</div>' +
-              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Total Messages','\u0412\u0441\u0435\u0433\u043e \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439','Cmi mesajlar') + '</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Total Messages','Всего сообщений','Cmi mesajlar') + '</div>' +
               '<div style="font-size:22px;font-weight:700;color:#e2e8f0;margin-top:2px">' + (d.total_messages||0) + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('avg','ср.','ort.') + ' ' + (d.avg_messages_per_session||0) + '/' + _t('session','сессия','sessiya') + '</span></div></div></div>' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
               '<div style="width:42px;height:42px;background:rgba(239,68,68,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f6a8}</div>' +
-              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Escalations','\u042d\u0441\u043a\u0430\u043b\u0430\u0446\u0438\u0438','Eskalasiyalar') + '</div>' +
-              '<div style="font-size:22px;font-weight:700;color:#fca5a5;margin-top:2px">' + (d.escalated||0) + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('to agents','\u043a \u0430\u0433\u0435\u043d\u0442\u0430\u043c','agentl\u0259r\u0259') + '</span></div></div></div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Escalations','Эскалации','Eskalasiyalar') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#fca5a5;margin-top:2px">' + (d.escalated||0) + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('to agents','к агентам','agentlərə') + '</span></div></div></div>' +
           '</div>' +
+          // Phase 5: Observability metrics row
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">' +
+            '<div style="background:#0f172a;border:1px solid rgba(34,211,238,0.2);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(34,211,238,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u26a1</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Avg Latency','Ср. задержка','Ort. gecikmə') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:' + ((d.avg_latency_ms||0) > 5000 ? '#fca5a5' : '#22d3ee') + ';margin-top:2px">' + ((d.avg_latency_ms||0)/1000).toFixed(1) + '<span style="font-size:13px;color:#64748b;font-weight:400">s</span></div></div></div>' +
+            '<div style="background:#0f172a;border:1px solid rgba(52,211,153,0.2);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(52,211,153,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f4b0}</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Total Cost','Общая стоимость','Ümumi xərc') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#34d399;margin-top:2px">$' + (d.total_cost_usd||0).toFixed(3) + '</div></div></div>' +
+            '<div style="background:#0f172a;border:1px solid rgba(167,139,250,0.2);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(167,139,250,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f3af}</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Quality Score','Оценка качества','Keyfiyyət balı') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:' + ((d.avg_quality_score||0) >= 7 ? '#a78bfa' : (d.avg_quality_score||0) >= 5 ? '#facc15' : '#f87171') + ';margin-top:2px">' + (d.avg_quality_score||0) + '<span style="font-size:13px;color:#64748b;font-weight:400">/10</span></div></div></div>' +
+          '</div>' +
+          // Phase 5: Alerts panel
+          (function() {
+            const alertCount = d.unread_alerts || 0;
+            if (alertCount === 0) return '';
+            return '<div id="alertsPanelPlaceholder" style="background:#0f172a;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:20px 24px;margin-bottom:24px">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+                '<h3 style="font-size:15px;font-weight:700;color:#fca5a5;margin:0;display:flex;align-items:center;gap:8px">\u{1f514} ' + _t('Alerts','Алерты','Xəbərdarlıqlar') + ' <span style="background:rgba(239,68,68,0.2);color:#fca5a5;padding:2px 10px;border-radius:12px;font-size:12px">' + alertCount + '</span></h3>' +
+                '<button onclick="markAllAlertsRead()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#fca5a5;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">' + _t('Dismiss All','Прочитать все','Hamısını oxu') + '</button>' +
+              '</div>' +
+              '<div id="alertsList" style="color:#94a3b8;font-size:13px">' + _t('Loading alerts...','Загрузка...','Yüklənir...') + '</div>' +
+            '</div>';
+          })() +
 
           // Charts
           '<div style="display:grid;grid-template-columns:5fr 3fr;gap:16px;margin-bottom:24px">' +
@@ -16666,12 +16694,14 @@ async function onLeadDrop(e, newStatus) {
                 '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Msgs','\u0421\u043e\u043e\u0431\u0449.','Msj') + '</th>' +
                 '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Tools','\u0418\u043d\u0441\u0442\u0440.','Al\u0259tl\u0259r') + '</th>' +
                 '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Status','\u0421\u0442\u0430\u0442\u0443\u0441','Status') + '</th>' +
-                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Date','\u0414\u0430\u0442\u0430','Tarix') + '</th></tr></thead>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Date','\u0414\u0430\u0442\u0430','Tarix') + '</th>' +
+                '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Trace</th></tr></thead>' +
               '<tbody>' + sessionsHtml + '</tbody></table></div></div>' +
           '</div>';
 
         setTimeout(() => renderAICharts(d), 100);
         renderAgentPerformance();
+        if (d.unread_alerts > 0) loadAlerts();
       } catch(e) {
         el.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171">\u26a0\ufe0f Error: ' + e.message + '</div>';
       }
@@ -16789,12 +16819,12 @@ async function onLeadDrop(e, newStatus) {
           '<div style="overflow-x:auto;border-radius:12px;border:1px solid #1e293b">' +
           '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
           '<thead><tr style="background:#1e293b">' +
-          '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Agent','\u0410\u0433\u0435\u043d\u0442','Agent') + '</th>' +
-          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Total','\u0412\u0441\u0435\u0433\u043e','C\u0259mi') + '</th>' +
-          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Open','\u041e\u0442\u043a\u0440\u044b\u0442\u043e','A\u00e7\u0131q') + '</th>' +
-          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closed','\u0417\u0430\u043a\u0440\u044b\u0442\u043e','Ba\u011fl\u0131') + '</th>' +
-          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closure','% \u0437\u0430\u043a\u0440.','% ba\u011fl.') + '</th>' +
-          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Avg Hours','\u0421\u0440. \u0447\u0430\u0441\u044b','Ort. saat') + '</th>' +
+          '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Agent','Агент','Agent') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Total','Всего','Cəmi') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Open','Открыто','Açıq') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closed','Закрыто','Bağlı') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closure','% закр.','% bağl.') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Avg Hours','Ср. часы','Ort. saat') + '</th>' +
           '</tr></thead><tbody>' +
           agents.map((a,i) => {
             const rowBg = i%2===0 ? 'transparent' : 'rgba(30,41,59,0.3)';
@@ -16808,12 +16838,139 @@ async function onLeadDrop(e, newStatus) {
             '<td style="padding:12px 10px;text-align:center;color:#94a3b8">' + a.avg_resolution_hours + 'h</td></tr>';
           }).join('') +
           '</tbody></table></div>' :
-          '<div style="color:#64748b;padding:32px;text-align:center">' + _t('No agents found','\u0410\u0433\u0435\u043d\u0442\u044b \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b','Agent tap\u0131lmad\u0131') + '</div>';
+          '<div style="color:#64748b;padding:32px;text-align:center">' + _t('No agents found','Агенты не найдены','Agent tapılmadı') + '</div>';
         const el = document.getElementById('agentPerfTable');
         if (el) el.innerHTML = tableHtml;
       } catch (e) {
         const el = document.getElementById('agentPerfTable');
         if (el) el.innerHTML = '<div style="color:#f87171">' + e.message + '</div>';
+      }
+    }
+
+    // ── Phase 5: Alerts & Trace Viewer ──
+
+    async function loadAlerts() {
+      try {
+        const resp = await apiFetch('/api/ai/alerts?is_read=0&limit=10');
+        const alerts = resp.data || resp || [];
+        const el = document.getElementById('alertsList');
+        if (!el) return;
+        if (!alerts.length) { el.innerHTML = '<div style="color:#64748b;text-align:center;padding:12px">No active alerts</div>'; return; }
+        const sevIcon = {critical: '\u{1f534}', warning: '\u26a0\ufe0f'};
+        const typeLabel = {low_quality: 'Low Quality', high_latency: 'High Latency', token_spike: 'Token Spike', escalation_surge: 'Escalation Surge'};
+        el.innerHTML = alerts.map(a => {
+          const ago = _timeAgo(a.created_at);
+          return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(30,41,59,0.5);margin-bottom:6px;border:1px solid ' + (a.severity==='critical'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.15)') + '">' +
+            '<span style="font-size:16px">' + (sevIcon[a.severity]||'\u26a0\ufe0f') + '</span>' +
+            '<div style="flex:1"><div style="font-weight:600;color:#e2e8f0;font-size:13px">' + (typeLabel[a.type]||a.type) + '</div>' +
+            '<div style="font-size:12px;color:#94a3b8;margin-top:2px">' + (a.message||'').slice(0,120) + '</div></div>' +
+            '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+            '<span style="font-size:11px;color:#64748b">' + ago + '</span>' +
+            (a.session_id ? '<a onclick="showTraceViewer(' + a.session_id + ')" style="font-size:11px;color:#60a5fa;cursor:pointer;text-decoration:underline">\u{1f50d} Trace</a>' : '') +
+            '</div></div>';
+        }).join('');
+      } catch(e) {
+        const el = document.getElementById('alertsList');
+        if (el) el.innerHTML = '<div style="color:#f87171">' + e.message + '</div>';
+      }
+    }
+
+    function _timeAgo(dateStr) {
+      if (!dateStr) return '';
+      const now = new Date(), d = new Date(dateStr.replace(' ','T')+'Z');
+      const sec = Math.floor((now - d) / 1000);
+      if (sec < 60) return sec + 's ago';
+      if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+      if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+      return Math.floor(sec/86400) + 'd ago';
+    }
+
+    async function markAllAlertsRead() {
+      try {
+        await apiFetch('/api/ai/alerts/read-all', {method:'PUT'});
+        const el = document.getElementById('alertsPanelPlaceholder');
+        if (el) el.style.display = 'none';
+      } catch(e) { console.warn('markAllAlertsRead error:', e); }
+    }
+
+    async function showTraceViewer(sessionId) {
+      try {
+        const resp = await apiFetch('/api/ai/interaction-logs?session_id=' + sessionId + '&limit=10');
+        const logs = resp.data || resp || [];
+        if (!logs.length) { alert('No trace data for this session'); return; }
+        // Show the latest log's trace
+        const logId = logs[0].id;
+        const detail = await apiFetch('/api/ai/interaction-logs/' + logId);
+        const logData = detail.data || detail;
+        const trace = logData.trace_json || [];
+        const stepColors = {kb_search:'#22d3ee', llm_call:'#6366f1', tool_exec:'#f59e0b', quality_check:'#22c55e'};
+        const stepIcons = {kb_search:'\u{1f4da}', llm_call:'\u{1f916}', tool_exec:'\u{1f6e0}\ufe0f', quality_check:'\u2705'};
+        const stepLabels = {kb_search:'KB Search', llm_call:'LLM Call', tool_exec:'Tool Exec', quality_check:'Quality Check'};
+
+        let traceHtml = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">' +
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:20px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto;padding:28px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
+            '<h3 style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700">\u{1f50d} Debug Trace — Session #' + sessionId + '</h3>' +
+            '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px">\u2715</button>' +
+          '</div>' +
+          '<div style="margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap">' +
+            '<span style="font-size:12px;color:#94a3b8">\u{23f1}\ufe0f Latency: <strong style="color:#22d3ee">' + (logData.latency_ms||0).toFixed(0) + 'ms</strong></span>' +
+            '<span style="font-size:12px;color:#94a3b8">\u{1f4ac} Tokens: <strong style="color:#a78bfa">' + (logData.prompt_tokens||0) + ' in / ' + (logData.completion_tokens||0) + ' out</strong></span>' +
+            '<span style="font-size:12px;color:#94a3b8">\u{1f4b0} Cost: <strong style="color:#34d399">$' + (logData.cost_usd||0).toFixed(4) + '</strong></span>' +
+            (logData.quality_score ? '<span style="font-size:12px;color:#94a3b8">\u{1f3af} Quality: <strong style="color:' + (logData.quality_score >= 7 ? '#a78bfa' : logData.quality_score >= 5 ? '#facc15' : '#f87171') + '">' + logData.quality_score + '/10</strong></span>' : '') +
+          '</div>' +
+          '<div style="font-size:12px;color:#64748b;margin-bottom:12px;padding:10px 14px;background:#1e293b;border-radius:10px"><strong style="color:#94a3b8">\u{1f464} User:</strong> ' + esc(logData.user_message||'').slice(0,200) + '</div>';
+
+        trace.forEach((step, i) => {
+          const color = stepColors[step.step] || '#6366f1';
+          const icon = stepIcons[step.step] || '\u2022';
+          const label = stepLabels[step.step] || step.step;
+          let detail = '';
+          if (step.step === 'kb_search') {
+            detail = step.articles_found + ' found, ' + step.articles_selected + ' selected';
+            if (step.articles && step.articles.length) {
+              detail += '<div style="margin-top:6px">' + step.articles.map(a =>
+                '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:6px;height:6px;border-radius:50%;background:' + (a.score > 0.3 ? '#22c55e' : '#64748b') + '"></span><span style="color:#e2e8f0;font-size:12px">' + esc(a.title) + '</span><span style="color:' + (a.score > 0.3 ? '#22c55e' : '#64748b') + ';font-size:11px;font-weight:600">' + (a.score||0).toFixed(3) + '</span></div>'
+              ).join('') + '</div>';
+            }
+          } else if (step.step === 'llm_call') {
+            detail = 'Iter ' + step.iteration + ' \u2022 ' + (step.prompt_tokens||0) + ' in / ' + (step.completion_tokens||0) + ' out \u2022 stop: ' + (step.stop_reason||'?');
+          } else if (step.step === 'tool_exec') {
+            detail = '<span style="color:#f59e0b;font-weight:600">' + (step.tool||'?') + '</span> \u2022 result: ' + (step.result_size||0) + ' bytes';
+          } else if (step.step === 'quality_check') {
+            const checks = [];
+            if (step.uncertainty_detected) checks.push('<span style="color:#f87171">\u26a0\ufe0f Uncertainty</span>');
+            if (step.no_kb_match) checks.push('<span style="color:#facc15">\u{1f4ad} No KB match</span>');
+            if (step.escalation_suggested) checks.push('<span style="color:#ef4444">\u{1f6a8} Escalation suggested</span>');
+            detail = checks.length ? checks.join(' \u2022 ') : '<span style="color:#22c55e">\u2705 All clear</span>';
+          }
+
+          traceHtml += '<div style="display:flex;gap:12px;margin-bottom:2px">' +
+            '<div style="display:flex;flex-direction:column;align-items:center;width:24px">' +
+              '<div style="width:24px;height:24px;border-radius:6px;background:' + color + '20;display:flex;align-items:center;justify-content:center;font-size:12px">' + icon + '</div>' +
+              (i < trace.length - 1 ? '<div style="width:2px;flex:1;background:#1e293b;margin:4px 0"></div>' : '') +
+            '</div>' +
+            '<div style="flex:1;padding-bottom:14px">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between">' +
+                '<span style="font-size:13px;font-weight:700;color:' + color + '">' + label + '</span>' +
+                '<span style="font-size:11px;color:#64748b;background:#1e293b;padding:2px 8px;border-radius:6px">' + (step.duration_ms||0) + 'ms</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:#94a3b8;margin-top:4px">' + detail + '</div>' +
+            '</div>' +
+          '</div>';
+        });
+
+        traceHtml += '<div style="margin-top:16px;padding:10px 14px;background:#1e293b;border-radius:10px;font-size:12px;color:#64748b"><strong style="color:#94a3b8">\u{1f916} AI:</strong> ' + esc(logData.ai_response||'').slice(0,300) + (logData.ai_response && logData.ai_response.length > 300 ? '...' : '') + '</div>';
+        if (logData.quality_notes) {
+          traceHtml += '<div style="margin-top:8px;padding:10px 14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);border-radius:10px;font-size:12px;color:#c4b5fd"><strong>\u{1f3af} Quality Auditor:</strong> ' + esc(logData.quality_notes) + '</div>';
+        }
+        traceHtml += '</div></div>';
+
+        const traceEl = document.createElement('div');
+        traceEl.innerHTML = traceHtml;
+        document.body.appendChild(traceEl.firstChild);
+      } catch(e) {
+        alert('Error loading trace: ' + e.message);
       }
     }
 

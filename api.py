@@ -9500,6 +9500,35 @@ async def portal_chat(request: Request):
     # ── Load active agent config ──
     agent_cfg = _get_active_agent_config()
 
+    # ── Phase 7: Proactive triggers — gather user context ──
+    proactive_context = ""
+    try:
+        with get_db() as conn:
+            # Check for high-priority open tickets
+            urgent_tickets = conn.execute(
+                """SELECT id, subject, priority, status, created_at FROM tickets
+                   WHERE company_id=? AND status IN ('open','in_progress','waiting')
+                   AND priority IN ('high','critical')
+                   ORDER BY created_at DESC LIMIT 3""", [company_id]
+            ).fetchall()
+            if urgent_tickets:
+                parts = []
+                for t in urgent_tickets:
+                    parts.append(f"- TK-{t['id']:04d}: {t['subject']} (priority: {t['priority']}, status: {t['status']})")
+                proactive_context += f"\n\nPROACTIVE ALERT — User has {len(urgent_tickets)} urgent open ticket(s):\n" + "\n".join(parts)
+                proactive_context += "\nIf relevant to the conversation, proactively mention these tickets and offer to help."
+
+            # Check for SLA breaches
+            sla_breaches = conn.execute(
+                """SELECT id, subject FROM tickets
+                   WHERE company_id=? AND sla_breach=1 AND status NOT IN ('resolved','closed')
+                   LIMIT 2""", [company_id]
+            ).fetchall()
+            if sla_breaches:
+                proactive_context += f"\n\nSLA BREACH WARNING — {len(sla_breaches)} ticket(s) have breached SLA. Prioritize resolution."
+    except Exception:
+        pass
+
     # ── Step 1: RAG KB Search (with trace) ──
     kb_context = ""
     kb_articles_used = []
@@ -9528,17 +9557,18 @@ async def portal_chat(request: Request):
     # Build system prompt from config template or default
     _custom_template = agent_cfg.get("system_prompt_template", "").strip()
     if _custom_template:
-        # Custom template — use placeholders {kb_context}, {current_date}, {company_id}
         _kb_block = f"KNOWLEDGE BASE:\n{kb_context}" if kb_context else "No relevant KB articles found."
         system_prompt = _custom_template.replace("{kb_context}", _kb_block).replace(
             "{current_date}", datetime.now().strftime('%Y-%m-%d %H:%M')).replace(
             "{company_id}", str(company_id))
     else:
-        # Default template
         _kb_block = f"KNOWLEDGE BASE:\n{kb_context}" if kb_context else "No relevant KB articles found."
         system_prompt = DEFAULT_SYSTEM_PROMPT_TEMPLATE.replace("{kb_context}", _kb_block).replace(
             "{current_date}", datetime.now().strftime('%Y-%m-%d %H:%M')).replace(
             "{company_id}", str(company_id))
+    # Phase 7: Append proactive context
+    if proactive_context:
+        system_prompt += proactive_context
 
     # Build messages (use config for history limit)
     _history_limit = agent_cfg.get("max_history_messages", 10)
@@ -10263,6 +10293,151 @@ async def ai_agent_config_rollback(config_id: int, version_id: int, request: Req
             """, [config_id, new_version, ver_row["snapshot_json"], user_email,
                   f"Rollback to version {ver_row['version']}"])
             return _ok({"success": True, "new_version": new_version})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+# ── Phase 7: Co-pilot for managers ──
+
+@app.post("/api/ai/copilot/suggest")
+async def ai_copilot_suggest(request: Request, user=Depends(require_auth)):
+    """Generate an AI-suggested reply for a support ticket."""
+    import time as _time
+    data = await request.json()
+    ticket_id = data.get("ticket_id")
+    mode = data.get("mode", "reply")  # reply, summary, next_action
+    tone = data.get("tone", "professional")  # professional, friendly, formal
+    language = data.get("language", "ru")  # ru, az, en
+
+    if not ticket_id:
+        _err("ticket_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        _err("AI not configured", 503)
+
+    # Gather ticket context
+    try:
+        with get_db() as conn:
+            tk = conn.execute(
+                """SELECT t.*, u.full_name as assigned_name, c.name as company_name,
+                          cr.full_name as creator_name
+                   FROM tickets t
+                   LEFT JOIN users u ON t.assigned_to=u.id
+                   LEFT JOIN companies c ON t.company_id=c.id
+                   LEFT JOIN users cr ON t.created_by=cr.id
+                   WHERE t.id=?""", [ticket_id]
+            ).fetchone()
+            if not tk:
+                _err("Ticket not found", 404)
+            tk = dict(tk)
+
+            comments = conn.execute(
+                """SELECT tc.content, tc.is_internal, u.full_name as user_name, tc.created_at
+                   FROM ticket_comments tc LEFT JOIN users u ON tc.user_id=u.id
+                   WHERE tc.ticket_id=? ORDER BY tc.created_at""", [ticket_id]
+            ).fetchall()
+            comment_text = "\n".join([
+                f"{'[Internal] ' if c['is_internal'] else ''}{c['user_name'] or 'System'} ({c['created_at'][:16]}): {c['content']}"
+                for c in comments
+            ]) if comments else "No comments yet."
+
+            # Get relevant KB articles
+            kb_context = ""
+            try:
+                search_text = f"{tk.get('subject', '')} {tk.get('description', '')}"[:200]
+                kb_articles = _get_relevant_kb_articles(search_text, conn, limit=2)
+                if kb_articles:
+                    kb_context = "\n\nRelevant KB articles:\n" + "\n".join([
+                        f"- {a['title']}: {a['content'][:300]}" for a in kb_articles
+                    ])
+            except Exception:
+                pass
+
+    except Exception as e:
+        _err(str(e), 500)
+
+    lang_map = {"ru": "Russian", "az": "Azerbaijani", "en": "English"}
+    lang_name = lang_map.get(language, "Russian")
+    tone_map = {"professional": "professional and helpful", "friendly": "warm and friendly", "formal": "formal and business-like"}
+    tone_desc = tone_map.get(tone, "professional and helpful")
+
+    if mode == "summary":
+        prompt = f"""Summarize this support ticket concisely in {lang_name}:
+Ticket #{ticket_id}: {tk.get('subject', '')}
+Status: {tk.get('status', '')} | Priority: {tk.get('priority', '')}
+Description: {tk.get('description', '')[:500]}
+
+Comments:
+{comment_text}
+
+Write a brief 2-3 sentence summary of the issue and current status."""
+
+    elif mode == "next_action":
+        prompt = f"""Based on this ticket, suggest the next best action for the support agent. Write in {lang_name}.
+Ticket #{ticket_id}: {tk.get('subject', '')}
+Status: {tk.get('status', '')} | Priority: {tk.get('priority', '')}
+Description: {tk.get('description', '')[:500]}
+
+Comments:
+{comment_text}
+{kb_context}
+
+Suggest 2-3 concrete next steps the agent should take. Be specific."""
+
+    else:  # reply
+        prompt = f"""Draft a {tone_desc} reply to the customer for this support ticket. Write in {lang_name}.
+Ticket #{ticket_id}: {tk.get('subject', '')}
+Status: {tk.get('status', '')} | Priority: {tk.get('priority', '')}
+Company: {tk.get('company_name', '')}
+Creator: {tk.get('creator_name', '')}
+Description: {tk.get('description', '')[:500]}
+
+Comments history:
+{comment_text}
+{kb_context}
+
+Write a helpful reply that addresses the customer's issue. Be concise (max 150 words). Do NOT include greeting/signature placeholders — write the actual reply content only."""
+
+    try:
+        import anthropic
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        agent_cfg = _get_active_agent_config()
+        model = agent_cfg.get("model", "claude-haiku-4-5-20251001")
+
+        response = client.messages.create(
+            model=model,
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        suggestion = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        # Log as copilot interaction
+        try:
+            with get_db() as conn:
+                _ensure_ai_tables(conn)
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("""
+                    INSERT INTO ai_interaction_logs
+                    (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens,
+                     cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)
+                """, [0, f"[copilot:{mode}] ticket #{ticket_id}", suggestion[:500],
+                      latency_ms, p_tok, c_tok, cost, model])
+        except Exception:
+            pass
+
+        return _ok({
+            "suggestion": suggestion,
+            "mode": mode,
+            "model": model,
+            "latency_ms": latency_ms,
+            "tokens": {"input": getattr(response.usage, 'input_tokens', 0),
+                       "output": getattr(response.usage, 'output_tokens', 0)}
+        })
     except Exception as e:
         _err(str(e), 500)
 

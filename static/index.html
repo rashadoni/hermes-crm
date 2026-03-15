@@ -13305,10 +13305,16 @@ async function showTicketDetail(ticketId) {
       </div>
       <div class="max-h-60 overflow-y-auto mb-3">${comments || '<p class="text-slate-500 text-sm">'+_t('No comments','Нет комментариев','Şərh yoxdur')+'</p>'}</div>
       <textarea id="tkComment" class="form-input w-full" rows="2" placeholder="${_t('Add a comment...','Добавить комментарий...','Şərh əlavə edin...')}"></textarea>
-      <div class="flex gap-2 mt-2">
+      <div class="flex gap-2 mt-2 flex-wrap">
         <button class="btn btn-primary btn-sm" onclick="addTicketComment(${tk.id},false)">${_t('Reply','Ответить','Cavab')}</button>
         <button class="btn btn-sm" style="background:#78350f;color:#fcd34d;" onclick="addTicketComment(${tk.id},true)">${_t('Internal Note','Внутр. заметка','Daxili qeyd')}</button>
+        <div style="margin-left:auto;display:flex;gap:4px">
+          <button class="btn btn-sm" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)" onclick="copilotSuggest(${tk.id},'reply')">🤖 ${_t('AI Reply','AI Ответ','AI Cavab')}</button>
+          <button class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:#86efac;border:1px solid rgba(34,197,94,0.2)" onclick="copilotSuggest(${tk.id},'summary')">📋 ${_t('Summary','Резюме','Xülasə')}</button>
+          <button class="btn btn-sm" style="background:rgba(251,191,36,0.1);color:#fcd34d;border:1px solid rgba(251,191,36,0.2)" onclick="copilotSuggest(${tk.id},'next_action')">⚡ ${_t('Next Steps','Шаги','Addımlar')}</button>
+        </div>
       </div>
+      <div id="copilotResult" style="display:none;margin-top:10px"></div>
     </div>
     <div class="flex gap-2 mt-4 flex-wrap" style="border-top:1px solid #334155;padding-top:12px;">
       <select id="tkStatusChange" class="form-input" style="width:auto;">
@@ -13336,6 +13342,54 @@ async function updateTicketStatus(ticketId) {
     showToast('Status updated', 'success');
     renderTicketsPage(document.getElementById('app'));
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Phase 7: Co-pilot ──
+async function copilotSuggest(ticketId, mode) {
+  const panel = document.getElementById('copilotResult');
+  if (!panel) return;
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const modeLabels = {reply:_t('AI Reply','AI Ответ','AI Cavab'), summary:_t('Summary','Резюме','Xülasə'), next_action:_t('Next Steps','Следующие шаги','Növbəti addımlar')};
+  panel.style.display = 'block';
+  panel.innerHTML = '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px">' +
+    '<div style="width:20px;height:20px;border:2px solid rgba(99,102,241,0.3);border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div>' +
+    '<span style="color:#a5b4fc;font-size:13px;font-weight:500">🤖 ' + _t('AI is thinking...','AI думает...','AI düşünür...') + '</span></div>';
+
+  try {
+    const lang = L || 'ru';
+    const result = await api.post('/api/ai/copilot/suggest', { ticket_id: ticketId, mode, language: lang });
+    const data = result || {};
+    const suggestion = data.suggestion || '';
+    const latency = data.latency_ms || 0;
+    const tokens = data.tokens || {};
+
+    let actionHtml = '';
+    if (mode === 'reply') {
+      actionHtml = '<button onclick="copilotInsertReply()" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:6px 16px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;margin-top:8px">📋 ' + _t('Insert as Reply','Вставить как ответ','Cavab kimi daxil et') + '</button>';
+    }
+
+    panel.innerHTML = '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:14px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<span style="font-size:12px;font-weight:700;color:#a5b4fc">🤖 ' + (modeLabels[mode] || mode) + '</span>' +
+        '<span style="font-size:10px;color:#64748b">' + (latency/1000).toFixed(1) + 's · ' + (tokens.input||0) + '/' + (tokens.output||0) + ' tok</span>' +
+      '</div>' +
+      '<div id="copilotText" style="font-size:13px;color:#e2e8f0;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto">' + esc(suggestion) + '</div>' +
+      actionHtml +
+    '</div>';
+  } catch(e) {
+    panel.innerHTML = '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px;color:#fca5a5;font-size:13px">❌ ' + e.message + '</div>';
+  }
+}
+
+function copilotInsertReply() {
+  const text = document.getElementById('copilotText')?.textContent || '';
+  const textarea = document.getElementById('tkComment');
+  if (textarea && text) {
+    textarea.value = text;
+    textarea.focus();
+    document.getElementById('copilotResult').style.display = 'none';
+  }
 }
 
 // ─── Phase 3: Knowledge Base Page ───────────────────────────

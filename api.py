@@ -8944,7 +8944,7 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
         return _ok(result)
     except Exception as e:
         logger.error("send_channel_message: %s", e)
-        return _err(str(e), 500)
+        return {"success": False, "error": f"send_channel_message: {type(e).__name__}: {str(e)}"}
 
 
 # ─── Email & SMS Test Endpoints ────────────────────────────────

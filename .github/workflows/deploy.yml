@@ -22,7 +22,10 @@ jobs:
             cd /opt/hermes_crm
             cp api.py api.py.bak
             cp static/index.html static/index.html.bak
+            cp static/portal.html static/portal.html.bak
             git pull origin main
+            pip install anthropic --quiet 2>/dev/null || true
+            grep -q "ANTHROPIC_API_KEY" .env 2>/dev/null || echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

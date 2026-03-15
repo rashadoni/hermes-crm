@@ -8918,6 +8918,113 @@ async def toggle_portal_user(portal_user_id: int, user=Depends(require_admin)):
     return _ok({"is_active": new_status})
 
 
+# ─── AI Chat Agent for Portal ───────────────────────────────────────
+
+@app.post("/api/portal/chat")
+async def portal_chat(request: Request):
+    """AI chat agent for portal users. Uses Claude Haiku + Knowledge Base RAG."""
+    user = _portal_require_auth(request)
+    data = await request.json()
+    user_message = (data.get("message") or "").strip()
+    history = data.get("history") or []
+    if not user_message:
+        _err("Message is required", 400)
+
+    # Load API key
+    import dotenv as _dotenv
+    _env_vals = _dotenv.dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
+    api_key = _env_vals.get("ANTHROPIC_API_KEY", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        _err("AI agent not configured", 500)
+
+    # RAG: load published KB articles
+    kb_context = ""
+    try:
+        with get_db() as conn:
+            articles = conn.execute(
+                "SELECT title, content, category FROM kb_articles WHERE status='published' ORDER BY views DESC LIMIT 20"
+            ).fetchall()
+            if articles:
+                kb_parts = []
+                for a in articles:
+                    kb_parts.append(f"### {a[0]} (category: {a[1] if len(a) > 2 else 'general'})\n{a[1] if len(a) > 1 else ''}")
+                kb_context = "\n\n".join(kb_parts)
+    except Exception as e:
+        logger.warning("Failed to load KB for chat: %s", e)
+
+    # Load user's company info and recent tickets for context
+    user_context = ""
+    try:
+        with get_db() as conn:
+            company_id = user.get("company_id")
+            if company_id:
+                comp = conn.execute("SELECT name FROM companies WHERE id=?", [company_id]).fetchone()
+                if comp:
+                    user_context += f"\nUser's company: {comp[0]}"
+                # Recent tickets
+                recent = conn.execute(
+                    "SELECT id, subject, status, priority FROM tickets WHERE company_id=? ORDER BY created_at DESC LIMIT 5",
+                    [company_id]
+                ).fetchall()
+                if recent:
+                    user_context += "\nRecent tickets:"
+                    for t in recent:
+                        user_context += f"\n- #{t[0]}: {t[1]} (status: {t[2]}, priority: {t[3]})"
+                # Active contracts
+                contracts = conn.execute(
+                    "SELECT id, subject, status FROM contracts WHERE counterparty IN (SELECT name FROM companies WHERE id=?) ORDER BY created_at DESC LIMIT 5",
+                    [company_id]
+                ).fetchall()
+                if contracts:
+                    user_context += "\nActive contracts:"
+                    for c in contracts:
+                        user_context += f"\n- #{c[0]}: {c[1]} (status: {c[2]})"
+    except Exception as e:
+        logger.warning("Failed to load user context for chat: %s", e)
+
+    system_prompt = f"""You are Hermes AI Assistant — a helpful support agent for the Hermes CRM client portal.
+You help customers with questions about their tickets, contracts, services, and general IT support topics.
+
+IMPORTANT RULES:
+- Be friendly, professional, and concise
+- Answer in the same language the user writes in (Russian, Azerbaijani, or English)
+- If you don't know something, say so honestly and suggest creating a support ticket
+- Never make up ticket numbers or statuses — only reference real data provided in context
+- For complex issues, suggest the user creates a new support ticket
+- Keep responses under 300 words
+
+{f"KNOWLEDGE BASE ARTICLES:{chr(10)}{kb_context}" if kb_context else "No knowledge base articles available yet."}
+
+{f"USER CONTEXT:{user_context}" if user_context else ""}
+
+Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+"""
+
+    # Build messages for Claude
+    messages = []
+    for h in history[-10:]:  # Last 10 messages for context
+        role = h.get("role", "user")
+        content = h.get("content", "")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=messages
+        )
+        ai_text = response.content[0].text if response.content else "Sorry, I couldn't generate a response."
+        return _ok({"response": ai_text})
+    except Exception as e:
+        logger.error("AI chat error: %s", e)
+        _err(f"AI service error: {str(e)}", 500)
+
+
 # Serve portal SPA
 @app.get("/portal")
 async def serve_portal():

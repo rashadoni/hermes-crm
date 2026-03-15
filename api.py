@@ -8405,6 +8405,27 @@ async def portal_me(request: Request):
         return _ok(dict(zip(cols, row)))
 
 
+@app.post("/api/portal/change-password")
+async def portal_change_password(request: Request):
+    """Portal user changes their own password."""
+    user = _portal_require_auth(request)
+    data = await request.json()
+    old_pw = data.get("old_password", "")
+    new_pw = data.get("new_password", "")
+    if not old_pw or not new_pw:
+        _err("Both old and new password required", 400)
+    if len(new_pw) < 6:
+        _err("New password must be at least 6 characters", 400)
+    old_hash = hashlib.sha256(old_pw.encode()).hexdigest()
+    with get_db() as conn:
+        row = conn.execute("SELECT password_hash FROM portal_users WHERE id=?", [user["portal_user_id"]]).fetchone()
+        if not row or row[0] != old_hash:
+            _err("Current password is incorrect", 401)
+        new_hash = hashlib.sha256(new_pw.encode()).hexdigest()
+        conn.execute("UPDATE portal_users SET password_hash=? WHERE id=?", [new_hash, user["portal_user_id"]])
+    return _ok({"message": "Password changed successfully"})
+
+
 @app.get("/api/portal/tickets")
 async def portal_tickets(request: Request):
     """Get tickets for the portal user's company."""

@@ -193,7 +193,8 @@
                 no_documents: 'No documents found', create_first_ticket: 'Create your first support ticket',
                 no_contracts_text: 'Your contracts will appear here', no_docs_text: 'Your offers and invoices will appear here',
                 high: 'High', medium: 'Medium', low: 'Low',
-                welcome_back: 'Welcome back', here_overview: "Here's your overview"
+                welcome_back: 'Welcome back', here_overview: "Here's your overview",
+                change_password: 'Change Password', current_password: 'Current Password', new_password: 'New Password', confirm_password: 'Confirm Password', password_changed: 'Password changed successfully', passwords_no_match: 'Passwords do not match', security: 'Security'
             },
             ru: {
                 portal: '\u041a\u043b\u0438\u0435\u043d\u0442\u0441\u043a\u0438\u0439 \u043f\u043e\u0440\u0442\u0430\u043b', sign_in: '\u0412\u043e\u0439\u0442\u0438', sign_up: '\u0421\u043e\u0437\u0434\u0430\u0442\u044c \u0430\u043a\u043a\u0430\u0443\u043d\u0442', email: 'Email', password: '\u041f\u0430\u0440\u043e\u043b\u044c',
@@ -538,7 +539,39 @@
                 '<div><div class="detail-label">' + t('full_name') + '</div><div class="detail-value">' + (currentUser.full_name || '-') + '</div></div>' +
                 '<div><div class="detail-label">' + t('company') + '</div><div class="detail-value">' + (currentUser.company_name || 'Zeytun Pharma') + '</div></div>' +
                 '<div><div class="detail-label">ID</div><div class="detail-value">#' + (currentUser.id || '') + '</div></div>' +
-                '</div></div></div>';
+                '</div></div></div>' +
+                '<div class="card" style="margin-top:24px"><div class="card-body">' +
+                '<h3 style="font-size:18px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' +
+                t('security') + '</h3>' +
+                '<form id="change-pw-form" onsubmit="event.preventDefault();handleChangePassword()" style="max-width:400px">' +
+                '<div class="form-group"><label class="form-label">' + t('current_password') + '</label>' +
+                '<input id="cp-old" type="password" class="input-field" required></div>' +
+                '<div class="form-group"><label class="form-label">' + t('new_password') + '</label>' +
+                '<input id="cp-new" type="password" class="input-field" minlength="6" required></div>' +
+                '<div class="form-group"><label class="form-label">' + t('confirm_password') + '</label>' +
+                '<input id="cp-confirm" type="password" class="input-field" minlength="6" required></div>' +
+                '<button class="btn btn-primary" type="submit" style="margin-top:8px">' + t('change_password') + '</button>' +
+                '</form></div></div>';
+        }
+
+        async function handleChangePassword() {
+            var oldPw = document.getElementById('cp-old').value;
+            var newPw = document.getElementById('cp-new').value;
+            var confirmPw = document.getElementById('cp-confirm').value;
+            if (newPw !== confirmPw) { showToast(t('passwords_no_match'), 'error'); return; }
+            try {
+                var res = await api.post('/api/portal/change-password', { old_password: oldPw, new_password: newPw });
+                if (res.ok) {
+                    showToast(t('password_changed'), 'success');
+                    document.getElementById('cp-old').value = '';
+                    document.getElementById('cp-new').value = '';
+                    document.getElementById('cp-confirm').value = '';
+                } else {
+                    var d = await res.json();
+                    showToast(d.detail || 'Error', 'error');
+                }
+            } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
         // ═══════════════════ AUTH PAGES ═══════════════════

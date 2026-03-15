@@ -3349,7 +3349,16 @@ async def create_contract(request: Request, user=Depends(require_auth)):
 @app.put("/api/contracts/{contract_id}")
 async def update_contract(contract_id: int, request: Request, user=Depends(require_auth)):
     data = await request.json()
+    _wf_contract_status = False
+    _wf_old = _wf_new = _wf_counterparty = None
     with get_db() as conn:
+        if "status" in data:
+            old_row = conn.execute("SELECT status, counterparty FROM contracts WHERE id=?", [contract_id]).fetchone()
+            if old_row and old_row[0] != data["status"]:
+                _wf_contract_status = True
+                _wf_old = old_row[0]
+                _wf_new = data["status"]
+                _wf_counterparty = old_row[1]
         fields = []
         params = []
         for key in ("contract_name", "counterparty", "contract_type", "amount", "currency",
@@ -3369,7 +3378,15 @@ async def update_contract(contract_id: int, request: Request, user=Depends(requi
             for a in admins:
                 send_notification(a[0], "contract_status_changed", f"Contract: {row['contract_name']}", f"Status: {data['status']}", "contract", contract_id)
         log_audit(user["user_id"], "update_contract", "contract", contract_id, ip=_get_ip(request))
-        return _ok(dict(row))
+        result = dict(row)
+    # Portal workflow: contract status changed
+    if _wf_contract_status:
+        try:
+            with get_db() as wconn:
+                workflow_contract_status_changed(wconn, contract_id, _wf_old, _wf_new, _wf_counterparty)
+        except Exception as e:
+            logger.warning("Workflow contract_status_changed failed: %s", e)
+    return _ok(result)
 
 
 @app.delete("/api/contracts/{contract_id}")
@@ -8623,10 +8640,13 @@ def workflow_contract_status_changed(conn, contract_id, old_status, new_status, 
         "terminated": "has been terminated"
     }
     msg = status_labels.get(new_status, f"status changed to {new_status}")
-    send_portal_notification(company_id=company_id, ntype="contract",
-                            title=f"Contract \"{cname}\" {msg}",
-                            message=f"Status: {old_status} → {new_status}",
-                            entity_type="contract", entity_id=contract_id)
+    _ensure_portal_notifications_table(conn)
+    pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+    for pu in pusers:
+        conn.execute(
+            "INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+            [pu[0], company_id, "contract", f"Contract \"{cname}\" {msg}", f"Status: {old_status} → {new_status}", "contract", contract_id]
+        )
 
 def workflow_document_status_changed(conn, offer_id, old_status, new_status, company_id):
     """Workflow: offer/document status changed."""
@@ -8642,10 +8662,13 @@ def workflow_document_status_changed(conn, offer_id, old_status, new_status, com
         "expired": "has expired"
     }
     msg = status_labels.get(new_status, f"status changed to {new_status}")
-    send_portal_notification(company_id=company_id, ntype="document",
-                            title=f"{dtype.title()} {num} {msg}",
-                            message=f"Status: {old_status} → {new_status}",
-                            entity_type="document", entity_id=offer_id)
+    _ensure_portal_notifications_table(conn)
+    pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+    for pu in pusers:
+        conn.execute(
+            "INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+            [pu[0], company_id, "document", f"{dtype.title()} {num} {msg}", f"Status: {old_status} → {new_status}", "document", offer_id]
+        )
 
 
 @app.get("/api/portal/notifications")

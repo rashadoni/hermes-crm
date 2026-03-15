@@ -34,12 +34,11 @@ jobs:
             SMTP_PASS=dcbwjuomvjpjsrtv
             SMTP_FROM=rashadrahimsoy@gmail.com
             SMTP_EOF
-            # Twilio SMS settings
-            grep -q "TWILIO_SID" .env 2>/dev/null || cat >> .env << 'TWILIO_EOF'
-            TWILIO_SID=ACf33431223261aecf78755c892baebd3d
-            TWILIO_TOKEN=249cdf572ad19a1493f5d1a8355ad382
-            TWILIO_FROM_NUMBER=+13509005853
-            TWILIO_EOF
+            # Twilio SMS settings - force update
+            sed -i '/^TWILIO_/d' .env
+            echo "TWILIO_SID=ACf33431223261aecf78755c892baebd3d" >> .env
+            echo "TWILIO_TOKEN=249cdf572ad19a1493f5d1a8355ad382" >> .env
+            echo "TWILIO_FROM_NUMBER=+13509005853" >> .env
             # Clean up any leading whitespace in .env
             sed -i 's/^[[:space:]]*//' .env
             systemctl restart hermes-crm

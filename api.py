@@ -13041,7 +13041,7 @@ Activities:
 
 {f"Support tickets: {ticket_text}" if ticket_text else ""}
 
-Respond STRICTLY in JSON format in {lang_name}:
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks, no extra text) in {lang_name}:
 {{
   "overall_sentiment": "positive|neutral|negative|mixed",
   "score": 0.75,
@@ -13188,7 +13188,11 @@ Recent communications:
 Existing tasks:
 {existing_str}
 
-Respond STRICTLY in JSON format in {lang_name}. Each task must have realistic due dates:
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks, no extra text) in {lang_name}. Each task must have realistic due dates.
+
+IMPORTANT: Output ONLY the JSON object, nothing else. No ```json``` blocks. Just the raw JSON starting with {{ and ending with }}.
+
+Format:
 {{
   "tasks": [
     {{

@@ -6057,20 +6057,29 @@ async def list_notifications(
     limit: int = 50,
     offset: int = 0
 ):
-    uid = user["user_id"]
-    with get_db() as conn:
-        where = "WHERE user_id=?"
-        params = [uid]
-        if unread_only:
-            where += " AND is_read=0"
-        total = conn.execute(f"SELECT COUNT(*) FROM notifications {where}", params).fetchone()[0]
-        rows = conn.execute(
-            f"SELECT * FROM notifications {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            params + [limit, offset]
-        ).fetchall()
-        cols = [d[0] for d in conn.execute("SELECT * FROM notifications LIMIT 0").description]
-        unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (uid,)).fetchone()[0]
-    return _ok({"items": [dict(zip(cols, r)) for r in rows], "total": total, "unread": unread})
+    uid = user.get("user_id") or user.get("id")
+    try:
+        with get_db() as conn:
+            # Ensure table exists
+            conn.execute("""CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT NOT NULL,
+                title TEXT NOT NULL, message TEXT DEFAULT '', entity_type TEXT, entity_id INTEGER,
+                is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))""")
+            where = "WHERE user_id=?"
+            params = [uid]
+            if unread_only:
+                where += " AND is_read=0"
+            total = conn.execute(f"SELECT COUNT(*) FROM notifications {where}", params).fetchone()[0]
+            rows = conn.execute(
+                f"SELECT id, user_id, type, title, message, entity_type, entity_id, is_read, created_at FROM notifications {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                params + [limit, offset]
+            ).fetchall()
+            cols = ["id", "user_id", "type", "title", "message", "entity_type", "entity_id", "is_read", "created_at"]
+            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (uid,)).fetchone()[0]
+        return _ok({"items": [dict(zip(cols, r)) for r in rows], "total": total, "unread": unread})
+    except Exception as e:
+        logger.error("Notifications error: %s", e)
+        return _ok({"items": [], "total": 0, "unread": 0})
 
 @app.put("/api/notifications/{notif_id}/read")
 async def mark_notification_read(notif_id: int, user=Depends(require_auth)):

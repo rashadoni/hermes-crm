@@ -12972,40 +12972,56 @@ async def ai_sentiment_analysis(request: Request, user=Depends(require_auth)):
                 entity_info = f"Contact: {entity_name}, Company: {contact.get('company_name','')}, Position: {contact.get('position','')}"
 
             # Get channel messages
-            col = "lead_id" if entity_type == "lead" else "contact_id"
-            messages = conn.execute(
-                f"SELECT channel_type, direction, content, status, created_at FROM channel_messages WHERE {col}=? ORDER BY created_at DESC LIMIT 30",
-                [entity_id]
-            ).fetchall()
-            msg_text = "\n".join([
-                f"[{m['direction']}|{m['channel_type']}|{m['created_at'][:16]}]: {(m['content'] or '')[:200]}"
-                for m in messages
-            ]) if messages else ""
+            msg_text = ""
+            try:
+                col = "lead_id" if entity_type == "lead" else "contact_id"
+                messages = conn.execute(
+                    f"SELECT channel_type, direction, content, status, created_at FROM channel_messages WHERE {col}=? ORDER BY created_at DESC LIMIT 30",
+                    [entity_id]
+                ).fetchall()
+                msg_text = "\n".join([
+                    f"[{m['direction']}|{m['channel_type']}|{m['created_at'][:16]}]: {(m['content'] or '')[:200]}"
+                    for m in messages
+                ]) if messages else ""
+            except Exception:
+                pass
 
-            # Get activities
-            activities = conn.execute(
-                "SELECT type, description, created_at FROM activities WHERE entity_type=? AND entity_id=? ORDER BY created_at DESC LIMIT 20",
-                [entity_type, entity_id]
-            ).fetchall()
-            act_text = "\n".join([
-                f"[{a['type']}|{a['created_at'][:16]}]: {(a['description'] or '')[:150]}"
-                for a in activities
-            ]) if activities else ""
+            # Get activities (columns may vary)
+            act_text = ""
+            try:
+                activities = conn.execute(
+                    "SELECT * FROM activities WHERE entity_type=? AND entity_id=? ORDER BY COALESCE(timestamp, created_at) DESC LIMIT 20",
+                    [entity_type, entity_id]
+                ).fetchall()
+                act_parts = []
+                for a in activities:
+                    a = dict(a)
+                    atype = a.get('activity_type') or a.get('type', '')
+                    desc = a.get('subject', '') or a.get('description', '')
+                    body = a.get('content', '') or ''
+                    ts = a.get('timestamp') or a.get('created_at', '')
+                    act_parts.append(f"[{atype}|{str(ts)[:16]}]: {desc} {body[:150]}")
+                act_text = "\n".join(act_parts)
+            except Exception:
+                pass
 
             # Get ticket comments if contact
             ticket_text = ""
-            if entity_type == "contact":
-                tickets = conn.execute(
-                    "SELECT t.id, t.subject, t.status FROM tickets t WHERE t.contact_id=? ORDER BY t.created_at DESC LIMIT 5",
-                    [entity_id]
-                ).fetchall()
-                for tk in tickets:
-                    comments = conn.execute(
-                        "SELECT content, created_at FROM ticket_comments WHERE ticket_id=? ORDER BY created_at LIMIT 5",
-                        [tk['id']]
+            try:
+                if entity_type == "contact":
+                    tickets = conn.execute(
+                        "SELECT t.id, t.subject, t.status FROM tickets t WHERE t.contact_id=? ORDER BY t.created_at DESC LIMIT 5",
+                        [entity_id]
                     ).fetchall()
-                    if comments:
-                        ticket_text += f"\nTicket '{tk['subject']}' ({tk['status']}): " + " | ".join([c['content'][:100] for c in comments])
+                    for tk in tickets:
+                        comments = conn.execute(
+                            "SELECT content, created_at FROM ticket_comments WHERE ticket_id=? ORDER BY created_at LIMIT 5",
+                            [tk['id']]
+                        ).fetchall()
+                        if comments:
+                            ticket_text += f"\nTicket '{tk['subject']}' ({tk['status']}): " + " | ".join([c['content'][:100] for c in comments])
+            except Exception:
+                pass
 
     except Exception as e:
         return _err(str(e), 500)

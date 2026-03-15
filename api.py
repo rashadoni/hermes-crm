@@ -3338,10 +3338,10 @@ async def create_contract(request: Request, user=Depends(require_auth)):
         new_id = cur.lastrowid
         row = conn.execute("SELECT * FROM contracts WHERE id = ?", (new_id,)).fetchone()
         # Notify admins of new contract
-            admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
-            for a in admins:
-                if a[0] != user["user_id"]:
-                    send_notification(a[0], "contract_created", f"New contract: {data.get('contract_name','')}", f"Counterparty: {data.get('counterparty','')}", "contract", new_id)
+        admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+        for a in admins:
+            if a[0] != user["user_id"]:
+                send_notification(a[0], "contract_created", f"New contract: {data.get('contract_name','')}", f"Counterparty: {data.get('counterparty','')}", "contract", new_id)
         log_audit(user["user_id"], "create_contract", "contract", new_id, ip=_get_ip(request))
         return _ok(dict(row))
 
@@ -3364,11 +3364,11 @@ async def update_contract(contract_id: int, request: Request, user=Depends(requi
         conn.commit()
         row = conn.execute("SELECT * FROM contracts WHERE id = ?", (contract_id,)).fetchone()
         # Notify on contract status change
-            if "status" in data:
-                admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
-                for a in admins:
-                    if a[0] != user["user_id"]:
-                        send_notification(a[0], "contract_status_changed", f"Contract: {row['contract_name']}", f"Status: {data['status']}", "contract", contract_id)
+        if "status" in data:
+            admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+            for a in admins:
+                if a[0] != user["user_id"]:
+                    send_notification(a[0], "contract_status_changed", f"Contract: {row['contract_name']}", f"Status: {data['status']}", "contract", contract_id)
         log_audit(user["user_id"], "update_contract", "contract", contract_id, ip=_get_ip(request))
         return _ok(dict(row))
 

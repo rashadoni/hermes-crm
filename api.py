@@ -332,6 +332,151 @@ async def startup_event():
                 """)
     except Exception as e:
         logger.warning("Currency seed: %s", e)
+    # ─── Seed: Contact Segments ───────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM contact_segments WHERE name IN ('VIP Clients', 'New Leads (30 days)', 'No Email')").fetchone()[0]
+            if existing_count == 0:
+                conn.executescript("""
+                    INSERT OR IGNORE INTO contact_segments (name, description, conditions, is_dynamic, contact_count) VALUES
+                    ('VIP Clients', 'High-value enterprise clients with active deals', '{"company_name":""}', 1, 0);
+                    INSERT OR IGNORE INTO contact_segments (name, description, conditions, is_dynamic, contact_count) VALUES
+                    ('New Leads (30 days)', 'Leads created in the last 30 days', '{"created_after":"2025-01-01"}', 1, 0);
+                    INSERT OR IGNORE INTO contact_segments (name, description, conditions, is_dynamic, contact_count) VALUES
+                    ('No Email', 'Contacts missing email address', '{"has_email":false}', 1, 0);
+                """)
+    except Exception as e:
+        logger.warning("Contact segments seed: %s", e)
+
+    # ─── Seed: Custom Fields ──────────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM custom_fields WHERE field_name IN ('birthday', 'inn', 'expected_close', 'budget_range')").fetchone()[0]
+            if existing_count == 0:
+                conn.executescript("""
+                    INSERT OR IGNORE INTO custom_fields (entity_type, field_name, field_label, field_label_ru, field_label_az, field_type, is_active) VALUES
+                    ('contacts', 'birthday', 'Birthday', 'День рождения', 'Doğum günü', 'date', 1);
+                    INSERT OR IGNORE INTO custom_fields (entity_type, field_name, field_label, field_label_ru, field_label_az, field_type, is_active) VALUES
+                    ('contacts', 'inn', 'Tax ID', 'ИНН', 'VÖEN', 'text', 1);
+                    INSERT OR IGNORE INTO custom_fields (entity_type, field_name, field_label, field_label_ru, field_label_az, field_type, is_active) VALUES
+                    ('deals', 'expected_close', 'Expected Close', 'Ожидаемое закрытие', 'Gözlənilən bağlanma', 'date', 1);
+                    INSERT OR IGNORE INTO custom_fields (entity_type, field_name, field_label, field_label_ru, field_label_az, field_type, options, is_active) VALUES
+                    ('leads', 'budget_range', 'Budget Range', 'Диапазон бюджета', 'Büdcə diapazonu', 'select', '["< 1000","1000-5000","5000-20000","> 20000"]', 1);
+                """)
+    except Exception as e:
+        logger.warning("Custom fields seed: %s", e)
+
+    # ─── Seed: Workflow Rules ─────────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM workflow_rules WHERE name IN ('Auto-assign new deals', 'Notify on deal won', 'Create task on new lead')").fetchone()[0]
+            if existing_count == 0:
+                # Insert workflow rules
+                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                    ('Auto-assign new deals', 'deals', 'created', '{}', 1))
+                rule_id_1 = conn.lastrowid
+
+                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                    ('Notify on deal won', 'deals', 'stage_changed', '{"stage":"WON"}', 1))
+                rule_id_2 = conn.lastrowid
+
+                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                    ('Create task on new lead', 'leads', 'created', '{}', 1))
+                rule_id_3 = conn.lastrowid
+
+                # Insert workflow actions
+                conn.execute("INSERT OR IGNORE INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?, ?, ?, ?)",
+                    (rule_id_1, 'assign_to', json.dumps({"value":"admin"}), 0))
+
+                conn.execute("INSERT OR IGNORE INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?, ?, ?, ?)",
+                    (rule_id_2, 'send_notification', json.dumps({"message":"Deal won!"}), 0))
+
+                conn.execute("INSERT OR IGNORE INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?, ?, ?, ?)",
+                    (rule_id_3, 'create_task', json.dumps({"value":"Follow up with new lead"}), 0))
+
+                conn.commit()
+    except Exception as e:
+        logger.warning("Workflow rules seed: %s", e)
+
+    # ─── Seed: Nurture Sequences ──────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM nurture_sequences WHERE name IN ('Welcome Series', 'Re-engagement')").fetchone()[0]
+            if existing_count == 0:
+                # Insert Welcome Series
+                conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
+                    ('Welcome Series', 'Automated welcome emails for new leads', 'lead_created', 1))
+                seq_id_1 = conn.lastrowid
+
+                # Insert steps for Welcome Series
+                conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
+                    (seq_id_1, 1, 0, 'email', 'Welcome to Hermes CRM'))
+                conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
+                    (seq_id_1, 2, 3, 'email', 'Getting started guide'))
+                conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
+                    (seq_id_1, 3, 7, 'task', 'Follow up call'))
+
+                # Insert Re-engagement sequence
+                conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
+                    ('Re-engagement', 'Win-back campaign for inactive leads', 'lead_status_changed', 0))
+                seq_id_2 = conn.lastrowid
+
+                # Insert steps for Re-engagement
+                conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
+                    (seq_id_2, 1, 0, 'email', 'We miss you'))
+                conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
+                    (seq_id_2, 2, 5, 'email', 'Special offer'))
+
+                conn.commit()
+    except Exception as e:
+        logger.warning("Nurture sequences seed: %s", e)
+
+    # ─── Seed: Email Logs ─────────────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM email_log WHERE subject IN ('Meeting confirmation', 'Invoice #2024-001', 'Welcome aboard', 'Proposal follow-up', 'Contract signed')").fetchone()[0]
+            if existing_count == 0:
+                conn.executescript("""
+                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    ('noreply@hermes.crm', 'john@example.com', 'Meeting confirmation', 'sent', datetime('now', '-1 day'));
+                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    ('billing@hermes.crm', 'finance@client.com', 'Invoice #2024-001', 'sent', datetime('now', '-2 days'));
+                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    ('onboarding@hermes.crm', 'newuser@example.com', 'Welcome aboard', 'sent', datetime('now', '-5 days'));
+                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    ('sales@hermes.crm', 'manager@prospect.com', 'Proposal follow-up', 'sent', datetime('now', '-3 days'));
+                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    ('contracts@hermes.crm', 'legal@partner.com', 'Contract signed', 'sent', datetime('now', '-7 days'));
+                """)
+    except Exception as e:
+        logger.warning("Email logs seed: %s", e)
+
+    # ─── Seed: Dashboard Layouts ───────────────────────────────────
+    try:
+        with get_db() as conn:
+            existing_count = conn.execute("SELECT COUNT(*) FROM dashboard_layouts WHERE name = 'Sales Dashboard'").fetchone()[0]
+            if existing_count == 0:
+                layout_config = json.dumps([
+                    {"widget":"stat_cards","w":12,"h":2,"x":0,"y":0},
+                    {"widget":"deal_pipeline","w":6,"h":4,"x":0,"y":2},
+                    {"widget":"revenue_chart","w":6,"h":4,"x":6,"y":2},
+                    {"widget":"lead_funnel","w":6,"h":3,"x":0,"y":6},
+                    {"widget":"task_summary","w":6,"h":3,"x":6,"y":6}
+                ])
+                conn.execute("INSERT OR IGNORE INTO dashboard_layouts (name, layout, is_default) VALUES (?, ?, ?)",
+                    ('Sales Dashboard', layout_config, 1))
+                conn.commit()
+    except Exception as e:
+        logger.warning("Dashboard layouts seed: %s", e)
+
+    # ─── Clean up: Delete test segments ────────────────────────────
+    try:
+        with get_db() as conn:
+            conn.execute("DELETE FROM contact_segments WHERE name LIKE '%__preview__%' OR name = 'Test Segment'")
+            conn.commit()
+    except Exception as e:
+        logger.warning("Clean test segments: %s", e)
+
     # ─── Phase 4: Marketing Cloud tables ──────────────────────────
     try:
         with get_db() as conn:

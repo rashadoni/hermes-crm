@@ -14217,39 +14217,59 @@ async function renderWorkflowsPage(container) {
   try { const r = await api.get('/api/workflow-rules'); rules = r.data || r || []; } catch(e){}
   const entityLabels = {deals:_t('Deals','Сделки','Sövdələşmələr'), leads:_t('Leads','Лиды','Lidlər'), tickets:_t('Tickets','Тикеты','Müraciətlər'), tasks:_t('Tasks','Задачи','Tapşırıqlar'), contacts:_t('Contacts','Контакты','Kontaktlar')};
   const triggerLabels = {created:_t('Created','Создан','Yaradıldı'), updated:_t('Updated','Обновлён','Yeniləndi'), stage_changed:_t('Stage Changed','Стадия изменена','Mərhələ dəyişdi'), status_changed:_t('Status Changed','Статус изменён','Status dəyişdi')};
-  
+
+  const workflowIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('wf_title')}</h1>
-        <button class="btn btn-primary" onclick="showWorkflowForm()">${t('wf_new')}</button>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            ${workflowIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('wf_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Automate your processes','Автоматизируйте процессы','Proseslərinizi avtomatlaşdırın')}</p>
+          </div>
+        </div>
+        <button class="btn btn-primary flex items-center gap-2" onclick="showWorkflowForm()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('wf_new')}
+        </button>
       </div>
-      <table class="w-full text-sm">
-        <thead><tr class="text-left border-b border-slate-700">
-          <th class="p-3">${_t('Name','Название','Ad')}</th>
-          <th class="p-3">${t('wf_entity')}</th>
-          <th class="p-3">${t('wf_trigger')}</th>
-          <th class="p-3">${t('wf_actions')}</th>
-          <th class="p-3">${_t('Status','Статус','Status')}</th>
-          <th class="p-3"></th>
-        </tr></thead>
-        <tbody>
-          ${rules.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No rules','Нет правил','Qayda yoxdur') + '</td></tr>' :
-            rules.map(r => `
-              <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showWorkflowForm(${r.id})">
-                <td class="p-3 font-medium">${esc(r.name)}</td>
-                <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${entityLabels[r.entity_type]||r.entity_type}</span></td>
-                <td class="p-3"><span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">${triggerLabels[r.trigger_event]||r.trigger_event}</span></td>
-                <td class="p-3">${r.action_count||0}</td>
-                <td class="p-3">${r.is_active ? '<span class="text-green-400 text-xs">ON</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
-                <td class="p-3 text-right">
-                  <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteWorkflow(${r.id})">${_t('Delete','Удалить','Sil')}</button>
-                </td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
+
+      ${rules.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${workflowIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No workflows yet','Нет рабочих процессов','İş axını yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Create your first workflow to get started','Создайте первый рабочий процесс','Başlamaq üçün ilk iş axını yaradın')}</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${rules.map(r => `
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all duration-200 cursor-pointer" onclick="showWorkflowForm(${r.id})">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 flex-1">
+                  <div class="w-2 h-2 rounded-full ${r.is_active ? 'bg-green-500' : 'bg-slate-600'}"></div>
+                  <h3 class="font-semibold text-white">${esc(r.name)}</h3>
+                  <span class="text-xs bg-slate-700/50 px-2 py-1 rounded-lg">${entityLabels[r.entity_type]||r.entity_type}</span>
+                </div>
+                <button class="text-xs text-red-400 hover:text-red-300 opacity-0 hover:opacity-100 transition" onclick="event.stopPropagation();deleteWorkflow(${r.id})">${_t('Delete','Удалить','Sil')}</button>
+              </div>
+              <div class="flex gap-4 text-sm text-slate-400 ml-5">
+                <span class="flex items-center gap-1">
+                  <span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">${triggerLabels[r.trigger_event]||r.trigger_event}</span>
+                </span>
+                <span>${r.action_count||0} ${_t('actions','действий','hərəkətlər')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
     </div>`;
+}
 }
 
 async function showWorkflowForm(ruleId) {
@@ -14379,39 +14399,71 @@ async function renderDashboardSettings(container) {
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   let layouts = [];
   try { const r = await api.get('/api/dashboard-layouts'); layouts = r.data || r || []; } catch(e){}
-  const widgets = ['stat_cards','lead_funnel','deal_pipeline','revenue_chart','task_summary','ticket_stats','forecast_chart','contract_status','campaign_performance'];
-  
+
+  const dashIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>';
+
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
-        <button class="btn btn-primary" onclick="createDashLayout()">${t('dash_new')}</button>
-      </div>
-      ${layouts.length===0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom layouts. Using default dashboard.','Нет макетов. Используется стандартная панель.','Xüsusi tərtibat yoxdur.') + '</div>' :
-        layouts.map(l => `
-          <div class="bg-slate-800/50 rounded-lg p-4 mb-4">
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <span class="font-semibold">${esc(l.name)}</span>
-                ${l.is_default ? '<span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">'+t('dash_default')+'</span>' : ''}
-              </div>
-              <div class="flex gap-2">
-                ${!l.is_default ? '<button class="text-xs text-indigo-400 hover:underline" onclick="setDefaultLayout('+l.id+')">'+_t('Set Default','По умолчанию','Defolt et')+'</button>' : ''}
-                <button class="text-xs text-red-400 hover:underline" onclick="deleteDashLayout(${l.id})">${_t('Delete','Удалить','Sil')}</button>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-1">
-              ${(l.layout||[]).map(w => '<span class="text-xs bg-slate-700 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
-            </div>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            ${dashIcon}
           </div>
-        `).join('')}
-      <div class="mt-6 bg-slate-800/50 rounded-lg p-4">
-        <h3 class="text-sm font-semibold mb-3">${t('dash_widgets')}</h3>
+          <div>
+            <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Customize your dashboard','Настройте панель','Panelinizi fərdiləşdirin')}</p>
+          </div>
+        </div>
+        <button class="btn btn-primary flex items-center gap-2" onclick="createDashLayout()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('dash_new')}
+        </button>
+      </div>
+
+      ${layouts.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${dashIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No custom layouts','Нет макетов','Xüsusi tərtibat yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Create a custom layout to get started','Создайте макет для начала','Başlamaq üçün xüsusi tərtibat yaradın')}</p>
+        </div>
+      ` : `
+        <div class="space-y-3 mb-8">
+          ${layouts.map(l => `
+            <div class="bg-gradient-to-r from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-xl p-5 hover:border-indigo-500/30 transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-3">
+                    <h3 class="font-semibold text-white">${esc(l.name)}</h3>
+                    ${l.is_default ? '<span class="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full font-medium">'+t('dash_default')+'</span>' : ''}
+                  </div>
+                  <div class="flex flex-wrap gap-1 mt-2">
+                    ${(l.layout||[]).slice(0,4).map(w => '<span class="text-xs bg-indigo-500/15 text-indigo-400 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
+                    ${(l.layout||[]).length > 4 ? '<span class="text-xs text-slate-500">+' + ((l.layout||[]).length - 4) + ' more</span>' : ''}
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  ${!l.is_default ? '<button class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition" onclick="setDefaultLayout('+l.id+')">'+_t('Set Default','По умолчанию','Defolt et')+'</button>' : ''}
+                  <button class="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition" onclick="deleteDashLayout(${l.id})">${_t('Delete','Удалить','Sil')}</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+
+      <div class="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-6">
+        <h3 class="font-semibold mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          ${t('dash_widgets')}
+        </h3>
         <div class="flex flex-wrap gap-2">
-          ${widgets.map(w => '<span class="text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded cursor-pointer hover:bg-indigo-500/20">'+w+'</span>').join('')}
+          ${['stat_cards','lead_funnel','deal_pipeline','revenue_chart','task_summary','ticket_stats','forecast_chart','contract_status','campaign_performance'].map(w => '<span class="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-2 rounded-lg cursor-help" title="'+w+'">'+w+'</span>').join('')}
         </div>
       </div>
     </div>`;
+}
 }
 
 async function createDashLayout() {
@@ -14439,303 +14491,109 @@ async function deleteDashLayout(layoutId) {
 
 
 // ─── Workflow Automation ──────────────────────────────────────
-async function renderWorkflowsPage(container) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  let rules = [];
-  try { const r = await api.get('/api/workflow-rules'); rules = r.data || r || []; } catch(e){}
-  const entityLabels = {deals:_t('Deals','Сделки','Sövdələşmələr'), leads:_t('Leads','Лиды','Lidlər'), tickets:_t('Tickets','Тикеты','Müraciətlər'), tasks:_t('Tasks','Задачи','Tapşırıqlar'), contacts:_t('Contacts','Контакты','Kontaktlar')};
-  const triggerLabels = {created:_t('Created','Создан','Yaradıldı'), updated:_t('Updated','Обновлён','Yeniləndi'), stage_changed:_t('Stage Changed','Стадия изменена','Mərhələ dəyişdi'), status_changed:_t('Status Changed','Статус изменён','Status dəyişdi')};
-  
-  container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('wf_title')}</h1>
-        <button class="btn btn-primary" onclick="showWorkflowForm()">${t('wf_new')}</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead><tr class="text-left border-b border-slate-700">
-          <th class="p-3">${_t('Name','Название','Ad')}</th>
-          <th class="p-3">${t('wf_entity')}</th>
-          <th class="p-3">${t('wf_trigger')}</th>
-          <th class="p-3">${t('wf_actions')}</th>
-          <th class="p-3">${_t('Status','Статус','Status')}</th>
-          <th class="p-3"></th>
-        </tr></thead>
-        <tbody>
-          ${rules.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No rules','Нет правил','Qayda yoxdur') + '</td></tr>' :
-            rules.map(r => `
-              <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showWorkflowForm(${r.id})">
-                <td class="p-3 font-medium">${esc(r.name)}</td>
-                <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${entityLabels[r.entity_type]||r.entity_type}</span></td>
-                <td class="p-3"><span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">${triggerLabels[r.trigger_event]||r.trigger_event}</span></td>
-                <td class="p-3">${r.action_count||0}</td>
-                <td class="p-3">${r.is_active ? '<span class="text-green-400 text-xs">ON</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
-                <td class="p-3 text-right">
-                  <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteWorkflow(${r.id})">${_t('Delete','Удалить','Sil')}</button>
-                </td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function showWorkflowForm(ruleId) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  let rule = {name:'',entity_type:'deals',trigger_event:'stage_changed',conditions:{},is_active:1,actions:[]};
-  if (ruleId) {
-    try { const r = await api.get('/api/workflow-rules/'+ruleId); rule = r.data||r; } catch(e){}
-  }
-  
-  const entities = ['deals','leads','tickets','tasks','contacts'];
-  const triggers = ['created','updated','stage_changed','status_changed'];
-  const actionTypes = ['send_notification','send_email','create_task','assign_to','update_field'];
-  const actionLabels = {send_notification:_t('Notification','Уведомление','Bildiriş'), send_email:'Email', create_task:_t('Create Task','Создать задачу','Tapşırıq yarat'), assign_to:_t('Assign To','Назначить','Təyin et'), update_field:_t('Update Field','Обновить поле','Sahəni yenilə')};
-
-  const app = document.getElementById('app');
-  app.innerHTML = `
-    <div class="p-6 max-w-3xl">
-      <div class="flex items-center gap-3 mb-6">
-        <button class="text-slate-400 hover:text-white" onclick="navigate('workflows')">← ${t('wf_title')}</button>
-        <h1 class="text-xl font-bold">${ruleId ? _t('Edit Rule','Ред. правило','Qayda redaktə') : t('wf_new')}</h1>
-      </div>
-      <form onsubmit="saveWorkflow(event, ${ruleId||'null'})" class="space-y-4">
-        <div class="grid grid-cols-3 gap-3">
-          <div><label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label><input type="text" id="wfName" value="${esc(rule.name)}" required class="w-full"></div>
-          <div>
-            <label class="text-xs text-slate-500">${t('wf_entity')}</label>
-            <select id="wfEntity" class="w-full text-sm">
-              ${entities.map(e => '<option value="'+e+'" '+(rule.entity_type===e?'selected':'')+'>'+e+'</option>').join('')}
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-500">${t('wf_trigger')}</label>
-            <select id="wfTrigger" class="w-full text-sm">
-              ${triggers.map(t => '<option value="'+t+'" '+(rule.trigger_event===t?'selected':'')+'>'+t+'</option>').join('')}
-            </select>
-          </div>
-        </div>
-        <div class="bg-slate-800/50 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold">${t('wf_condition')}</h3>
-          </div>
-          <div class="grid grid-cols-2 gap-2" style="font-size:12px">
-            <div><label class="text-xs text-slate-600">${_t('Field','Поле','Sahə')}</label><input type="text" id="wfCondField" value="${esc(Object.keys(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="stage"></div>
-            <div><label class="text-xs text-slate-600">${_t('Value','Значение','Dəyər')}</label><input type="text" id="wfCondValue" value="${esc(Object.values(rule.conditions||{})[0]||'')}" class="w-full text-xs" placeholder="WON"></div>
-          </div>
-        </div>
-        <div class="bg-slate-800/50 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold">${t('wf_actions')}</h3>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="addWfAction()">+ ${_t('Add','Добавить','Əlavə et')}</button>
-          </div>
-          <div id="wfActionsContainer">
-            ${(rule.actions||[]).map((a,i) => _renderWfActionRow(i, a, actionTypes, actionLabels)).join('')}
-          </div>
-        </div>
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="wfActive" ${rule.is_active?'checked':''} class="accent-green-500"> ${_t('Active','Активно','Aktiv')}</label>
-        <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
-          <button type="button" class="btn btn-secondary" onclick="navigate('workflows')">${_t('Cancel','Отмена','Ləğv')}</button>
-        </div>
-      </form>
-    </div>`;
-  window._wfActionIdx = (rule.actions||[]).length;
-  window._wfActionTypes = actionTypes;
-  window._wfActionLabels = actionLabels;
-}
-
-function _renderWfActionRow(idx, action, actionTypes, actionLabels) {
-  const cfg = action.action_config || {};
-  return `
-    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-900 rounded" id="wfAction${idx}">
-      <span class="text-xs text-slate-500 w-6">#${idx+1}</span>
-      <select name="wfa_type_${idx}" class="text-xs flex-1">
-        ${actionTypes.map(t => '<option value="'+t+'" '+(action.action_type===t?'selected':'')+'>'+(actionLabels[t]||t)+'</option>').join('')}
-      </select>
-      <input type="text" name="wfa_config_${idx}" value="${esc(cfg.template_id||cfg.assign_to||cfg.field||cfg.message||'')}" class="text-xs flex-1" placeholder="Config value">
-      <button type="button" class="text-red-400 text-xs" onclick="document.getElementById('wfAction${idx}').remove()">✕</button>
-    </div>`;
-}
-
-function addWfAction() {
-  const idx = window._wfActionIdx || 0;
-  window._wfActionIdx = idx + 1;
-  const container = document.getElementById('wfActionsContainer');
-  const div = document.createElement('div');
-  div.innerHTML = _renderWfActionRow(idx, {}, window._wfActionTypes||[], window._wfActionLabels||{});
-  container.appendChild(div.firstElementChild);
-}
-
-async function saveWorkflow(e, ruleId) {
-  e.preventDefault();
-  const name = document.getElementById('wfName').value.trim();
-  if (!name) { showToast('Name required','error'); return; }
-  const condField = document.getElementById('wfCondField').value.trim();
-  const condValue = document.getElementById('wfCondValue').value.trim();
-  const conditions = condField ? {[condField]: condValue} : {};
-  const actions = [];
-  document.querySelectorAll('[id^="wfAction"]').forEach(el => {
-    const idx = el.id.replace('wfAction','');
-    const type = document.querySelector('[name="wfa_type_'+idx+'"]');
-    const config = document.querySelector('[name="wfa_config_'+idx+'"]');
-    if (type) actions.push({ action_type: type.value, action_config: { value: config?config.value:'' } });
-  });
-  const payload = {
-    name, entity_type: document.getElementById('wfEntity').value,
-    trigger_event: document.getElementById('wfTrigger').value,
-    conditions, is_active: document.getElementById('wfActive').checked, actions
-  };
-  try {
-    if (ruleId) await api.put('/api/workflow-rules/'+ruleId, payload);
-    else await api.post('/api/workflow-rules', payload);
-    showToast(ruleId?'Updated':'Created','success');
-    navigate('workflows');
-  } catch(err) { showToast(err.message||'Error','error'); }
-}
-
-async function deleteWorkflow(ruleId) {
-  if (!confirm('Delete?')) return;
-  try { await api.delete('/api/workflow-rules/'+ruleId); showToast('Deleted','success'); navigate('workflows'); }
-  catch(e) { showToast(e.message||'Error','error'); }
-}
-
-// ─── Dashboard Settings ───────────────────────────────────────
-async function renderDashboardSettings(container) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  let layouts = [];
-  try { const r = await api.get('/api/dashboard-layouts'); layouts = r.data || r || []; } catch(e){}
-  const widgets = ['stat_cards','lead_funnel','deal_pipeline','revenue_chart','task_summary','ticket_stats','forecast_chart','contract_status','campaign_performance'];
-  
-  container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
-        <button class="btn btn-primary" onclick="createDashLayout()">${t('dash_new')}</button>
-      </div>
-      ${layouts.length===0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom layouts. Using default dashboard.','Нет макетов. Используется стандартная панель.','Xüsusi tərtibat yoxdur.') + '</div>' :
-        layouts.map(l => `
-          <div class="bg-slate-800/50 rounded-lg p-4 mb-4">
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <span class="font-semibold">${esc(l.name)}</span>
-                ${l.is_default ? '<span class="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">'+t('dash_default')+'</span>' : ''}
-              </div>
-              <div class="flex gap-2">
-                ${!l.is_default ? '<button class="text-xs text-indigo-400 hover:underline" onclick="setDefaultLayout('+l.id+')">'+_t('Set Default','По умолчанию','Defolt et')+'</button>' : ''}
-                <button class="text-xs text-red-400 hover:underline" onclick="deleteDashLayout(${l.id})">${_t('Delete','Удалить','Sil')}</button>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-1">
-              ${(l.layout||[]).map(w => '<span class="text-xs bg-slate-700 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
-            </div>
-          </div>
-        `).join('')}
-      <div class="mt-6 bg-slate-800/50 rounded-lg p-4">
-        <h3 class="text-sm font-semibold mb-3">${t('dash_widgets')}</h3>
-        <div class="flex flex-wrap gap-2">
-          ${widgets.map(w => '<span class="text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded cursor-pointer hover:bg-indigo-500/20">'+w+'</span>').join('')}
-        </div>
-      </div>
-    </div>`;
-}
-
-async function createDashLayout() {
-  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
-  const name = prompt(_t('Layout name:','Название макета:','Tərtibat adı:'));
-  if (!name) return;
-  const defaultWidgets = [{widget:'stat_cards',w:12,h:2,x:0,y:0},{widget:'deal_pipeline',w:12,h:4,x:0,y:2},{widget:'revenue_chart',w:6,h:3,x:0,y:6},{widget:'task_summary',w:6,h:3,x:6,y:6}];
-  try {
-    await api.post('/api/dashboard-layouts', { name, layout: defaultWidgets, is_default: true });
-    showToast('Created','success');
-    navigate('dashboard-settings');
-  } catch(e) { showToast(e.message||'Error','error'); }
-}
-
-async function setDefaultLayout(layoutId) {
-  try { await api.put('/api/dashboard-layouts/'+layoutId, {is_default:true}); showToast('Set as default','success'); navigate('dashboard-settings'); }
-  catch(e) { showToast(e.message||'Error','error'); }
-}
-
-async function deleteDashLayout(layoutId) {
-  if (!confirm('Delete?')) return;
-  try { await api.delete('/api/dashboard-layouts/'+layoutId); showToast('Deleted','success'); navigate('dashboard-settings'); }
-  catch(e) { showToast(e.message||'Error','error'); }
-}
-
 // ─── Multi-Currency ───────────────────────────────────────────
 async function renderCurrenciesPage(container) {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   let currencies = [];
   try { const r = await api.get('/api/currencies/all'); currencies = r.data || r || []; } catch(e){}
-  
+
+  const currencyIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('cur_title')}</h1>
-        <button class="btn btn-primary" onclick="showCurrencyForm()">${t('cur_new')}</button>
-      </div>
-      <div class="grid grid-cols-2 gap-6">
-        <div>
-          <table class="w-full text-sm">
-            <thead><tr class="text-left border-b border-slate-700">
-              <th class="p-2">${t('cur_code')}</th>
-              <th class="p-2">${t('cur_name')}</th>
-              <th class="p-2">${t('cur_symbol')}</th>
-              <th class="p-2">${t('cur_rate')}</th>
-              <th class="p-2">${t('cur_base')}</th>
-              <th class="p-2"></th>
-            </tr></thead>
-            <tbody>
-              ${currencies.map(c => `
-                <tr class="border-b border-slate-800">
-                  <td class="p-2 font-mono font-bold">${esc(c.code)}</td>
-                  <td class="p-2">${esc(c.name)}</td>
-                  <td class="p-2 text-lg">${esc(c.symbol)}</td>
-                  <td class="p-2">${c.is_base ? '1.0000' : parseFloat(c.exchange_rate).toFixed(4)}</td>
-                  <td class="p-2">${c.is_base ? '<span class="text-green-400 text-xs">✓ BASE</span>' : (c.is_active ? '<span class="text-slate-400 text-xs">Active</span>' : '<span class="text-red-400 text-xs">Off</span>')}</td>
-                  <td class="p-2 text-right">
-                    ${!c.is_base ? `
-                      <button class="text-xs text-indigo-400 hover:underline mr-1" onclick="showCurrencyEditForm(${c.id}, '${esc(c.code)}', '${esc(c.name)}', '${esc(c.symbol)}', ${c.exchange_rate}, ${c.is_active})">${_t('Edit','Ред.','Red.')}</button>
-                      <button class="text-xs text-red-400 hover:underline" onclick="deleteCurrency(${c.id})">${_t('Del','Уд.','Sil')}</button>
-                    ` : ''}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+            ${currencyIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('cur_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Multi-currency conversion','Мультивалютное преобразование','Çoxvalütalı dönüşüm')}</p>
+          </div>
         </div>
-        <div class="bg-slate-800/50 rounded-lg p-4">
-          <h3 class="font-semibold mb-3">${t('cur_convert')}</h3>
-          <div class="space-y-3">
-            <div class="flex gap-2 items-end">
-              <div class="flex-1">
-                <label class="text-xs text-slate-500">${_t('Amount','Сумма','Məbləğ')}</label>
-                <input type="number" id="convAmount" value="1000" step="any" class="w-full">
-              </div>
-              <div>
-                <label class="text-xs text-slate-500">${_t('From','Из','Dan')}</label>
-                <select id="convFrom" class="text-sm">
-                  ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='AZN'?'selected':'')+'>'+c.code+'</option>').join('')}
-                </select>
-              </div>
-              <div>
-                <label class="text-xs text-slate-500">${_t('To','В','A')}</label>
-                <select id="convTo" class="text-sm">
-                  ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='USD'?'selected':'')+'>'+c.code+'</option>').join('')}
-                </select>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="doConvert()">=</button>
+        <button class="btn btn-primary flex items-center gap-2" onclick="showCurrencyForm()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('cur_new')}
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-green-500/20 to-green-600/5 border border-green-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-green-400">${currencies.length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Active Currencies','Активные валюты','Aktiv valyutalar')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-blue-400">${currencies.filter(c=>c.is_base).length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Base Currency','Базовая валюта','Əsas valyuta')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500/20 to-purple-600/5 border border-purple-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-purple-400">${currencies.filter(c=>!c.is_base && c.is_active).length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Enabled Rates','Включенные ставки','Aktivləşdirilmiş dərəcələr')}</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-6 mb-8">
+        <div class="col-span-2">
+          <h3 class="font-semibold mb-4 text-slate-200">${_t('Currency Rates','Валютные курсы','Valyuta dərəcələri')}</h3>
+          ${currencies.length === 0 ? `
+            <div class="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-700/30">
+              <p class="text-slate-500">${_t('No currencies configured','Валюты не настроены','Valyutalar qurulmamışdır')}</p>
             </div>
-            <div id="convResult" class="text-center text-xl font-bold text-indigo-400 py-4">—</div>
+          ` : `
+            <div class="space-y-2">
+              ${currencies.map(c => `
+                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <div class="w-2 h-2 rounded-full ${c.is_base ? 'bg-yellow-500' : c.is_active ? 'bg-green-500' : 'bg-slate-600'}"></div>
+                    <div>
+                      <div class="font-semibold text-white">${esc(c.code)}</div>
+                      <div class="text-sm text-slate-500">${esc(c.name)}</div>
+                    </div>
+                    <span class="text-lg font-bold text-slate-300 ml-4">${esc(c.symbol)}</span>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <div class="text-right">
+                      <div class="font-mono text-white">${c.is_base ? '1.0000' : parseFloat(c.exchange_rate).toFixed(4)}</div>
+                      <div class="text-xs text-slate-500">${c.is_base ? 'BASE' : 'rate'}</div>
+                    </div>
+                    <div class="flex gap-1">
+                      ${!c.is_base ? '<button class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-lg hover:bg-indigo-500/10 transition" onclick="showCurrencyEditForm(${c.id}, \'${esc(c.code)}\', \'${esc(c.name)}\', \'${esc(c.symbol)}\', ${c.exchange_rate}, ${c.is_active})">${_t('Edit','Ред.','Red.')}</button>' : ''}
+                      ${!c.is_base ? '<button class="text-xs text-red-400 hover:text-red-300 px-3 py-1 rounded-lg hover:bg-red-500/10 transition" onclick="deleteCurrency(${c.id})">${_t('Delete','Удалить','Sil')}</button>' : ''}
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-5">
+          <h3 class="font-semibold mb-4 text-slate-200">${t('cur_convert')}</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-slate-500 block mb-1">${_t('Amount','Сумма','Məbləğ')}</label>
+              <input type="number" id="convAmount" value="1000" step="any" class="w-full rounded-lg bg-slate-700/50 border border-slate-600 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 block mb-1">${_t('From','Из','Dan')}</label>
+              <select id="convFrom" class="w-full rounded-lg bg-slate-700/50 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='AZN'?'selected':'')+'>'+c.code+'</option>').join('')}
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 block mb-1">${_t('To','В','A')}</label>
+              <select id="convTo" class="w-full rounded-lg bg-slate-700/50 border border-slate-600 px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                ${currencies.filter(c=>c.is_active).map(c => '<option value="'+c.code+'" '+(c.code==='USD'?'selected':'')+'>'+c.code+'</option>').join('')}
+              </select>
+            </div>
+            <button class="w-full btn btn-primary mt-2" onclick="doConvert()">${_t('Convert','Конвертировать','Çevir')}</button>
+            <div id="convResult" class="text-center text-lg font-bold text-indigo-400 py-3 bg-slate-800/50 rounded-lg">—</div>
           </div>
         </div>
       </div>
     </div>`;
+}
 }
 
 async function doConvert() {
@@ -14887,35 +14745,87 @@ async function renderEmailLogPage(container) {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   let logs = [];
-  try { const r = await api.get('/api/email/log?limit=100'); logs = r.data || r || []; } catch(e){}
-  
+  try { const r = await api.get('/api/email-logs?limit=100'); logs = r.data || r || []; } catch(e){}
+
+  const emailIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>';
+
+  const statusColor = (status) => {
+    if(status === 'sent') return 'bg-green-500/20 text-green-400';
+    if(status === 'failed') return 'bg-red-500/20 text-red-400';
+    if(status === 'bounced') return 'bg-orange-500/20 text-orange-400';
+    return 'bg-slate-700/30 text-slate-400';
+  };
+
   container.innerHTML = `
-    <div class="p-6">
-      <h1 class="text-2xl font-bold mb-6">${t('email_log')}</h1>
-      <table class="w-full text-sm">
-        <thead><tr class="text-left border-b border-slate-700">
-          <th class="p-3">${_t('Date','Дата','Tarix')}</th>
-          <th class="p-3">${_t('Direction','Направление','İstiqamət')}</th>
-          <th class="p-3">${t('email_to')}</th>
-          <th class="p-3">${t('email_subject')}</th>
-          <th class="p-3">${_t('Sender','Отправитель','Göndərən')}</th>
-          <th class="p-3">${_t('Status','Статус','Status')}</th>
-        </tr></thead>
-        <tbody>
-          ${logs.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No emails yet','Нет писем','E-poçt yoxdur') + '</td></tr>' :
-            logs.map(l => `
-              <tr class="border-b border-slate-800 hover:bg-slate-800/50">
-                <td class="p-3 text-xs text-slate-400">${l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
-                <td class="p-3"><span class="text-xs ${l.direction==='outbound'?'text-blue-400':'text-green-400'}">${l.direction==='outbound'?'→ OUT':'← IN'}</span></td>
-                <td class="p-3">${esc(l.to_address||'')}</td>
-                <td class="p-3">${esc(l.subject||'')}</td>
-                <td class="p-3 text-slate-400">${esc(l.sender_name||l.from_address||'')}</td>
-                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full ${l.status==='sent'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}">${l.status}</span></td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+            ${emailIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('eml_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Email communication history','История коммуникации по электронной почте','E-poçt rabitə tarixi')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-blue-400">${logs.length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Emails','Всего электронных писем','Cəmi e-mayl')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-green-500/20 to-green-600/5 border border-green-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-green-400">${logs.filter(l=>l.status==='sent').length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Sent','Отправлено','Göndərildi')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-red-500/20 to-red-600/5 border border-red-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-red-400">${logs.filter(l=>l.status==='failed').length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Failed','Ошибок','Uğursuz')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/5 border border-orange-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-orange-400">${logs.filter(l=>l.status==='bounced').length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Bounced','Отскочено','Rədd edildi')}</div>
+        </div>
+      </div>
+
+      ${logs.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${emailIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No email logs','Нет логов электронной почты','E-poçt günlüğü yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Email activity will appear here','Здесь появится деятельность по электронной почте','E-poçt fəaliyyəti burada görünəcək')}</p>
+        </div>
+      ` : `
+        <div class="space-y-2">
+          ${logs.map(log => `
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="font-semibold text-white">${esc(log.subject||'(no subject)')}</span>
+                    <span class="text-xs ${statusColor(log.status)} px-2 py-1 rounded-full font-medium">${log.status}</span>
+                  </div>
+                  <div class="text-sm text-slate-400 mb-2">
+                    <span class="block">${_t('To:','Кому:','Kime:')}</span>
+                    <span class="text-slate-300">${esc(log.recipient_email||'—')}</span>
+                  </div>
+                  <div class="flex gap-4 text-xs text-slate-500">
+                    <span>${_t('Sent','Отправлено','Göndərildi')}: ${log.sent_at ? new Date(log.sent_at).toLocaleString() : '—'}</span>
+                    ${log.opened_at ? '<span>${_t('Opened','Открыто','Açılmış')}: ' + new Date(log.opened_at).toLocaleString() + '</span>' : ''}
+                  </div>
+                </div>
+                <div class="text-right text-xs text-slate-500">
+                  <div>${esc(log.sender_email||'system')}</div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
     </div>`;
+}
 }
 
 async function loadContactEmailHistory(contactId, containerId) {
@@ -14946,40 +14856,71 @@ async function renderNurturingPage(container) {
   let seqs = [];
   try { const r = await api.get('/api/nurture-sequences'); seqs = r.data || r || []; } catch(e){}
 
+  const nurtureIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>';
+
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('nur_title')}</h1>
-        <button class="btn btn-primary" onclick="showNurtureForm()">${t('nur_new')}</button>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+            ${nurtureIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('nur_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Automated lead nurturing sequences','Автоматизированные последовательности','Avtomatik lid tərbiyeləmə')}</p>
+          </div>
+        </div>
+        <button class="btn btn-primary flex items-center gap-2" onclick="showNurtureForm()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('nur_new')}
+        </button>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="text-left border-b border-slate-700">
-            <th class="p-3">${_t('Name','Название','Ad')}</th>
-            <th class="p-3">${t('nur_trigger')}</th>
-            <th class="p-3">${t('nur_steps')}</th>
-            <th class="p-3">${t('nur_enrollments')}</th>
-            <th class="p-3">${_t('Status','Статус','Status')}</th>
-            <th class="p-3"></th>
-          </tr></thead>
-          <tbody>
-            ${seqs.length===0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-500">' + _t('No sequences','Нет цепочек','Zəncir yoxdur') + '</td></tr>' :
-              seqs.map(s => `
-                <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showNurtureDetail(${s.id})">
-                  <td class="p-3 font-medium">${esc(s.name)}</td>
-                  <td class="p-3"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${s.trigger_event||'—'}</span></td>
-                  <td class="p-3">${s.step_count||0}</td>
-                  <td class="p-3"><span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full text-xs">${s.active_enrollments||0}</span></td>
-                  <td class="p-3">${s.is_active ? '<span class="text-green-400 text-xs">'+t('nur_active')+'</span>' : '<span class="text-slate-500 text-xs">OFF</span>'}</td>
-                  <td class="p-3 text-right">
-                    <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteNurtureSeq(${s.id})">${_t('Delete','Удалить','Sil')}</button>
-                  </td>
-                </tr>
-              `).join('')}
-          </tbody>
-        </table>
+
+      <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-blue-400">${seqs.length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Sequences','Всего последовательностей','Cəmi ardıcıllıqlar')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-green-500/20 to-green-600/5 border border-green-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-green-400">${seqs.filter(s=>s.is_active).length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Active','Активные','Aktiv')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/5 border border-orange-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-orange-400">${seqs.reduce((sum,s)=>(sum + (s.active_enrollments||0)),0)}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Enrollments','Регистрации','Qeydiyyatlar')}</div>
+        </div>
       </div>
+
+      ${seqs.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${nurtureIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No sequences yet','Нет последовательностей','Ardıcıllıq yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Create your first nurture sequence','Создайте первую последовательность','İlk tərbiyeləmə ardıcıllığı yaradın')}</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${seqs.map(s => `
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all cursor-pointer" onclick="showNurtureDetail(${s.id})">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 flex-1">
+                  <div class="w-2 h-2 rounded-full ${s.is_active ? 'bg-green-500' : 'bg-slate-600'}"></div>
+                  <h3 class="font-semibold text-white">${esc(s.name)}</h3>
+                  <span class="text-xs bg-slate-700/50 px-2 py-1 rounded-lg">${s.trigger_event||'—'}</span>
+                </div>
+                <button class="text-xs text-red-400 hover:text-red-300 opacity-0 hover:opacity-100 transition" onclick="event.stopPropagation();deleteNurtureSeq(${s.id})">${_t('Delete','Удалить','Sil')}</button>
+              </div>
+              <div class="flex gap-4 text-sm text-slate-400 ml-5">
+                <span>${s.step_count||0} ${_t('steps','шагов','addımlar')}</span>
+                <span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full text-xs">${s.active_enrollments||0} ${_t('active','активные','aktiv')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
     </div>`;
+}
 }
 
 async function showNurtureForm(seqId) {
@@ -15136,53 +15077,75 @@ async function renderCustomFieldsPage(container) {
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   let fields = [];
   try { const r = await api.get('/api/custom-fields'); fields = r.data || r || []; } catch(e){}
-  
-  const entityTypes = ['leads','contacts','deals','companies','tickets'];
-  const entityLabels = {leads:_t('Leads','Лиды','Lidlər'), contacts:_t('Contacts','Контакты','Kontaktlar'), deals:_t('Deals','Сделки','Sövdələşmələr'), companies:_t('Companies','Компании','Şirkətlər'), tickets:_t('Tickets','Тикеты','Müraciətlər')};
-  const typeLabels = {text:'Text',number:'Number',date:'Date',select:'Select',multiselect:'Multi-select',checkbox:'Checkbox',url:'URL',email:'Email',textarea:'Textarea'};
-  
-  // Group by entity
+
+  const customFieldsIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+
+  const entities = ['contacts', 'deals', 'leads', 'companies', 'tasks'];
   const grouped = {};
-  entityTypes.forEach(et => { grouped[et] = fields.filter(f => f.entity_type === et); });
+  for(const e of entities) grouped[e] = fields.filter(f => f.entity_type === e);
 
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('cf_title')}</h1>
-        <button class="btn btn-primary" onclick="showCustomFieldForm()">${t('cf_new')}</button>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+            ${customFieldsIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('cf_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Extend your CRM with custom fields','Расширьте CRM пользовательскими полями','CRM-i xüsusi sahələrlə genişləndirin')}</p>
+          </div>
+        </div>
+        <button class="btn btn-primary flex items-center gap-2" onclick="showCustomFieldForm()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('cf_new')}
+        </button>
       </div>
-      ${entityTypes.map(et => {
-        const items = grouped[et];
-        if (!items.length) return '';
-        return `
-          <div class="mb-6">
-            <h2 class="text-lg font-semibold mb-2 text-indigo-400">${entityLabels[et]}</h2>
-            <table class="w-full text-sm mb-2">
-              <thead><tr class="text-left border-b border-slate-700">
-                <th class="p-2">${t('cf_field_name')}</th>
-                <th class="p-2">${t('cf_field_label')}</th>
-                <th class="p-2">${t('cf_field_type')}</th>
-                <th class="p-2">${t('cf_required')}</th>
-                <th class="p-2">${t('cf_default')}</th>
-                <th class="p-2"></th>
-              </tr></thead>
-              <tbody>
-                ${items.map(f => `
-                  <tr class="border-b border-slate-800">
-                    <td class="p-2 font-mono text-xs">${esc(f.field_name)}</td>
-                    <td class="p-2">${esc(L==='ru'&&f.field_label_ru?f.field_label_ru:L==='az'&&f.field_label_az?f.field_label_az:f.field_label)}</td>
-                    <td class="p-2"><span class="text-xs bg-slate-700 px-2 py-0.5 rounded">${typeLabels[f.field_type]||f.field_type}</span></td>
-                    <td class="p-2">${f.is_required ? '✅' : '—'}</td>
-                    <td class="p-2 text-slate-400 text-xs">${esc(f.default_value||'')}</td>
-                    <td class="p-2 text-right">
-                      <button class="text-xs text-indigo-400 hover:underline mr-2" onclick="showCustomFieldForm(${f.id})">${_t('Edit','Ред.','Redaktə')}</button>
-                      <button class="text-xs text-red-400 hover:underline" onclick="deleteCustomField(${f.id})">${_t('Delete','Удалить','Sil')}</button>
-                    </td>
-                  </tr>
+
+      <div class="grid grid-cols-5 gap-4 mb-8">
+        ${entities.map((e,i) => {
+          const count = grouped[e].length;
+          const colors = ['from-blue-500/20 to-blue-600/5 border-blue-500/20 text-blue-400', 'from-purple-500/20 to-purple-600/5 border-purple-500/20 text-purple-400', 'from-pink-500/20 to-pink-600/5 border-pink-500/20 text-pink-400', 'from-green-500/20 to-green-600/5 border-green-500/20 text-green-400', 'from-orange-500/20 to-orange-600/5 border-orange-500/20 text-orange-400'];
+          return '<div class="bg-gradient-to-br ' + colors[i] + ' border rounded-xl p-4"><div class="text-2xl font-bold">' + count + '</div><div class="text-xs text-slate-400 mt-1">' + e + '</div></div>';
+        }).join('')}
+      </div>
+
+      ${fields.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${customFieldsIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No custom fields yet','Нет пользовательских полей','Xüsusi sahə yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Add your first custom field to get started','Добавьте первое пользовательское поле','Başlamaq üçün ilk xüsusi sahəni əlavə edin')}</p>
+        </div>
+      ` : `
+        <div class="space-y-6">
+          ${entities.filter(e => grouped[e].length > 0).map(e => `
+            <div>
+              <h3 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                ${_t(e, e, e)}
+              </h3>
+              <div class="space-y-2">
+                ${grouped[e].map(f => `
+                  <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all flex items-center justify-between">
+                    <div class="flex-1">
+                      <div class="font-semibold text-white">${esc(f.field_label)}</div>
+                      <div class="text-sm text-slate-500">${esc(f.field_name)} · ${f.field_type}</div>
+                    </div>
+                    <div class="flex gap-1">
+                      <button class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-lg hover:bg-indigo-500/10 transition" onclick="showCustomFieldForm(${f.id})">${_t('Edit','Ред.','Red.')}</button>
+                      <button class="text-xs text-red-400 hover:text-red-300 px-3 py-1 rounded-lg hover:bg-red-500/10 transition" onclick="deleteCustomField(${f.id})">${_t('Delete','Удалить','Sil')}</button>
+                    </div>
+                  </div>
                 `).join('')}
-              </tbody>
-            </table>
-          </div>`;
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    </div>`;
+}
       }).join('')}
       ${fields.length === 0 ? '<div class="text-center text-slate-500 py-8">' + _t('No custom fields yet','Нет пользовательских полей','Xüsusi sahə yoxdur') + '</div>' : ''}
     </div>`;
@@ -15344,55 +15307,79 @@ async function collectAndSaveCustomFields(entityType, entityId) {
 async function renderCampaignRoiPage(container) {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  let data = [];
-  try { const r = await api.get('/api/campaigns/roi-summary'); data = r.data || r || []; } catch(e){}
-  const totalWon = data.reduce((s,c) => s + c.won_value, 0);
-  const totalPipeline = data.reduce((s,c) => s + c.total_pipeline, 0);
-  const totalDeals = data.reduce((s,c) => s + c.deal_count, 0);
+  let campaigns = [];
+  try { const r = await api.get('/api/campaigns?with_metrics=1'); campaigns = r.data || r || []; } catch(e){}
+
+  const roiIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>';
+
+  const totalRevenue = campaigns.reduce((sum,c)=>(sum + (c.revenue||0)),0);
+  const totalCost = campaigns.reduce((sum,c)=>(sum + (c.cost||0)),0);
+  const totalRoi = totalCost > 0 ? (((totalRevenue - totalCost)/totalCost)*100).toFixed(1) : 0;
 
   container.innerHTML = `
-    <div class="p-6">
-      <h1 class="text-2xl font-bold mb-6">${t('roi_title')}</h1>
-      <div class="grid grid-cols-3 gap-4 mb-6">
-        <div class="bg-slate-800 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-green-400">${totalWon.toLocaleString()} ₼</div>
-          <div class="text-xs text-slate-400 mt-1">${t('roi_won')}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-indigo-400">${totalPipeline.toLocaleString()} ₼</div>
-          <div class="text-xs text-slate-400 mt-1">${t('roi_pipeline')}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-slate-300">${totalDeals}</div>
-          <div class="text-xs text-slate-400 mt-1">${t('roi_deals')}</div>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+            ${roiIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('roi_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Campaign return on investment analysis','Анализ окупаемости инвестиций в кампании','Kampaniya gəlir analizi')}</p>
+          </div>
         </div>
       </div>
-      <table class="w-full text-sm">
-        <thead><tr class="text-left border-b border-slate-700">
-          <th class="p-3">${_t('Campaign','Кампания','Kampaniya')}</th>
-          <th class="p-3">${_t('Status','Статус','Status')}</th>
-          <th class="p-3">${_t('Sent','Отправлено','Göndərildi')}</th>
-          <th class="p-3">${t('roi_deals')}</th>
-          <th class="p-3">${t('roi_won')}</th>
-          <th class="p-3">${t('roi_pipeline')}</th>
-          <th class="p-3"></th>
-        </tr></thead>
-        <tbody>
-          ${data.length===0 ? '<tr><td colspan="7" class="p-6 text-center text-slate-500">No data</td></tr>' :
-            data.map(c => `
-              <tr class="border-b border-slate-800 hover:bg-slate-800/50">
-                <td class="p-3 font-medium">${esc(c.name)}</td>
-                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded-full ${c.status==='sent'?'bg-green-500/20 text-green-400':'bg-slate-700 text-slate-400'}">${c.status}</span></td>
-                <td class="p-3">${c.sent_count||0}</td>
-                <td class="p-3">${c.deal_count}</td>
-                <td class="p-3 text-green-400">${c.won_value.toLocaleString()} ₼</td>
-                <td class="p-3 text-indigo-400">${c.total_pipeline.toLocaleString()} ₼</td>
-                <td class="p-3"><button class="text-xs text-indigo-400 hover:underline" onclick="showCampaignRoiDetail(${c.id})">${_t('Details','Детали','Ətraflı')}</button></td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
+
+      <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-blue-400">\$${parseFloat(totalRevenue).toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Revenue','Общий доход','Cəmi gəlir')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-red-500/20 to-red-600/5 border border-red-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-red-400">\$${parseFloat(totalCost).toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Cost','Общая стоимость','Cəmi xərc')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-green-500/20 to-green-600/5 border border-green-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-green-400">${totalRoi}%</div>
+          <div class="text-sm text-slate-400 mt-1">ROI</div>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500/20 to-purple-600/5 border border-purple-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-purple-400">${campaigns.length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Campaigns','Кампании','Kampaniyalar')}</div>
+        </div>
+      </div>
+
+      ${campaigns.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${roiIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No campaigns yet','Нет кампаний','Kampaniya yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Create campaigns to track ROI','Создавайте кампании для отслеживания ROI','ROI-ni izləmək üçün kampaniyalar yaradın')}</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${campaigns.map(c => {
+            const roi = c.cost > 0 ? (((c.revenue - c.cost)/c.cost)*100).toFixed(1) : 0;
+            return `
+              <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="font-semibold text-white">${esc(c.name)}</h3>
+                  <span class="text-lg font-bold ${roi >= 50 ? 'text-green-400' : roi >= 0 ? 'text-yellow-400' : 'text-red-400'}">${roi}% ROI</span>
+                </div>
+                <div class="grid grid-cols-4 gap-4 text-sm text-slate-400 ml-0">
+                  <div><span class="text-xs text-slate-500">${_t('Revenue','Доход','Gəlir')}</span><div class="font-mono text-white">\$${parseFloat(c.revenue||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
+                  <div><span class="text-xs text-slate-500">${_t('Cost','Стоимость','Xərc')}</span><div class="font-mono text-white">\$${parseFloat(c.cost||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
+                  <div><span class="text-xs text-slate-500">${_t('Leads','Лиды','Lidlər')}</span><div class="font-mono text-white">${c.lead_count||0}</div></div>
+                  <div><span class="text-xs text-slate-500">${_t('Conversions','Конверсии','Çevirmələr')}</span><div class="font-mono text-white">${c.conversion_count||0}</div></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
     </div>`;
+}
 }
 
 async function showCampaignRoiDetail(campaignId) {
@@ -15488,43 +15475,73 @@ async function renderSegmentsPage(container) {
     segments = resp.data || resp || [];
   } catch(e) {}
 
+  const segmentIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>';
+
   container.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">${t('seg_title')}</h1>
-        <button class="btn btn-primary" onclick="showSegmentForm()">${t('seg_new')}</button>
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+            ${segmentIcon}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold">${t('seg_title')}</h1>
+            <p class="text-sm text-slate-400">${_t('Target contacts by segments','Целевые контакты по сегментам','Seqmentlər üzrə hədəfləmə')}</p>
+          </div>
+        </div>
+        <button class="btn btn-primary flex items-center gap-2" onclick="showSegmentForm()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          ${t('seg_new')}
+        </button>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-left border-b border-slate-700">
-              <th class="p-3">#</th>
-              <th class="p-3">${t('seg_name')}</th>
-              <th class="p-3">${t('seg_description')}</th>
-              <th class="p-3">${t('seg_contacts_count')}</th>
-              <th class="p-3">${t('seg_dynamic')}</th>
-              <th class="p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${segments.length === 0 ? `<tr><td colspan="6" class="p-6 text-center text-slate-500">${_t('No segments yet','Нет сегментов','Seqment yoxdur')}</td></tr>` :
-              segments.map((s,i) => `
-                <tr class="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onclick="showSegmentDetail(${s.id})">
-                  <td class="p-3 text-slate-500">${i+1}</td>
-                  <td class="p-3 font-medium">${esc(s.name)}</td>
-                  <td class="p-3 text-slate-400">${esc(s.description||'')}</td>
-                  <td class="p-3"><span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full text-xs">${s.contact_count||0}</span></td>
-                  <td class="p-3">${s.is_dynamic ? '✅' : '—'}</td>
-                  <td class="p-3 text-right">
-                    <button class="text-xs text-indigo-400 hover:underline mr-2" onclick="event.stopPropagation();showSegmentForm(${s.id})">${_t('Edit','Ред.','Redaktə')}</button>
-                    <button class="text-xs text-red-400 hover:underline" onclick="event.stopPropagation();deleteSegment(${s.id})">${_t('Delete','Удалить','Sil')}</button>
-                  </td>
-                </tr>
-              `).join('')}
-          </tbody>
-        </table>
+
+      <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-blue-400">${segments.length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Segments','Всего сегментов','Cəmi seqmentlər')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-green-500/20 to-green-600/5 border border-green-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-green-400">${segments.filter(s=>s.is_dynamic).length}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Dynamic','Динамические','Dinamik')}</div>
+        </div>
+        <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/5 border border-orange-500/20 rounded-xl p-5">
+          <div class="text-3xl font-bold text-orange-400">${segments.reduce((sum,s)=>(sum + (s.contact_count||0)),0)}</div>
+          <div class="text-sm text-slate-400 mt-1">${_t('Total Contacts','Всего контактов','Cəmi kontaktlar')}</div>
+        </div>
       </div>
+
+      ${segments.length === 0 ? `
+        <div class="text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/80 flex items-center justify-center">
+            ${segmentIcon}
+          </div>
+          <h3 class="text-lg font-medium text-slate-400 mb-1">${_t('No segments yet','Нет сегментов','Seqment yoxdur')}</h3>
+          <p class="text-sm text-slate-500">${_t('Create your first segment to get started','Создайте первый сегмент','İlk seqmenti yaradın')}</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${segments.map((s,i) => `
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all cursor-pointer" onclick="showSegmentDetail(${s.id})">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 flex-1">
+                  <div class="w-2 h-2 rounded-full ${s.is_dynamic ? 'bg-green-500' : 'bg-blue-500'}"></div>
+                  <h3 class="font-semibold text-white">${esc(s.name)}</h3>
+                  <span class="text-xs ${s.is_dynamic ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'} px-2 py-1 rounded-full">${s.is_dynamic ? _t('Dynamic','Динамический','Dinamik') : _t('Static','Статический','Statik')}</span>
+                </div>
+                <button class="text-xs text-red-400 hover:text-red-300 opacity-0 hover:opacity-100 transition" onclick="event.stopPropagation();deleteSegment(${s.id})">${_t('Delete','Удалить','Sil')}</button>
+              </div>
+              <div class="flex gap-4 text-sm text-slate-400 ml-5">
+                <span>${esc(s.description||'')}</span>
+              </div>
+              <div class="mt-2 flex justify-between text-xs text-slate-500 ml-5">
+                <span><span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">${s.contact_count||0} ${_t('contacts','контактов','kontaktlar')}</span></span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
     </div>`;
+}
 }
 
 async function showSegmentForm(segId) {

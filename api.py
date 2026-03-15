@@ -8423,7 +8423,7 @@ async def portal_tickets(request: Request):
                 params.append(contact_id)
             wc = "WHERE (" + " OR ".join(where) + ")" if where else ""
             rows = conn.execute(
-                f"""SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.category,
+                f"""SELECT t.id, 'TK-' || printf('%04d', t.id) as ticket_number, t.subject, t.status, t.priority, t.category,
                            t.created_at, t.resolved_at
                     FROM tickets t {wc} ORDER BY t.created_at DESC LIMIT 100""", params
             ).fetchall()
@@ -8447,15 +8447,14 @@ async def portal_create_ticket(request: Request):
     if not subject:
         _err("Subject required", 400)
     with get_db() as conn:
-        # Generate ticket number
-        last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()[0] or 0
-        ticket_number = f"TK-{last+1:04d}"
-        conn.execute(
-            """INSERT INTO tickets (ticket_number, subject, description, priority, status, category,
-               company_id, contact_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
-            [ticket_number, subject, description, priority, "new", category,
+        cur = conn.execute(
+            """INSERT INTO tickets (subject, description, priority, status, category,
+               company_id, contact_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
+            [subject, description, priority, "new", category,
              user.get("company_id"), user.get("contact_id"), None]
         )
+        ticket_id = cur.lastrowid
+        ticket_number = f"TK-{ticket_id:04d}"
     return _ok({"created": True, "ticket_number": ticket_number})
 
 
@@ -8468,12 +8467,13 @@ async def portal_ticket_detail(ticket_id: int, request: Request):
             _err("Ticket not found", 404)
         cols = [d[0] for d in conn.execute("SELECT * FROM tickets LIMIT 0").description]
         ticket = dict(zip(cols, row))
+        ticket["ticket_number"] = f"TK-{ticket['id']:04d}"
         # Verify access
         if ticket.get("company_id") != user.get("company_id") and ticket.get("contact_id") != user.get("contact_id"):
             _err("Access denied", 403)
         # Get public comments only
         comments = conn.execute(
-            """SELECT tc.comment, tc.created_at, u.full_name as author FROM ticket_comments tc
+            """SELECT tc.content as comment, tc.created_at, u.full_name as author FROM ticket_comments tc
                LEFT JOIN users u ON tc.user_id = u.id
                WHERE tc.ticket_id=? AND tc.is_internal=0 ORDER BY tc.created_at""",
             [ticket_id]
@@ -8497,7 +8497,7 @@ async def portal_add_comment(ticket_id: int, request: Request):
         if ticket[0] != user.get("company_id") and ticket[1] != user.get("contact_id"):
             _err("Access denied", 403)
         conn.execute(
-            "INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal, created_at) VALUES (?,?,?,0,datetime('now'))",
+            "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal, created_at) VALUES (?,?,?,0,datetime('now'))",
             [ticket_id, None, comment]
         )
     return _ok({"added": True})
@@ -8512,10 +8512,15 @@ async def portal_contracts(request: Request):
         if not company_id:
             return _ok([])
         with get_db() as conn:
+            # Get company name to match by counterparty
+            company = conn.execute("SELECT name FROM companies WHERE id=?", [company_id]).fetchone()
+            if not company:
+                return _ok([])
+            company_name = company[0]
             rows = conn.execute(
-                """SELECT id, title, status, amount, start_date, end_date, created_at
-                   FROM contracts WHERE company_id=? ORDER BY created_at DESC""",
-                [company_id]
+                """SELECT id, contract_name, status, amount, start_date, end_date, created_at
+                   FROM contracts WHERE counterparty LIKE ? ORDER BY created_at DESC""",
+                [f"%{company_name}%"]
             ).fetchall()
             cols = ["id", "title", "status", "amount", "start_date", "end_date", "created_at"]
             return _ok([dict(zip(cols, r)) for r in rows])
@@ -8536,12 +8541,22 @@ async def portal_documents(request: Request):
             return _ok([])
         with get_db() as conn:
             rows = conn.execute(
-                """SELECT id, offer_number, offer_type, status, currency, total_amount, valid_until, created_at
+                """SELECT id, offer_number, offer_type, status, currency, items, valid_until, created_at
                    FROM offers WHERE company_id=? ORDER BY created_at DESC""",
                 [company_id]
             ).fetchall()
-            cols = ["id", "offer_number", "offer_type", "status", "currency", "total_amount", "valid_until", "created_at"]
-            return _ok([dict(zip(cols, r)) for r in rows])
+            cols = ["id", "offer_number", "offer_type", "status", "currency", "items", "valid_until", "created_at"]
+            result = []
+            for r in rows:
+                d = dict(zip(cols, r))
+                # Calculate total from items JSON
+                try:
+                    items = json.loads(d.pop("items", "[]"))
+                    d["total_amount"] = sum(float(i.get("unit_price",0)) * float(i.get("quantity",1)) for i in items)
+                except Exception:
+                    d["total_amount"] = 0
+                result.append(d)
+            return _ok(result)
     except HTTPException:
         raise
     except Exception as e:

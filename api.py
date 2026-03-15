@@ -8904,11 +8904,18 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
                     recipient_name = entity.get("contact_name") or entity.get("full_name", "")
 
             # Save message to DB
-            cur = conn.execute(
-                """INSERT INTO channel_messages (channel_type, direction, contact_id, content, message_type, status)
-                   VALUES (?, 'outbound', ?, ?, ?, 'pending')""",
-                [channel_type, contact_id or lead_id, content, message_type]
-            )
+            if lead_id and not contact_id:
+                cur = conn.execute(
+                    """INSERT INTO channel_messages (channel_type, direction, lead_id, content, message_type, status)
+                       VALUES (?, 'outbound', ?, ?, ?, 'pending')""",
+                    [channel_type, lead_id, content, message_type]
+                )
+            else:
+                cur = conn.execute(
+                    """INSERT INTO channel_messages (channel_type, direction, contact_id, content, message_type, status)
+                       VALUES (?, 'outbound', ?, ?, ?, 'pending')""",
+                    [channel_type, contact_id, content, message_type]
+                )
             msg_id = cur.lastrowid
 
             # Actually deliver the message

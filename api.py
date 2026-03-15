@@ -8517,56 +8517,68 @@ def _send_email_alert(to_email, subject, body):
 
 def workflow_ticket_created(conn, ticket_id, company_id, subject, priority):
     """Workflow: portal user created a ticket."""
-    # 1. Notify all CRM admins/managers
-    admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()
-    # 2. Auto-assign based on category (round-robin among active agents)
+    _ensure_portal_notifications_table(conn)
+    # 1. Auto-assign (round-robin among active agents)
     agents = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager','agent') AND is_active=1 ORDER BY id").fetchall()
     assigned_to = None
     if agents:
         assigned_to = agents[ticket_id % len(agents)][0]
-        conn.execute("UPDATE tickets SET assigned_to=?, first_response_at=NULL WHERE id=?", [assigned_to, ticket_id])
-    # 3. Notifications (use separate connections to avoid lock)
+        conn.execute("UPDATE tickets SET assigned_to=? WHERE id=?", [assigned_to, ticket_id])
+    # 2. CRM notifications (direct insert)
+    admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT DEFAULT '',
+            title TEXT DEFAULT '', message TEXT DEFAULT '', entity_type TEXT DEFAULT '',
+            entity_id INTEGER DEFAULT 0, is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')))""")
+    except: pass
     for a in admins:
         try:
-            send_notification(a[0], "portal_ticket", f"New portal ticket: {subject}",
-                             f"Priority: {priority}. Client created ticket TK-{ticket_id:04d} from portal.",
-                             "ticket", ticket_id)
+            conn.execute("INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?)",
+                        [a[0], "portal_ticket", f"New portal ticket: {subject}",
+                         f"Priority: {priority}. TK-{ticket_id:04d} from portal.", "ticket", ticket_id])
         except: pass
     if assigned_to:
         try:
-            send_notification(assigned_to, "ticket_assigned",
-                             f"Ticket TK-{ticket_id:04d}: {subject}",
-                             f"Auto-assigned from portal. Priority: {priority}.", "ticket", ticket_id)
+            conn.execute("INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?)",
+                        [assigned_to, "ticket_assigned", f"Ticket TK-{ticket_id:04d}: {subject}",
+                         f"Auto-assigned from portal. Priority: {priority}.", "ticket", ticket_id])
         except: pass
-    try:
-        send_portal_notification(company_id=company_id, ntype="ticket",
-                                title=f"Ticket TK-{ticket_id:04d} created",
-                                message=f"Your ticket has been received. We will respond shortly.",
-                                entity_type="ticket", entity_id=ticket_id)
-    except: pass
+    # 3. Portal notification (direct insert)
+    if company_id:
+        pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+        for pu in pusers:
+            try:
+                conn.execute("INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                            [pu[0], company_id, "ticket", f"Ticket TK-{ticket_id:04d} created",
+                             "Your ticket has been received. We will respond shortly.", "ticket", ticket_id])
+            except: pass
 
 def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, company_id):
     """Workflow: CRM user changed ticket status."""
+    _ensure_portal_notifications_table(conn)
     ticket = conn.execute("SELECT subject FROM tickets WHERE id=?", [ticket_id]).fetchone()
     subj = ticket[0] if ticket else ""
     tn = f"TK-{ticket_id:04d}"
     status_msg = {
-        "open": "is now being worked on",
-        "in_progress": "is in progress",
-        "waiting": "is waiting for your response",
-        "resolved": "has been resolved",
+        "open": "is now being worked on", "in_progress": "is in progress",
+        "waiting": "is waiting for your response", "resolved": "has been resolved",
         "closed": "has been closed"
     }
     msg = status_msg.get(new_status, f"status changed to {new_status}")
-    try:
-        send_portal_notification(company_id=company_id, ntype="ticket_update",
-                                title=f"Ticket {tn} {msg}",
-                                message=f"{subj} - {old_status} to {new_status}",
-                                entity_type="ticket", entity_id=ticket_id)
-    except: pass
+    if company_id:
+        pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+        for pu in pusers:
+            try:
+                conn.execute("INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                            [pu[0], company_id, "ticket_update", f"Ticket {tn} {msg}",
+                             f"{subj} - {old_status} to {new_status}", "ticket", ticket_id])
+            except: pass
 
 def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_from_portal=False):
     """Workflow: comment added to ticket."""
+    _ensure_portal_notifications_table(conn)
     ticket = conn.execute("SELECT subject, assigned_to FROM tickets WHERE id=?", [ticket_id]).fetchone()
     if not ticket:
         return
@@ -8575,17 +8587,24 @@ def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_f
     if is_from_portal:
         if assigned:
             try:
-                send_notification(assigned, "ticket_comment",
-                                 f"Portal reply on {tn}: {subj}",
-                                 f"Client replied to ticket {tn}.", "ticket", ticket_id)
+                conn.execute("""CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT DEFAULT '',
+                    title TEXT DEFAULT '', message TEXT DEFAULT '', entity_type TEXT DEFAULT '',
+                    entity_id INTEGER DEFAULT 0, is_read INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now')))""")
+                conn.execute("INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?)",
+                            [assigned, "ticket_comment", f"Portal reply on {tn}: {subj}",
+                             f"Client replied to ticket {tn}.", "ticket", ticket_id])
             except: pass
     else:
-        try:
-            send_portal_notification(company_id=company_id, ntype="ticket_update",
-                                    title=f"New response on {tn}",
-                                    message=f"{author_name} replied to your ticket.",
-                                    entity_type="ticket", entity_id=ticket_id)
-        except: pass
+        if company_id:
+            pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+            for pu in pusers:
+                try:
+                    conn.execute("INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                                [pu[0], company_id, "ticket_update", f"New response on {tn}",
+                                 f"{author_name} replied to your ticket.", "ticket", ticket_id])
+                except: pass
 
 def workflow_contract_status_changed(conn, contract_id, old_status, new_status, counterparty):
     """Workflow: contract status changed."""

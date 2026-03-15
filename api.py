@@ -6051,25 +6051,20 @@ def send_notification(user_id, ntype, title, message="", entity_type=None, entit
         logger.warning("Failed to send notification: %s", e)
 
 @app.get("/api/notifications")
-async def list_notifications(
-    user=Depends(require_auth),
-    unread_only: bool = Query(False),
-    limit: int = Query(50),
-    offset: int = Query(0)
-):
+async def list_notifications(request: Request, user=Depends(require_auth)):
     uid = user.get("user_id") or user.get("id")
-    if not uid:
-        return _ok({"items": [], "total": 0, "unread": 0})
+    unread_only = request.query_params.get("unread_only", "false") == "true"
+    limit = int(request.query_params.get("limit", "50"))
+    offset = int(request.query_params.get("offset", "0"))
     try:
         with get_db() as conn:
-            # Ensure table exists
             conn.execute("""CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT NOT NULL DEFAULT '',
-                title TEXT NOT NULL DEFAULT '', message TEXT DEFAULT '', entity_type TEXT DEFAULT '',
+                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT DEFAULT '',
+                title TEXT DEFAULT '', message TEXT DEFAULT '', entity_type TEXT DEFAULT '',
                 entity_id INTEGER DEFAULT 0, is_read INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT (datetime('now')))""")
             where = "WHERE user_id=?"
-            params: list = [uid]
+            params = [uid]
             if unread_only:
                 where += " AND is_read=0"
             total = conn.execute(f"SELECT COUNT(*) FROM notifications {where}", params).fetchone()[0]
@@ -6082,13 +6077,12 @@ async def list_notifications(
             for r in rows:
                 item = {}
                 for i, c in enumerate(cols):
-                    val = r[i] if i < len(r) else None
-                    item[c] = val if val is not None else ""
+                    item[c] = r[i] if i < len(r) and r[i] is not None else ""
                 items.append(item)
-            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (uid,)).fetchone()[0]
+            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", [uid]).fetchone()[0]
         return JSONResponse(content={"success": True, "data": {"items": items, "total": total, "unread": unread}})
     except Exception as e:
-        logger.error("Notifications list error: %s", str(e), exc_info=True)
+        logger.error("Notifications error: %s", e)
         return JSONResponse(content={"success": True, "data": {"items": [], "total": 0, "unread": 0}})
 
 @app.put("/api/notifications/{notif_id}/read")

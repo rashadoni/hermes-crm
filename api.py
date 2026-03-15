@@ -9137,6 +9137,12 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                     )
                 except Exception:
                     pass
+                # Mark session as escalated
+                if session_id:
+                    try:
+                        conn.execute("UPDATE ai_chat_sessions SET resolved_without_human=0, updated_at=datetime('now') WHERE id=?", [session_id])
+                    except Exception:
+                        pass
                 return json.dumps({"success": True, "ticket_id": new_id, "ticket_number": tnum, "message": "Escalated to human agent"}, ensure_ascii=False)
 
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
@@ -9273,6 +9279,9 @@ RULES:
 - Use tools to get REAL data — never make up ticket numbers or statuses
 - Before creating a ticket, confirm subject and description with user
 - If you cannot help or user asks for human — use escalate_to_human tool
+- IMPORTANT: If you cannot find the answer in the knowledge base AND the question requires technical support or action, PROACTIVELY suggest creating a ticket. Say something like: "I don't have enough information to resolve this. Would you like me to create a support ticket so our team can help you?"
+- If user agrees to create a ticket — use create_ticket tool immediately
+- If user asks for a human/manager/agent — use escalate_to_human tool with full conversation context
 
 KNOWLEDGE BASE CITATION:
 - When you use information from the knowledge base articles below, cite the article title like: "According to **[Article Title]**, ..."
@@ -9362,20 +9371,24 @@ Company ID: {company_id}
         quality_indicators = {
             "low_confidence": False,
             "has_uncertainty_phrases": False,
-            "suggested_escalation": False
+            "suggested_escalation": False,
+            "no_kb_match": not kb_articles_used  # True if no KB articles were relevant
         }
 
         uncertainty_phrases = [
-            "i'm not sure",
-            "i don't know",
-            "i cannot",
-            "i can't",
-            "unable to",
-            "not available",
-            "no information",
-            "don't have access",
-            "need clarification",
-            "unclear"
+            # English
+            "i'm not sure", "i don't know", "i cannot", "i can't",
+            "unable to", "not available", "no information", "don't have access",
+            "need clarification", "unclear", "i don't have enough",
+            "cannot find", "no relevant", "beyond my capabilities",
+            # Russian
+            "не уверен", "не знаю", "не могу", "не нашёл", "не нашел",
+            "нет информации", "не имею доступа", "не в моих силах",
+            "к сожалению, у меня нет", "недостаточно информации",
+            "не удалось найти", "рекомендую создать тикет", "создать тикет",
+            # Azerbaijani
+            "əmin deyiləm", "bilmirəm", "tapa bilmədim", "məlumat yoxdur",
+            "tiket yaratmağı", "dəstək komandası"
         ]
 
         ai_text_lower = ai_text.lower()
@@ -9384,16 +9397,16 @@ Company ID: {company_id}
                 quality_indicators["has_uncertainty_phrases"] = True
                 break
 
-        # If we detected low confidence AND user has asked similar questions before, suggest escalation
-        if quality_indicators["has_uncertainty_phrases"]:
+        # Suggest escalation if: uncertainty detected OR no KB match AND user has asked 1+ questions
+        should_suggest = quality_indicators["has_uncertainty_phrases"] or (quality_indicators["no_kb_match"] and "escalate_to_human" not in tools_used and "create_ticket" not in tools_used)
+        if should_suggest:
             try:
                 with get_db() as conn:
-                    # Check if there are previous messages with similar topics
                     prev_messages = conn.execute(
                         "SELECT content FROM ai_chat_messages WHERE session_id=? AND role='user' LIMIT 5",
                         [session_id]
                     ).fetchall()
-                    if len(prev_messages) > 1:
+                    if len(prev_messages) >= 1:
                         quality_indicators["suggested_escalation"] = True
                         quality_indicators["low_confidence"] = True
             except Exception:

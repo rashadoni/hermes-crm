@@ -879,23 +879,32 @@
             addChatBubble('ai', aiText, toolsUsed);
             chatHistory.push({ role: 'assistant', content: aiText });
 
-            // Show quality indicators if low confidence
+            // Show quality indicators if low confidence — suggest escalation or ticket
             if (qualityIndicators.suggested_escalation) {
                 setTimeout(() => {
                     const box = document.getElementById('chatMessages');
                     const wrap = document.createElement('div');
                     wrap.className = 'chat-bubble-wrap ai';
-                    const msg = document.createElement('div');
-                    msg.className = 'chat-msg ai';
-                    msg.innerHTML = '<p style="font-size:13px">Would you like to speak with a human agent? I can escalate your conversation.</p>' +
-                        '<div style="margin-top:8px;display:flex;gap:8px">' +
-                        '<button onclick="chatHistory.push({role:\'user\',content:\'Yes, please escalate this conversation\'});sendChatMsg.call({value:\'Yes, please escalate this conversation\'}.value=\'\')" style="background:#2563eb;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">Yes, escalate</button>' +
-                        '<button onclick="event.target.parentElement.parentElement.parentElement.remove()" style="background:#334155;color:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">Dismiss</button>' +
+                    wrap.id = 'escalationSuggestion';
+                    const pmsg = document.createElement('div');
+                    pmsg.className = 'chat-msg ai';
+                    const lang = localStorage.getItem('portalLang') || 'az';
+                    const texts = {
+                        ru: { q: 'Похоже, мне не удалось полностью решить ваш вопрос. Что бы вы хотели сделать?', esc: '👤 Связаться с менеджером', ticket: '📝 Создать тикет', dismiss: 'Всё ок' },
+                        en: { q: "It seems I couldn't fully resolve your question. What would you like to do?", esc: '👤 Talk to a human agent', ticket: '📝 Create a ticket', dismiss: "I'm fine" },
+                        az: { q: 'Sualınızı tam həll edə bilmədim. Nə etmək istərdiniz?', esc: '👤 Menecerlə əlaqə', ticket: '📝 Tiket yaratmaq', dismiss: 'Hər şey yaxşıdır' }
+                    };
+                    const t = texts[lang] || texts.az;
+                    pmsg.innerHTML = '<p style="font-size:13px;margin-bottom:10px">' + t.q + '</p>' +
+                        '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+                        '<button onclick="useEscalationAction(\'escalate\')" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500">' + t.esc + '</button>' +
+                        '<button onclick="useEscalationAction(\'ticket\')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500">' + t.ticket + '</button>' +
+                        '<button onclick="document.getElementById(\'escalationSuggestion\').remove()" style="background:#334155;color:#94a3b8;border:1px solid #475569;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px">' + t.dismiss + '</button>' +
                         '</div>';
-                    wrap.appendChild(msg);
+                    wrap.appendChild(pmsg);
                     box.appendChild(wrap);
                     box.scrollTop = box.scrollHeight;
-                }, 200);
+                }, 300);
             }
 
             // Show CSAT rating after 3+ messages
@@ -948,18 +957,53 @@
         }
     }
 
+    function useEscalationAction(action) {
+        const el = document.getElementById('escalationSuggestion');
+        if (el) el.remove();
+        const lang = localStorage.getItem('portalLang') || 'az';
+        let msg;
+        if (action === 'escalate') {
+            msg = lang === 'ru' ? 'Да, свяжите меня с менеджером' :
+                  lang === 'en' ? 'Yes, please connect me with a human agent' :
+                  'Bəli, məni menecerlə əlaqələndirin';
+        } else {
+            msg = lang === 'ru' ? 'Создай тикет по моему вопросу' :
+                  lang === 'en' ? 'Please create a ticket for my issue' :
+                  'Mənim sualım üçün tiket yarat';
+        }
+        document.getElementById('chatInput').value = msg;
+        sendChatMsg();
+    }
+
     let escalationPollInterval = null;
+    let lastSeenCommentId = 0;
     async function pollEscalationUpdates() {
         if (escalationPollInterval) return;
+        const lang = localStorage.getItem('portalLang') || 'az';
+        const waitMsg = lang === 'ru' ? '⏳ Ваш запрос передан менеджеру. Ожидайте ответа...' :
+                        lang === 'en' ? '⏳ Your request has been forwarded to an agent. Please wait...' :
+                        '⏳ Sorğunuz menecerə ötürüldü. Cavabı gözləyin...';
+        addChatBubble('ai', waitMsg);
         escalationPollInterval = setInterval(async () => {
             try {
                 const resp = await api('GET', '/api/portal/chat/escalation-updates?session_id=' + chatSessionId, null);
-                if (resp.has_updates && resp.comments && resp.comments.length > 0) {
-                    resp.comments.forEach(comment => {
-                        addChatBubble('ai', '<strong>' + comment.author + ':</strong> ' + comment.content);
+                const data = resp.data || resp;
+                if (data.has_updates && data.comments && data.comments.length > 0) {
+                    data.comments.forEach(comment => {
+                        if (comment.id > lastSeenCommentId) {
+                            const authorLabel = '<strong>🧑‍💼 ' + (comment.author || 'Agent') + ':</strong> ';
+                            addChatBubble('ai', authorLabel + comment.content, ['escalate_to_human']);
+                            lastSeenCommentId = comment.id;
+                        }
                     });
-                    clearInterval(escalationPollInterval);
-                    escalationPollInterval = null;
+                    if (data.ticket_status && ['resolved', 'closed'].includes(data.ticket_status)) {
+                        clearInterval(escalationPollInterval);
+                        escalationPollInterval = null;
+                        const closedMsg = lang === 'ru' ? '✅ Ваш тикет был решён. Спасибо за обращение!' :
+                                          lang === 'en' ? '✅ Your ticket has been resolved. Thank you!' :
+                                          '✅ Tiketiniz həll edildi. Müraciətiniz üçün təşəkkürlər!';
+                        addChatBubble('ai', closedMsg);
+                    }
                 }
             } catch (e) {
                 console.error('Escalation poll error:', e);

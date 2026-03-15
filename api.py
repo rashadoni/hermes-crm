@@ -13297,6 +13297,144 @@ Rules:
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/generate-text")
+async def ai_generate_text(request: Request, user=Depends(require_auth)):
+    """AI generates professional emails, proposals, or other text for leads/contacts."""
+    body = await request.json()
+    entity_type = body.get("entity_type", "lead")
+    entity_id = body.get("entity_id")
+    text_type = body.get("text_type", "email")  # email, proposal, follow_up, meeting_invite, thank_you
+    tone = body.get("tone", "professional")  # professional, friendly, formal, casual
+    language = body.get("language", "ru")
+    context = body.get("context", "")  # additional user instructions
+    if not entity_id:
+        return _err("entity_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI API key not configured", 400)
+
+    lang_map = {"ru": "Russian", "en": "English", "az": "Azerbaijani"}
+    lang_name = lang_map.get(language, "Russian")
+
+    # Gather entity info
+    entity_name = ""
+    entity_info = ""
+    try:
+        with get_db() as conn:
+            if entity_type == "lead":
+                row = conn.execute("SELECT * FROM leads WHERE id=?", [entity_id]).fetchone()
+                if row:
+                    entity_name = row.get("contact_name") or row.get("company_name", "")
+                    entity_info = f"Lead: {row.get('company_name','')}, Contact: {row.get('contact_name','')}, Email: {row.get('email','')}, Phone: {row.get('phone','')}, Source: {row.get('source','')}, Status: {row.get('status','')}, Notes: {row.get('notes','')}"
+            else:
+                row = conn.execute("SELECT * FROM contacts WHERE id=?", [entity_id]).fetchone()
+                if row:
+                    entity_name = row.get("name") or row.get("first_name", "")
+                    entity_info = f"Contact: {row.get('name','')}, Email: {row.get('email','')}, Phone: {row.get('phone','')}, Company: {row.get('company_name','')}, Position: {row.get('position','')}"
+    except Exception:
+        pass
+
+    # Gather recent communications for context
+    comms = []
+    try:
+        with get_db() as conn:
+            msgs = conn.execute("SELECT direction, channel, content, timestamp FROM channel_messages WHERE lead_id=? ORDER BY timestamp DESC LIMIT 5", [entity_id]).fetchall()
+            for m in msgs:
+                comms.append(f"[{m.get('channel','')} {m.get('direction','')}] {(m.get('content',''))[:150]}")
+    except Exception:
+        pass
+
+    type_instructions = {
+        "email": "a professional business email",
+        "proposal": "a business proposal/commercial offer",
+        "follow_up": "a follow-up message after previous contact",
+        "meeting_invite": "a meeting invitation with suggested times",
+        "thank_you": "a thank you message for a recent interaction",
+    }
+    type_desc = type_instructions.get(text_type, "a professional business email")
+
+    tone_instructions = {
+        "professional": "professional and business-like",
+        "friendly": "warm and friendly while remaining professional",
+        "formal": "very formal and official",
+        "casual": "conversational and casual",
+    }
+    tone_desc = tone_instructions.get(tone, "professional and business-like")
+
+    prompt = f"""You are a CRM email/text generation expert. Generate {type_desc} for the following entity.
+
+Entity info: {entity_info}
+
+Recent communications:
+{chr(10).join(comms) if comms else "No recent communications."}
+
+{f"Additional context/instructions: {context}" if context else ""}
+
+Requirements:
+- Tone: {tone_desc}
+- Language: {lang_name}
+- Make it ready to send (include greeting, body, closing)
+- Be specific to the entity's context and history
+- Keep it concise but complete
+
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
+{{
+  "subject": "Email subject line",
+  "body": "Full email/text body with proper formatting using newlines",
+  "preview": "First 1-2 sentences as preview"
+}}"""
+
+    try:
+        import anthropic
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        result = {}
+        try:
+            import re as _re
+            clean = text
+            md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
+            if md_match:
+                clean = md_match.group(1)
+            if "{" in clean:
+                json_str = clean[clean.index("{"):clean.rindex("}") + 1]
+                result = json.loads(json_str)
+        except Exception as je:
+            logger.warning("Generate-text JSON parse error: %s", je)
+            result = {"subject": "", "body": text, "preview": text[:100]}
+
+        # Log AI interaction
+        try:
+            with get_db() as conn:
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("INSERT INTO ai_interaction_logs (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens, cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)",
+                    [0, f"[generate-text:{text_type}:{entity_type}#{entity_id}]", text[:500], latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "entity_name": entity_name,
+            "text_type": text_type,
+            "tone": tone,
+            "generated": result,
+            "latency_ms": latency_ms,
+        })
+    except Exception as e:
+        return _err(str(e), 500)
+
+
 @app.get("/api/ai/agent-performance")
 async def agent_performance(user=Depends(require_auth)):
     """Get performance metrics for support agents (ticket assignments, resolution times, etc.)."""

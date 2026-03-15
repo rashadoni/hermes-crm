@@ -6110,7 +6110,7 @@ async function renderAccounts(el) {
         const ac = activityCounts[c.id] || {};
         const cost = costMap[c.id];
         const name = c.cost_code || c.name;
-        html += '<tr style="border-top:1px solid rgba(71,85,105,0.2);cursor:pointer;transition:background 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'transparent\'" onclick="location.hash=\'#/company/\'+' + c.id + '">';
+        html += '<tr style="border-top:1px solid rgba(71,85,105,0.2);cursor:pointer;transition:background 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'transparent\'" onclick="showCompanyDetail(' + c.id + ')">';
         html += '<td style="padding:14px 16px"><div style="font-weight:600;color:#e2e8f0;font-size:14px">' + esc(name) + '</div>' + (c.group_name ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + esc(c.group_name) + '</div>' : '') + '</td>';
         html += '<td style="padding:14px 16px;color:#94a3b8;font-size:13px">' + esc(c.domain || '—') + '</td>';
         html += '<td style="padding:14px 16px;text-align:center"><span style="background:rgba(59,130,246,0.15);color:#60a5fa;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">' + (c.contacts_count || 0) + '</span></td>';

@@ -17018,7 +17018,7 @@ async function onLeadDrop(e, newStatus) {
       if (!root) return;
       root.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b"><div style="display:inline-block;width:24px;height:24px;border:2px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div></div>';
       try {
-        const resp = await apiFetch('/api/ai/agent-configs');
+        const resp = await api.get('/api/ai/agent-configs');
         const data = resp.data || resp;
         _builderConfigs = data.configs || [];
         _builderTools = data.available_tools || [];
@@ -17077,7 +17077,7 @@ async function onLeadDrop(e, newStatus) {
 
     async function activateConfig(configId) {
       try {
-        await apiFetch('/api/ai/agent-configs/' + configId + '/activate', {method:'PUT'});
+        await api.put('/api/ai/agent-configs/' + configId + '/activate', {});
         _builderLoaded = false;
         loadAgentBuilder();
       } catch(e) { alert('Error: ' + e.message); }
@@ -17086,7 +17086,7 @@ async function onLeadDrop(e, newStatus) {
     async function deleteConfig(configId) {
       if (!confirm('Delete this configuration?')) return;
       try {
-        await apiFetch('/api/ai/agent-configs/' + configId, {method:'DELETE'});
+        await api.remove('/api/ai/agent-configs/' + configId);
         _builderLoaded = false;
         loadAgentBuilder();
       } catch(e) { alert('Error: ' + e.message); }
@@ -17115,7 +17115,7 @@ async function onLeadDrop(e, newStatus) {
 
       if (configId > 0) {
         try {
-          const resp = await apiFetch('/api/ai/agent-configs/' + configId);
+          const resp = await api.get('/api/ai/agent-configs/' + configId);
           const data = resp.data || resp;
           cfg = { ...cfg, ...data };
         } catch(e) { alert('Error loading config: ' + e.message); return; }
@@ -17239,9 +17239,9 @@ async function onLeadDrop(e, newStatus) {
 
       try {
         if (configId > 0) {
-          await apiFetch('/api/ai/agent-configs/' + configId, {method:'PUT', body:JSON.stringify(body)});
+          await api.put('/api/ai/agent-configs/' + configId, body);
         } else {
-          await apiFetch('/api/ai/agent-configs', {method:'POST', body:JSON.stringify(body)});
+          await api.post('/api/ai/agent-configs', body);
         }
         document.getElementById('configEditorPanel').innerHTML = '';
         _builderLoaded = false;
@@ -17252,7 +17252,7 @@ async function onLeadDrop(e, newStatus) {
     async function rollbackConfig(configId, versionId) {
       if (!confirm('Rollback to this version?')) return;
       try {
-        await apiFetch('/api/ai/agent-configs/' + configId + '/rollback/' + versionId, {method:'PUT'});
+        await api.put('/api/ai/agent-configs/' + configId + '/rollback/' + versionId, {});
         _builderLoaded = false;
         loadAgentBuilder();
         openConfigEditor(configId);

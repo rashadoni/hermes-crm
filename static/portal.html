@@ -5,26 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hermes Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .input-field { @apply w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500; }
-        .btn-primary { @apply px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition; }
-        .btn-secondary { @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded transition; }
-        .btn-danger { @apply px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition; }
-        .table-row { @apply border-b border-slate-700 hover:bg-slate-900 transition; }
-        .badge { @apply inline-block px-3 py-1 rounded text-xs font-semibold; }
-        .badge-open { @apply bg-green-900 text-green-200; }
-        .badge-closed { @apply bg-red-900 text-red-200; }
-        .badge-pending { @apply bg-yellow-900 text-yellow-200; }
-        .badge-high { @apply bg-red-900 text-red-200; }
-        .badge-medium { @apply bg-yellow-900 text-yellow-200; }
-        .badge-low { @apply bg-blue-900 text-blue-200; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; }
+        .input-field { width: 100%; padding: 8px 16px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #f1f5f9; font-size: 14px; box-sizing: border-box; outline: none; }
+        .input-field::placeholder { color: #94a3b8; }
+        .input-field:focus { border-color: #3b82f6; }
+        .btn-primary { padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { padding: 8px 16px; background: #334155; color: #f1f5f9; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn-secondary:hover { background: #475569; }
+        .btn-danger { padding: 8px 16px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .table-row { border-bottom: 1px solid #334155; transition: background 0.2s; }
+        .table-row:hover { background: #0f172a; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .badge-open { background: #14532d; color: #bbf7d0; }
+        .badge-closed { background: #7f1d1d; color: #fecaca; }
+        .badge-pending { background: #713f12; color: #fef08a; }
+        .badge-new { background: #1e3a5f; color: #93c5fd; }
+        .badge-high { background: #7f1d1d; color: #fecaca; }
+        .badge-medium { background: #713f12; color: #fef08a; }
+        .badge-low { background: #1e3a5f; color: #bfdbfe; }
+        .nav-bar { background: #0f172a; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 50; }
+        .nav-inner { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 4px 0; transition: color 0.2s; }
+        .nav-btn:hover, .nav-btn.active { color: #60a5fa; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; }
+        .page-container { max-width: 1280px; margin: 0 auto; padding: 32px 16px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+        .auth-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .auth-box { width: 100%; max-width: 400px; }
+        .auth-card { background: #0f172a; padding: 32px; border-radius: 8px; border: 1px solid #1e293b; }
+        .form-group { margin-bottom: 16px; }
+        .form-group-lg { margin-bottom: 24px; }
+        .text-center { text-align: center; }
+        .text-muted { color: #94a3b8; }
+        .text-blue { color: #60a5fa; }
+        .text-sm { font-size: 14px; }
+        .text-lg { font-size: 18px; }
+        .text-xl { font-size: 20px; }
+        .text-2xl { font-size: 24px; }
+        .text-3xl { font-size: 30px; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-4 { margin-bottom: 16px; }
+        .mb-6 { margin-bottom: 24px; }
+        .mb-8 { margin-bottom: 32px; }
+        .mt-2 { margin-top: 8px; }
+        .mt-6 { margin-top: 24px; }
+        .p-4 { padding: 16px; }
+        .p-6 { padding: 24px; }
+        .gap-2 { gap: 8px; }
+        .gap-4 { gap: 16px; }
+        .flex { display: flex; }
+        .grid { display: grid; }
+        .grid-cols-2 { grid-template-columns: 1fr 1fr; }
+        .w-full { width: 100%; }
+        .cursor-pointer { cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 16px; color: #94a3b8; font-size: 13px; font-weight: 600; border-bottom: 1px solid #334155; }
+        td { padding: 16px; }
+        .lang-select { background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px; font-size: 13px; color: #f1f5f9; }
+        textarea.input-field { min-height: 80px; resize: vertical; }
+        select.input-field { appearance: auto; }
+        .link-btn { background: none; border: none; color: #60a5fa; cursor: pointer; font-size: 14px; }
+        .link-btn:hover { text-decoration: underline; }
+        .whitespace-pre { white-space: pre-wrap; }
+        .overflow-auto { max-height: 400px; overflow-y: auto; }
+        .comment-box { background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
+        .pb-6 { padding-bottom: 24px; }
+        .border-b { border-bottom: 1px solid #334155; }
+        /* Toast notifications */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; animation: fadeIn 0.3s ease; max-width: 400px; }
+        .toast-error { background: #7f1d1d; color: #fecaca; border: 1px solid #991b1b; }
+        .toast-success { background: #14532d; color: #bbf7d0; border: 1px solid #166534; }
+        .toast-info { background: #1e3a5f; color: #93c5fd; border: 1px solid #1e40af; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100">
+<body style="background:#020617;color:#f1f5f9;">
+    <div id="toast-container"></div>
     <div id="app"></div>
 
     <script>
+        // Toast notification system
+        function showToast(message, type = 'error') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
         // Language system
         const translations = {
             en: {
@@ -207,7 +283,7 @@
                 // Auto-login after registration
                 await handleLogin(email, password);
             } catch (err) {
-                alert(_t('Registration failed: ' + err.message, 'Ошибка регистрации: ' + err.message, 'Qeydiyyat uğursuz: ' + err.message));
+                showToast(_t('Registration failed: ' + err.message, 'Ошибка регистрации: ' + err.message, 'Qeydiyyat uğursuz: ' + err.message));
             }
         }
 
@@ -221,7 +297,7 @@
                 currentPage = 'tickets';
                 render();
             } catch (err) {
-                alert(_t('Login failed: ' + err.message, 'Ошибка входа: ' + err.message, 'Daxil olmaq uğursuz: ' + err.message));
+                showToast(_t('Login failed: ' + err.message, 'Ошибка входа: ' + err.message, 'Daxil olmaq uğursuz: ' + err.message));
             }
         }
 
@@ -236,7 +312,7 @@
             try {
                 return await apiCall('GET', '/api/portal/tickets');
             } catch (err) {
-                alert(_t('Failed to load tickets', 'Ошибка загрузки билетов', 'Biletləri yükləmə uğursuz'));
+                showToast(_t('Failed to load tickets', 'Ошибка загрузки билетов', 'Biletləri yükləmə uğursuz'));
                 return [];
             }
         }
@@ -245,7 +321,7 @@
             try {
                 return await apiCall('GET', '/api/portal/contracts');
             } catch (err) {
-                alert(_t('Failed to load contracts', 'Ошибка загрузки контрактов', 'Müqavilələri yükləmə uğursuz'));
+                showToast(_t('Failed to load contracts', 'Ошибка загрузки контрактов', 'Müqavilələri yükləmə uğursuz'));
                 return [];
             }
         }
@@ -254,7 +330,7 @@
             try {
                 return await apiCall('GET', '/api/portal/documents');
             } catch (err) {
-                alert(_t('Failed to load documents', 'Ошибка загрузки документов', 'Sənədləri yükləmə uğursuz'));
+                showToast(_t('Failed to load documents', 'Ошибка загрузки документов', 'Sənədləri yükləmə uğursuz'));
                 return [];
             }
         }
@@ -263,7 +339,7 @@
             try {
                 return await apiCall('GET', `/api/portal/tickets/${id}`);
             } catch (err) {
-                alert(_t('Failed to load ticket', 'Ошибка загрузки билета', 'Bileti yükləmə uğursuz'));
+                showToast(_t('Failed to load ticket', 'Ошибка загрузки билета', 'Bileti yükləmə uğursuz'));
                 return null;
             }
         }
@@ -276,7 +352,7 @@
                 currentPage = 'tickets';
                 render();
             } catch (err) {
-                alert(_t('Failed to create ticket', 'Ошибка создания билета', 'Bilet yaratmaq uğursuz'));
+                showToast(_t('Failed to create ticket', 'Ошибка создания билета', 'Bilet yaratmaq uğursuz'));
             }
         }
 
@@ -287,7 +363,7 @@
                 currentTicketDetail = detail;
                 render();
             } catch (err) {
-                alert(_t('Failed to add comment', 'Ошибка добавления комментария', 'Şərh əlavə etmə uğursuz'));
+                showToast(_t('Failed to add comment', 'Ошибка добавления комментария', 'Şərh əlavə etmə uğursuz'));
             }
         }
 
@@ -295,20 +371,20 @@
         function LoginForm() {
             let email = '', password = '';
             return `
-                <div class="min-h-screen bg-slate-950 flex items-center justify-center">
-                    <div class="w-full max-w-md">
+                <div class="auth-container">
+                    <div class="auth-box">
                         <div class="text-center mb-8">
-                            <h1 class="text-3xl font-bold text-blue-400 mb-2">Hermes Portal</h1>
-                            <p class="text-slate-400">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
+                            <h1 class="text-3xl font-bold text-blue mb-2">Hermes Portal</h1>
+                            <p class="text-muted">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
                         </div>
-                        <div class="bg-slate-900 p-8 rounded-lg border border-slate-800">
+                        <div class="auth-card">
                             <h2 class="text-xl font-bold mb-6">${_t('Sign In', 'Вход', 'Daxil ol')}</h2>
                             <form onsubmit="event.preventDefault(); handleLogin(document.getElementById('login-email').value, document.getElementById('login-password').value)">
                                 <input type="email" id="login-email" class="input-field mb-4" placeholder="${_t('Email', 'Email', 'Email')}" required>
                                 <input type="password" id="login-password" class="input-field mb-6" placeholder="${_t('Password', 'Пароль', 'Şifrə')}" required>
                                 <button type="submit" class="btn-primary w-full mb-4">${_t('Sign In', 'Войти', 'Daxil ol')}</button>
                             </form>
-                            <button onclick="switchAuthMode()" class="text-blue-400 text-sm hover:underline w-full text-center">
+                            <button onclick="switchAuthMode()" class="link-btn w-full text-center">
                                 ${_t("Don't have an account? Register", 'Нет аккаунта? Регистрация', 'Hesabınız yoxdur? Qeydiyyat')}
                             </button>
                         </div>
@@ -319,13 +395,13 @@
 
         function RegisterForm() {
             return `
-                <div class="min-h-screen bg-slate-950 flex items-center justify-center">
-                    <div class="w-full max-w-md">
+                <div class="auth-container">
+                    <div class="auth-box">
                         <div class="text-center mb-8">
-                            <h1 class="text-3xl font-bold text-blue-400 mb-2">Hermes Portal</h1>
-                            <p class="text-slate-400">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
+                            <h1 class="text-3xl font-bold text-blue mb-2">Hermes Portal</h1>
+                            <p class="text-muted">${_t('Client Portal', 'Клиентский портал', 'Kliyent Portalı')}</p>
                         </div>
-                        <div class="bg-slate-900 p-8 rounded-lg border border-slate-800">
+                        <div class="auth-card">
                             <h2 class="text-xl font-bold mb-6">${_t('Create Account', 'Создать аккаунт', 'Hesab Aç')}</h2>
                             <form onsubmit="event.preventDefault(); handleRegister(document.getElementById('register-email').value, document.getElementById('register-password').value, document.getElementById('register-name').value)">
                                 <input type="text" id="register-name" class="input-field mb-4" placeholder="${_t('Full Name', 'Полное имя', 'Tam Ad')}" required>
@@ -333,7 +409,7 @@
                                 <input type="password" id="register-password" class="input-field mb-6" placeholder="${_t('Password', 'Пароль', 'Şifrə')}" required>
                                 <button type="submit" class="btn-primary w-full mb-4">${_t('Create Account', 'Создать аккаунт', 'Hesab Aç')}</button>
                             </form>
-                            <button onclick="switchAuthMode()" class="text-blue-400 text-sm hover:underline w-full text-center">
+                            <button onclick="switchAuthMode()" class="link-btn w-full text-center">
                                 ${_t('Already have an account? Sign In', 'Уже есть аккаунт? Войти', 'Artıq hesabınız var? Daxil ol')}
                             </button>
                         </div>
@@ -344,16 +420,16 @@
 
         function NavBar() {
             return `
-                <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-                    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                        <h1 class="text-xl font-bold text-blue-400">Hermes Portal</h1>
-                        <div class="flex gap-6 items-center">
-                            <button onclick="switchPage('tickets')" class="hover:text-blue-400 transition ${currentPage === 'tickets' ? 'text-blue-400' : ''}">${_t('Tickets', 'Билеты', 'Biletlər')}</button>
-                            <button onclick="switchPage('contracts')" class="hover:text-blue-400 transition ${currentPage === 'contracts' ? 'text-blue-400' : ''}">${_t('Contracts', 'Контракты', 'Müqavilələr')}</button>
-                            <button onclick="switchPage('documents')" class="hover:text-blue-400 transition ${currentPage === 'documents' ? 'text-blue-400' : ''}">${_t('Documents', 'Документы', 'Sənədlər')}</button>
-                            <button onclick="switchPage('profile')" class="hover:text-blue-400 transition ${currentPage === 'profile' ? 'text-blue-400' : ''}">${_t('Profile', 'Профиль', 'Profil')}</button>
+                <nav class="nav-bar">
+                    <div class="nav-inner">
+                        <h1 class="text-xl font-bold text-blue">Hermes Portal</h1>
+                        <div class="nav-links">
+                            <button onclick="switchPage('tickets')" class="nav-btn ${currentPage === 'tickets' ? 'active' : ''}">${_t('Tickets', 'Билеты', 'Biletlər')}</button>
+                            <button onclick="switchPage('contracts')" class="nav-btn ${currentPage === 'contracts' ? 'active' : ''}">${_t('Contracts', 'Контракты', 'Müqavilələr')}</button>
+                            <button onclick="switchPage('documents')" class="nav-btn ${currentPage === 'documents' ? 'active' : ''}">${_t('Documents', 'Документы', 'Sənədlər')}</button>
+                            <button onclick="switchPage('profile')" class="nav-btn ${currentPage === 'profile' ? 'active' : ''}">${_t('Profile', 'Профиль', 'Profil')}</button>
                             <div class="flex gap-2 items-center">
-                                <select onchange="changeLanguage(this.value)" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm">
+                                <select onchange="changeLanguage(this.value)" class="lang-select">
                                     <option value="en" ${L === 'en' ? 'selected' : ''}>EN</option>
                                     <option value="ru" ${L === 'ru' ? 'selected' : ''}>РУ</option>
                                     <option value="az" ${L === 'az' ? 'selected' : ''}>AZ</option>
@@ -368,15 +444,15 @@
 
         function TicketsPage() {
             return `
-                <div class="max-w-7xl mx-auto px-4 py-8">
+                <div class="page-container">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold">${_t('Tickets', 'Билеты', 'Biletlər')}</h2>
                         <button onclick="showNewTicketForm()" class="btn-primary">${_t('New Ticket', 'Новый билет', 'Yeni Bilet')}</button>
                     </div>
-                    <div id="tickets-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    <div id="tickets-list" class="card">
+                        <div class="p-4 text-muted">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
                     </div>
-                    <div id="new-ticket-form" style="display: none;" class="mt-6 bg-slate-900 p-6 rounded-lg border border-slate-800">
+                    <div id="new-ticket-form" style="display: none;" class="mt-6 card p-6">
                         <h3 class="text-xl font-bold mb-4">${_t('New Ticket', 'Новый билет', 'Yeni Bilet')}</h3>
                         <form onsubmit="event.preventDefault(); submitNewTicket()">
                             <input type="text" id="ticket-subject" class="input-field mb-4" placeholder="${_t('Subject', 'Тема', 'Mövzu')}" required>
@@ -400,10 +476,10 @@
 
         function ContractsPage() {
             return `
-                <div class="max-w-7xl mx-auto px-4 py-8">
+                <div class="page-container">
                     <h2 class="text-2xl font-bold mb-6">${_t('Contracts', 'Контракты', 'Müqavilələr')}</h2>
-                    <div id="contracts-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    <div id="contracts-list" class="card">
+                        <div class="p-4 text-muted">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
                     </div>
                 </div>
             `;
@@ -411,10 +487,10 @@
 
         function DocumentsPage() {
             return `
-                <div class="max-w-7xl mx-auto px-4 py-8">
+                <div class="page-container">
                     <h2 class="text-2xl font-bold mb-6">${_t('Documents', 'Документы', 'Sənədlər')}</h2>
-                    <div id="documents-list" class="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-                        <div class="p-4 text-slate-400">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
+                    <div id="documents-list" class="card">
+                        <div class="p-4 text-muted">${_t('Loading...', 'Загрузка...', 'Yüklənir...')}</div>
                     </div>
                 </div>
             `;
@@ -422,16 +498,16 @@
 
         function ProfilePage() {
             return `
-                <div class="max-w-7xl mx-auto px-4 py-8">
+                <div class="page-container">
                     <h2 class="text-2xl font-bold mb-6">${_t('Profile', 'Профиль', 'Profil')}</h2>
-                    <div class="bg-slate-900 p-6 rounded-lg border border-slate-800 max-w-2xl">
+                    <div class="auth-card" style="max-width:640px;">
                         <div class="grid gap-4">
                             <div>
-                                <label class="text-slate-400 text-sm">${_t('Full Name', 'Полное имя', 'Tam Ad')}</label>
+                                <label class="text-muted text-sm">${_t('Full Name', 'Полное имя', 'Tam Ad')}</label>
                                 <p class="text-lg font-semibold">${currentUser.full_name || '-'}</p>
                             </div>
                             <div>
-                                <label class="text-slate-400 text-sm">${_t('Email', 'Email', 'Email')}</label>
+                                <label class="text-muted text-sm">${_t('Email', 'Email', 'Email')}</label>
                                 <p class="text-lg font-semibold">${currentUser.email || '-'}</p>
                             </div>
                         </div>
@@ -448,36 +524,36 @@
             return `
                 <div class="max-w-4xl mx-auto px-4 py-8">
                     <button onclick="backToTickets()" class="btn-secondary mb-6">${_t('Back', 'Назад', 'Geri')}</button>
-                    <div class="bg-slate-900 p-6 rounded-lg border border-slate-800">
+                    <div class="card p-6">
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <h2 class="text-2xl font-bold">${_t('Ticket #', 'Билет №', 'Bilet №')}${t.ticket_number}</h2>
-                                <p class="text-slate-400">${t.subject}</p>
+                                <p class="text-muted">${t.subject}</p>
                             </div>
                             <div class="flex gap-2">
                                 <span class="badge ${statusClass}">${t.status}</span>
                                 <span class="badge ${priorityClass}">${t.priority}</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-slate-700">
+                        <div class="grid grid-cols-2 gap-4 mb-6 pb-6 border-b">
                             <div>
-                                <label class="text-slate-400 text-sm">${_t('Category', 'Категория', 'Kateqoriya')}</label>
+                                <label class="text-muted text-sm">${_t('Category', 'Категория', 'Kateqoriya')}</label>
                                 <p>${t.category}</p>
                             </div>
                             <div>
-                                <label class="text-slate-400 text-sm">${_t('Date', 'Дата', 'Tarix')}</label>
+                                <label class="text-muted text-sm">${_t('Date', 'Дата', 'Tarix')}</label>
                                 <p>${new Date(t.created_at).toLocaleDateString()}</p>
                             </div>
                         </div>
                         <div class="mb-6">
                             <label class="text-slate-400 text-sm block mb-2">${_t('Description', 'Описание', 'Təsvir')}</label>
-                            <p class="whitespace-pre-wrap">${t.description}</p>
+                            <p class="whitespace-pre">${t.description}</p>
                         </div>
                         <div>
                             <h3 class="text-lg font-bold mb-4">${_t('Comments', 'Комментарии', 'Şərhlər')}</h3>
-                            <div class="space-y-4 mb-6 max-h-96 overflow-y-auto">
+                            <div class="overflow-auto mb-6">
                                 ${(t.comments || []).map(c => `
-                                    <div class="bg-slate-800 p-4 rounded">
+                                    <div class="comment-box">
                                         <p class="text-sm text-slate-400">${c.author} - ${new Date(c.created_at).toLocaleString()}</p>
                                         <p class="mt-2">${c.comment || c.text}</p>
                                     </div>
@@ -574,7 +650,7 @@
                 const tickets = await loadTickets();
                 const html = tickets.length ? `
                     <table class="w-full">
-                        <thead class="border-b border-slate-700">
+                        <thead class="border-b">
                             <tr class="text-left text-slate-400 text-sm">
                                 <th class="p-4">${_t('Ticket #', 'Билет №', 'Bilet №')}</th>
                                 <th class="p-4">${_t('Subject', 'Тема', 'Mövzu')}</th>
@@ -593,19 +669,19 @@
                                         <td class="p-4">${t.subject}</td>
                                         <td class="p-4"><span class="badge ${statusClass}">${t.status}</span></td>
                                         <td class="p-4"><span class="badge ${priorityClass}">${t.priority}</span></td>
-                                        <td class="p-4 text-slate-400">${new Date(t.created_at).toLocaleDateString()}</td>
+                                        <td class="p-4 text-muted">${new Date(t.created_at).toLocaleDateString()}</td>
                                     </tr>
                                 `;
                             }).join('')}
                         </tbody>
                     </table>
-                ` : `<div class="p-4 text-slate-400">${_t('No tickets found', 'Билеты не найдены', 'Bilet tapılmadı')}</div>`;
+                ` : `<div class="p-4 text-muted">${_t('No tickets found', 'Билеты не найдены', 'Bilet tapılmadı')}</div>`;
                 document.getElementById('tickets-list').innerHTML = html;
             } else if (currentPage === 'contracts') {
                 const contracts = await loadContracts();
                 const html = contracts.length ? `
                     <table class="w-full">
-                        <thead class="border-b border-slate-700">
+                        <thead class="border-b">
                             <tr class="text-left text-slate-400 text-sm">
                                 <th class="p-4">${_t('Title', 'Название', 'Başlıq')}</th>
                                 <th class="p-4">${_t('Status', 'Статус', 'Status')}</th>
@@ -619,18 +695,18 @@
                                     <td class="p-4">${c.title}</td>
                                     <td class="p-4"><span class="badge badge-open">${c.status}</span></td>
                                     <td class="p-4">${c.amount}</td>
-                                    <td class="p-4 text-slate-400">${new Date(c.start_date).toLocaleDateString()}</td>
+                                    <td class="p-4 text-muted">${new Date(c.start_date).toLocaleDateString()}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
-                ` : `<div class="p-4 text-slate-400">${_t('No contracts found', 'Контракты не найдены', 'Müqavilə tapılmadı')}</div>`;
+                ` : `<div class="p-4 text-muted">${_t('No contracts found', 'Контракты не найдены', 'Müqavilə tapılmadı')}</div>`;
                 document.getElementById('contracts-list').innerHTML = html;
             } else if (currentPage === 'documents') {
                 const documents = await loadDocuments();
                 const html = documents.length ? `
                     <table class="w-full">
-                        <thead class="border-b border-slate-700">
+                        <thead class="border-b">
                             <tr class="text-left text-slate-400 text-sm">
                                 <th class="p-4">${_t('Number', 'Номер', 'Nömrə')}</th>
                                 <th class="p-4">${_t('Type', 'Тип', 'Tip')}</th>
@@ -646,12 +722,12 @@
                                     <td class="p-4">${d.offer_type || d.type}</td>
                                     <td class="p-4"><span class="badge badge-pending">${d.status}</span></td>
                                     <td class="p-4">${d.total_amount || d.amount}</td>
-                                    <td class="p-4 text-slate-400">${d.valid_until ? new Date(d.valid_until).toLocaleDateString() : '-'}</td>
+                                    <td class="p-4 text-muted">${d.valid_until ? new Date(d.valid_until).toLocaleDateString() : '-'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
-                ` : `<div class="p-4 text-slate-400">${_t('No documents found', 'Документы не найдены', 'Sənəd tapılmadı')}</div>`;
+                ` : `<div class="p-4 text-muted">${_t('No documents found', 'Документы не найдены', 'Sənəd tapılmadı')}</div>`;
                 document.getElementById('documents-list').innerHTML = html;
             }
         }

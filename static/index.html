@@ -16971,14 +16971,15 @@ async function onLeadDrop(e, newStatus) {
         const totalTokens = (logData.prompt_tokens||0) + (logData.completion_tokens||0);
         const qScore = logData.quality_score || 0;
         const qColor = qScore >= 8 ? '#22c55e' : qScore >= 6 ? '#a78bfa' : qScore >= 4 ? '#facc15' : qScore > 0 ? '#f87171' : '#475569';
-        const qLabel = qScore >= 8 ? 'Отлично' : qScore >= 6 ? 'Хорошо' : qScore >= 4 ? 'Средне' : qScore > 0 ? 'Плохо' : 'Не оценено';
+        const qLabel = qScore >= 8 ? 'Əla / Отлично' : qScore >= 6 ? 'Yaxşı / Хорошо' : qScore >= 4 ? 'Orta / Средне' : qScore > 0 ? 'Zəif / Плохо' : 'Qiymətləndirilməyib';
 
         const stepConfig = {
-          planning:       {icon:'🎯', label:'Планирование', color:'#f59e0b', desc:'AI составляет план действий'},
-          kb_search:      {icon:'📚', label:'Поиск по базе знаний', color:'#22d3ee', desc:'Поиск релевантных статей в KB'},
-          llm_call:       {icon:'🧠', label:'Вызов LLM', color:'#818cf8', desc:'Запрос к Claude API'},
-          tool_exec:      {icon:'⚙️', label:'Выполнение инструмента', color:'#f59e0b', desc:'Вызов инструмента CRM'},
-          quality_check:  {icon:'✅', label:'Проверка качества', color:'#22c55e', desc:'Анализ флагов качества'}
+          pii_masking:    {icon:'🔒', label:'PII Masking / PII Maskalanması', color:'#ef4444', desc:'Şəxsi məlumatların maskalanması / Маскирование персональных данных'},
+          planning:       {icon:'🎯', label:'Planlaşdırma / Планирование', color:'#f59e0b', desc:'AI fəaliyyət planı hazırlayır / AI составляет план действий'},
+          kb_search:      {icon:'📚', label:'Bilik bazası axtarışı / Поиск по БЗ', color:'#22d3ee', desc:'Uyğun məqalələrin axtarışı / Поиск релевантных статей'},
+          llm_call:       {icon:'🧠', label:'LLM Sorğusu / Вызов LLM', color:'#818cf8', desc:'Claude API sorğusu / Запрос к Claude API'},
+          tool_exec:      {icon:'⚙️', label:'Alət icrası / Выполнение инструмента', color:'#f59e0b', desc:'CRM alətinin çağırılması / Вызов инструмента CRM'},
+          quality_check:  {icon:'✅', label:'Keyfiyyət yoxlanışı / Проверка качества', color:'#22c55e', desc:'Keyfiyyət bayraqlarının təhlili / Анализ флагов качества'}
         };
 
         // ── Build HTML ──
@@ -16991,8 +16992,8 @@ async function onLeadDrop(e, newStatus) {
         h += '<div style="padding:24px 28px 16px;border-bottom:1px solid #1e293b">';
         h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">';
         h += '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:18px">🔬</div>';
-        h += '<div><h3 style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700">Трассировка сессии #' + sessionId + '</h3>';
-        h += '<span style="font-size:12px;color:#64748b">' + (logData.created_at || '') + ' • Модель: ' + esc(logData.model_used || 'claude-haiku') + '</span></div></div>';
+        h += '<div><h3 style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700">Sessiya izləmə / Трассировка #' + sessionId + '</h3>';
+        h += '<span style="font-size:12px;color:#64748b">' + (logData.created_at || '') + ' • Model / Модель: ' + esc(logData.model_used || 'claude-haiku') + '</span></div></div>';
         h += '<button onclick="this.closest(\'#traceOverlay\').remove()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>';
         h += '</div>';
 
@@ -17000,22 +17001,22 @@ async function onLeadDrop(e, newStatus) {
         h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">';
         // Latency
         h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
-        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Задержка</div>';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Gecikmə / Задержка</div>';
         h += '<div style="font-size:22px;font-weight:800;color:#22d3ee">' + (totalLatency/1000).toFixed(1) + 's</div>';
-        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + totalLatency.toFixed(0) + ' мс</div></div>';
+        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + totalLatency.toFixed(0) + ' ms</div></div>';
         // Tokens
         h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
-        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Токены</div>';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tokenlər / Токены</div>';
         h += '<div style="font-size:22px;font-weight:800;color:#a78bfa">' + totalTokens + '</div>';
-        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + (logData.prompt_tokens||0) + ' вх / ' + (logData.completion_tokens||0) + ' вых</div></div>';
+        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + (logData.prompt_tokens||0) + ' giriş / ' + (logData.completion_tokens||0) + ' çıxış</div></div>';
         // Cost
         h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
-        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Стоимость</div>';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Xərc / Стоимость</div>';
         h += '<div style="font-size:22px;font-weight:800;color:#34d399">$' + (logData.cost_usd||0).toFixed(4) + '</div>';
         h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + (logData.model_used||'haiku') + '</div></div>';
         // Quality
         h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
-        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Качество</div>';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Keyfiyyət / Качество</div>';
         h += '<div style="font-size:22px;font-weight:800;color:' + qColor + '">' + (qScore > 0 ? qScore + '/10' : '—') + '</div>';
         h += '<div style="font-size:10px;color:' + qColor + ';margin-top:2px">' + qLabel + '</div></div>';
         h += '</div>'; // grid
@@ -17026,14 +17027,14 @@ async function onLeadDrop(e, newStatus) {
         h += '<div style="padding:16px 28px 0">';
         h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:14px;background:#1e293b;border-radius:12px;border-left:3px solid #3b82f6">';
         h += '<div style="width:28px;height:28px;border-radius:8px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">👤</div>';
-        h += '<div><div style="font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:4px">ЗАПРОС ПОЛЬЗОВАТЕЛЯ</div>';
+        h += '<div><div style="font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:4px">İSTİFADƏÇİ SORĞUSU / ЗАПРОС ПОЛЬЗОВАТЕЛЯ</div>';
         h += '<div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(logData.user_message||'').slice(0,300) + '</div></div></div>';
 
         // ── Waterfall Timeline Bar ──
         h += '<div style="margin-top:16px;margin-bottom:4px;display:flex;align-items:center;gap:8px">';
-        h += '<span style="font-size:11px;color:#64748b;font-weight:600">КАСКАД ОБРАБОТКИ</span>';
+        h += '<span style="font-size:11px;color:#64748b;font-weight:600">EMAL KASKADİ / КАСКАД ОБРАБОТКИ</span>';
         h += '<div style="flex:1;height:1px;background:#1e293b"></div>';
-        h += '<span style="font-size:10px;color:#475569">' + trace.length + ' шагов • ' + (totalLatency/1000).toFixed(2) + 's</span></div>';
+        h += '<span style="font-size:10px;color:#475569">' + trace.length + ' addım/шагов • ' + (totalLatency/1000).toFixed(2) + 's</span></div>';
 
         // Waterfall bar
         h += '<div style="display:flex;height:28px;border-radius:8px;overflow:hidden;background:#0f172a;margin-bottom:20px">';
@@ -17074,11 +17075,18 @@ async function onLeadDrop(e, newStatus) {
 
           // Detail card
           h += '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;font-size:12px;color:#94a3b8">';
-          if (step.step === 'planning') {
-            h += '<div style="font-size:12px;color:#e2e8f0;white-space:pre-line">' + esc(step.plan || '') + '</div>';
+          if (step.step === 'pii_masking') {
+            h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">';
+            h += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#f87171;font-size:12px;font-weight:600">🔒 ' + (step.masked_count||0) + ' PII element maskalandı / замаскировано</span>';
+            h += '</div>';
+            if (step.masked_text) {
+              h += '<div style="font-size:11px;color:#94a3b8;background:#0f172a;border:1px dashed rgba(239,68,68,0.2);border-radius:8px;padding:8px 12px;margin-top:4px;font-family:monospace">' + esc(step.masked_text) + '</div>';
+            }
+          } else if (step.step === 'planning') {
+            h += '<div style="font-size:12px;color:#e2e8f0;white-space:pre-line;line-height:1.6">' + esc(step.plan || '') + '</div>';
           } else if (step.step === 'kb_search') {
-            h += '<div style="display:flex;gap:12px;margin-bottom:6px"><span>📊 Найдено: <strong style="color:#e2e8f0">' + (step.articles_found||0) + '</strong></span>';
-            h += '<span>✅ Выбрано: <strong style="color:#22c55e">' + (step.articles_selected||0) + '</strong></span></div>';
+            h += '<div style="display:flex;gap:12px;margin-bottom:6px"><span>📊 Tapıldı / Найдено: <strong style="color:#e2e8f0">' + (step.articles_found||0) + '</strong></span>';
+            h += '<span>✅ Seçildi / Выбрано: <strong style="color:#22c55e">' + (step.articles_selected||0) + '</strong></span></div>';
             if (step.articles && step.articles.length) {
               step.articles.forEach(a => {
                 const barW = Math.max(Math.min((a.score||0) * 300, 100), 5);
@@ -17089,33 +17097,31 @@ async function onLeadDrop(e, newStatus) {
                 h += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + esc(a.title||'') + '</span></div>';
               });
             } else {
-              h += '<span style="color:#64748b">Нет подходящих статей</span>';
+              h += '<span style="color:#64748b">Uyğun məqalə tapılmadı / Нет подходящих статей</span>';
             }
           } else if (step.step === 'llm_call') {
             const stopColor = step.stop_reason === 'tool_use' ? '#f59e0b' : '#22c55e';
-            const stopLabel = step.stop_reason === 'tool_use' ? '🔧 Вызов инструмента' : step.stop_reason === 'end_turn' ? '✅ Ответ завершён' : (step.stop_reason || '?');
+            const stopLabel = step.stop_reason === 'tool_use' ? '🔧 Alət çağırışı / Вызов инструмента' : step.stop_reason === 'end_turn' ? '✅ Cavab tamamlandı / Ответ завершён' : (step.stop_reason || '?');
             h += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
-            h += '<span>🔄 Итерация: <strong style="color:#e2e8f0">' + (step.iteration||1) + '</strong></span>';
-            h += '<span>📥 Вход: <strong style="color:#a78bfa">' + (step.prompt_tokens||0) + ' токенов</strong></span>';
-            h += '<span>📤 Выход: <strong style="color:#c084fc">' + (step.completion_tokens||0) + ' токенов</strong></span>';
+            h += '<span>🔄 İterasiya / Итерация: <strong style="color:#e2e8f0">' + (step.iteration||1) + '</strong></span>';
+            h += '<span>📥 Giriş / Вход: <strong style="color:#a78bfa">' + (step.prompt_tokens||0) + ' token</strong></span>';
+            h += '<span>📤 Çıxış / Выход: <strong style="color:#c084fc">' + (step.completion_tokens||0) + ' token</strong></span>';
             h += '</div>';
-            h += '<div style="margin-top:6px">Результат: <span style="color:' + stopColor + ';font-weight:600">' + stopLabel + '</span></div>';
+            h += '<div style="margin-top:6px">Nəticə / Результат: <span style="color:' + stopColor + ';font-weight:600">' + stopLabel + '</span></div>';
           } else if (step.step === 'tool_exec') {
             h += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
-            h += '<span>🔧 Инструмент: <strong style="color:#f59e0b">' + esc(step.tool||'?') + '</strong></span>';
-            h += '<span>📦 Результат: <strong style="color:#e2e8f0">' + (step.result_size||0) + ' байт</strong></span>';
+            h += '<span>🔧 Alət / Инструмент: <strong style="color:#f59e0b">' + esc(step.tool||'?') + '</strong></span>';
+            h += '<span>📦 Nəticə / Результат: <strong style="color:#e2e8f0">' + (step.result_size||0) + ' bayt</strong></span>';
             h += '</div>';
-            if (step.tool === 'get_tickets') h += '<div style="margin-top:4px;color:#475569">→ Получение списка тикетов клиента</div>';
-            if (step.tool === 'get_contracts') h += '<div style="margin-top:4px;color:#475569">→ Получение списка контрактов</div>';
-            if (step.tool === 'get_invoices') h += '<div style="margin-top:4px;color:#475569">→ Получение счетов-фактур</div>';
-            if (step.tool === 'search_kb') h += '<div style="margin-top:4px;color:#475569">→ Поиск в базе знаний</div>';
+            const toolDescs = {get_tickets:'Müştəri tiketlərinin siyahısı / Получение тикетов клиента', get_contracts:'Müqavilələrin siyahısı / Получение контрактов', get_invoices:'Fakturalar / Получение счетов-фактур', search_kb:'Bilik bazasında axtarış / Поиск в базе знаний', create_ticket:'Yeni tiket yaratmaq / Создание тикета', escalate_to_human:'Menecerə ötürmə / Эскалация агенту', get_documents:'Sənədlər / Получение документов'};
+            if (toolDescs[step.tool]) h += '<div style="margin-top:4px;color:#475569">→ ' + toolDescs[step.tool] + '</div>';
           } else if (step.step === 'quality_check') {
             const checks = [];
-            if (step.uncertainty_detected) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);border-radius:6px;color:#f87171;font-size:11px">⚠️ Неуверенность</span>');
-            if (step.no_kb_match) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);border-radius:6px;color:#facc15;font-size:11px">💭 Нет совпадений в KB</span>');
-            if (step.escalation_suggested) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;font-size:11px">🚨 Рекомендована эскалация</span>');
+            if (step.uncertainty_detected) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);border-radius:6px;color:#f87171;font-size:11px">⚠️ Qeyri-müəyyənlik / Неуверенность</span>');
+            if (step.no_kb_match) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);border-radius:6px;color:#facc15;font-size:11px">💭 BZ-da uyğunluq yoxdur / Нет совпадений в БЗ</span>');
+            if (step.escalation_suggested) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;font-size:11px">🚨 Eskalasiya tövsiyə olunur / Рекомендована эскалация</span>');
             h += checks.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' + checks.join('') + '</div>'
-              : '<div style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:11px">✅ Все проверки пройдены</span></div>';
+              : '<div style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:11px">✅ Bütün yoxlamalar keçdi / Все проверки пройдены</span></div>';
           }
           h += '</div>'; // detail card
           h += '</div>'; // right content
@@ -17126,14 +17132,14 @@ async function onLeadDrop(e, newStatus) {
         h += '<div style="margin-top:16px;border-top:1px solid #1e293b;padding-top:16px">';
         h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:14px;background:#1e293b;border-radius:12px;border-left:3px solid #22c55e">';
         h += '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🤖</div>';
-        h += '<div style="flex:1"><div style="font-size:11px;color:#22c55e;font-weight:600;margin-bottom:4px">ОТВЕТ AI-АГЕНТА</div>';
+        h += '<div style="flex:1"><div style="font-size:11px;color:#22c55e;font-weight:600;margin-bottom:4px">AI AGENTIN CAVABI / ОТВЕТ AI-АГЕНТА</div>';
         h += '<div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(logData.ai_response||'').slice(0,500) + (logData.ai_response && logData.ai_response.length > 500 ? '...' : '') + '</div></div></div>';
 
         // Quality Auditor result
         if (qScore > 0) {
           h += '<div style="margin-top:10px;padding:14px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.15);border-radius:12px">';
           h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">';
-          h += '<span style="font-size:11px;color:#a78bfa;font-weight:700;text-transform:uppercase;letter-spacing:1px">🎯 Оценка Quality Auditor</span>';
+          h += '<span style="font-size:11px;color:#a78bfa;font-weight:700;text-transform:uppercase;letter-spacing:1px">🎯 Keyfiyyət Qiymətləndirməsi / Оценка качества</span>';
           // Score stars
           h += '<div style="display:flex;gap:2px;margin-left:auto">';
           for (let s = 1; s <= 10; s++) {
@@ -17151,12 +17157,12 @@ async function onLeadDrop(e, newStatus) {
         // Root Cause Analysis
         if (logData.root_cause && logData.root_cause !== 'none') {
           const rcColors = {kb_gap:'#22d3ee', wrong_tool:'#f59e0b', prompt_issue:'#a78bfa', hallucination:'#ef4444', context_loss:'#64748b'};
-          const rcLabels = {kb_gap:'Пробел в базе знаний', wrong_tool:'Неверный инструмент', prompt_issue:'Проблема промпта', hallucination:'Галлюцинация', context_loss:'Потеря контекста'};
+          const rcLabels = {kb_gap:'BZ boşluğu / Пробел в БЗ', wrong_tool:'Yanlış alət / Неверный инструмент', prompt_issue:'Prompt problemi / Проблема промпта', hallucination:'Hallüsinasiya / Галлюцинация', context_loss:'Kontekst itkisi / Потеря контекста'};
           const rcColor = rcColors[logData.root_cause] || '#f87171';
           const rcLabel = rcLabels[logData.root_cause] || logData.root_cause;
           h += '<div style="margin-top:10px;padding:14px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px">';
           h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">';
-          h += '<span style="font-size:11px;color:#f87171;font-weight:700;text-transform:uppercase;letter-spacing:1px">🔍 Root Cause Analysis</span>';
+          h += '<span style="font-size:11px;color:#f87171;font-weight:700;text-transform:uppercase;letter-spacing:1px">🔍 Səbəb Təhlili / Анализ причин</span>';
           h += '<span style="background:' + rcColor + '15;color:' + rcColor + ';padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid ' + rcColor + '30">' + rcLabel + '</span>';
           h += '</div>';
           if (logData.root_cause_detail) {

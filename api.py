@@ -9487,22 +9487,23 @@ def _quality_auditor_sync(log_id: int, user_message: str, ai_response: str, kb_a
         client = anthropic.Anthropic(api_key=api_key)
         kb_info = ", ".join([a.get("title", "") for a in kb_articles]) if kb_articles else "None"
         # Enhanced audit prompt with root cause analysis (Feature 4)
-        audit_prompt = f"""Analyze this AI support interaction and provide:
-1. Quality score (1-10) based on accuracy, helpfulness, tone, completeness
-2. If score < 7, identify the root cause of any issues from these categories:
-   - kb_gap: Knowledge base didn't have relevant information
-   - wrong_tool: AI used the wrong tool or missed using a tool
-   - prompt_issue: System prompt instructions were unclear or missing
-   - hallucination: AI made up information not from KB or tools
-   - context_loss: AI lost track of conversation context
-   - none: No issues found
+        audit_prompt = f"""AI texniki dəstək agentinin qarşılıqlı əlaqəsini təhlil et və qiymətləndir:
+1. Keyfiyyət balı (1-10): dəqiqlik, faydalılıq, ton, cavabın tamlığı
+2. Əgər bal < 7, problemin səbəbini müəyyən et:
+   - kb_gap: Bilik bazasında lazımi məlumat yoxdur
+   - wrong_tool: AI yanlış alət istifadə edib və ya lazımi aləti buraxıb
+   - prompt_issue: Sistem təlimatları aydın deyildi
+   - hallucination: AI bilik bazasında olmayan məlumat uydurub
+   - context_loss: AI söhbət kontekstini itirib
+   - none: Problem aşkar edilməyib
 
-User question: {user_message[:300]}
-AI response: {ai_response[:500]}
-KB articles used: {kb_info}
+Müştəri sualı / Вопрос клиента: {user_message[:300]}
+AI cavabı / Ответ AI: {ai_response[:500]}
+Bilik bazası məqalələri / Статьи БЗ: {kb_info}
 
-Respond ONLY in this exact JSON format:
-{{"score": 7, "notes": "Brief explanation", "root_cause": "none", "root_cause_detail": ""}}"""
+IMPORTANT: Write "notes" and "root_cause_detail" in both Azerbaijani AND Russian, separated by " / ".
+Respond ONLY in JSON:
+{{"score": 7, "notes": "Qısa izahat / Краткое пояснение", "root_cause": "none", "root_cause_detail": "Ətraflı / Подробности"}}"""
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=200,
@@ -9790,10 +9791,16 @@ async def portal_chat(request: Request):
     original_user_message = user_message
     pii_masking_enabled = agent_cfg.get("pii_masking_enabled", 1)
     masked_user_message = _mask_pii(user_message) if pii_masking_enabled else user_message
+    pii_was_masked = pii_masking_enabled and masked_user_message != user_message
     if pii_masking_enabled:
         # Apply masking to the last message in the messages array (the current user message)
         if messages and messages[-1]["role"] == "user":
             messages[-1]["content"] = masked_user_message
+        if pii_was_masked:
+            import re as _re
+            # Count masked items for trace
+            pii_count = len(_re.findall(r'\[\u0422\u0415\u041b\u0415\u0424\u041e\u041d\]|\[EMAIL\]|\[\u041a\u0410\u0420\u0422\u0410\]|\[\u0414\u041e\u041a\u0423\u041c\u0415\u041d\u0422\]|\[IP\]', masked_user_message))
+            trace.append({"step": "pii_masking", "masked_count": pii_count, "masked_text": masked_user_message[:200], "duration_ms": 0.1})
 
     try:
         import anthropic
@@ -9816,7 +9823,7 @@ async def portal_chat(request: Request):
                 plan_resp = client.messages.create(
                     model="claude-haiku-4-5-20251001",
                     max_tokens=200,
-                    messages=[{"role": "user", "content": f"You are a support agent planner. Given this user query, create a brief 2-3 step action plan. Be concise.\n\nQuery: {planning_input[:300]}\n\nAvailable tools: {', '.join([t['name'] for t in active_tools])}\n\nPlan (2-3 steps, one line each):"}]
+                    messages=[{"role": "user", "content": f"Sən texniki dəstək agentinin planlaşdırıcısısan. Müştərinin sorğusunu emal etmək üçün 2-3 addımdan ibarət qısa plan hazırla.\nОтвечай на том же языке, на котором написан запрос клиента (азербайджанский или русский).\n\nЗапрос клиента / Müştəri sorğusu: {planning_input[:300]}\n\nДоступные инструменты / Mövcud alətlər: {', '.join([t['name'] for t in active_tools])}\n\nПлан действий / Fəaliyyət planı (2-3 addım / шага):"}]
                 )
                 plan_text = plan_resp.content[0].text.strip()
             except Exception:

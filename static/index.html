@@ -7361,6 +7361,12 @@ function showDealDetail(id) {
               ${['LEAD', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'].map(s => `<button class="btn btn-sm ${d.stage===s?'btn-primary':'btn-secondary'}" onclick="moveDeal(${id}, '${s}')">${t('deals_stage_'+s.toLowerCase())}</button>`).join('')}
             </div>
           </div>
+          <!-- AI Forecast section -->
+          <div class="border-t border-slate-700 pt-4 mb-4">
+            <div id="dealForecastContent" class="text-center">
+              <button class="btn btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);font-size:12px" onclick="runDealForecast(${id})">🔮 AI Прогноз сделки</button>
+            </div>
+          </div>
           <div class="flex gap-2">
             <button class="btn btn-primary flex-1" onclick="showDealForm(${id})">${t('btn_edit')}</button>
             ${isAdmin() ? `<button class="btn btn-danger flex-1" onclick="deleteDeal(${id})">${t('btn_delete')}</button>` : ''}
@@ -7393,6 +7399,59 @@ function moveDeal(id, stage) {
     closeModal();
     renderPage('deals');
   }).catch(e => showToast(esc(e.message), 'error'));
+}
+
+async function runDealForecast(dealId) {
+  const container = document.getElementById('dealForecastContent');
+  if (!container) return;
+  const L = currentLang || 'ru';
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  container.innerHTML = '<div class="text-center py-3"><div class="inline-block w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-slate-400 mt-2">' + _t('AI analyzing deal...','AI анализирует сделку...','AI sövdələşməni təhlil edir...') + '</p></div>';
+  try {
+    const res = await api.post('/api/ai/deal-forecast', { deal_id: dealId, language: L });
+    const d = res.data || res;
+    const f = d.forecast || {};
+    const wp = f.win_probability || 50;
+    const healthColors = {healthy:'#22c55e', at_risk:'#f59e0b', stalled:'#ef4444', critical:'#dc2626'};
+    const healthLabels = {healthy: _t('Healthy','Здоровая','Sağlam'), at_risk: _t('At Risk','В зоне риска','Riskli'), stalled: _t('Stalled','Застопорилась','Dayanıb'), critical: _t('Critical','Критическая','Kritik')};
+    const riskColors = {low:'#22c55e', medium:'#f59e0b', high:'#ef4444', critical:'#dc2626'};
+    const hc = healthColors[f.deal_health] || '#3b82f6';
+    let html = '';
+    // Win probability gauge
+    html += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">';
+    html += '<div style="position:relative;width:70px;height:70px"><svg viewBox="0 0 36 36" style="transform:rotate(-90deg);width:70px;height:70px"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" stroke-width="3"/><circle cx="18" cy="18" r="15.9" fill="none" stroke="' + hc + '" stroke-width="3" stroke-dasharray="' + wp + ' ' + (100-wp) + '" stroke-linecap="round"/></svg><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;font-weight:700;color:' + hc + '">' + wp + '%</div></div>';
+    html += '<div style="flex:1"><div style="font-size:14px;font-weight:600;color:#e2e8f0">' + _t('Win Probability','Вероятность победы','Qazanma ehtimalı') + '</div>';
+    html += '<div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">';
+    html += '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + hc + '22;color:' + hc + '">' + (healthLabels[f.deal_health]||f.deal_health) + '</span>';
+    html += '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + (riskColors[f.risk_level]||'#3b82f6') + '22;color:' + (riskColors[f.risk_level]||'#3b82f6') + '">' + _t('Risk','Риск','Risk') + ': ' + (f.risk_level||'?') + '</span>';
+    if (f.predicted_close_date) html += '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#3b82f622;color:#60a5fa">📅 ' + f.predicted_close_date + '</span>';
+    html += '</div></div></div>';
+    // Summary
+    if (f.summary) html += '<div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#c4b5fd">' + esc(f.summary) + '</div>';
+    // Signals and risks in columns
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+    if (f.positive_signals && f.positive_signals.length) {
+      html += '<div style="background:#0f172a;border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:8px"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;text-transform:uppercase">✅ ' + _t('Positive','Позитивные','Müsbət') + '</div>';
+      f.positive_signals.forEach(function(s){ html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">• ' + esc(s) + '</div>'; });
+      html += '</div>';
+    }
+    if (f.risk_factors && f.risk_factors.length) {
+      html += '<div style="background:#0f172a;border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px"><div style="font-size:10px;color:#f87171;margin-bottom:4px;text-transform:uppercase">⚠️ ' + _t('Risks','Риски','Risklər') + '</div>';
+      f.risk_factors.forEach(function(s){ html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">• ' + esc(s) + '</div>'; });
+      html += '</div>';
+    }
+    html += '</div>';
+    // Recommendations
+    if (f.recommendations && f.recommendations.length) {
+      html += '<div style="background:#0f172a;border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;margin-bottom:8px"><div style="font-size:10px;color:#60a5fa;margin-bottom:4px;text-transform:uppercase">💡 ' + _t('Recommendations','Рекомендации','Tövsiyələr') + '</div>';
+      f.recommendations.forEach(function(s){ html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">• ' + esc(s) + '</div>'; });
+      html += '</div>';
+    }
+    html += '<div style="text-align:center"><button class="btn btn-sm btn-secondary" style="font-size:11px" onclick="runDealForecast(' + dealId + ')">↻ ' + _t('Refresh','Обновить','Yenilə') + '</button> <span style="font-size:10px;color:#475569;margin-left:8px">' + (d.latency_ms||0) + 'ms</span></div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="text-center text-red-400 py-2 text-sm">⚠️ ' + esc(e.message||'Error') + '</div>';
+  }
 }
 
 function showDealForm(id = null) {

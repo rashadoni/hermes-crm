@@ -13435,6 +13435,135 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/deal-forecast")
+async def ai_deal_forecast(request: Request, user=Depends(require_auth)):
+    """AI analyzes a deal and predicts win probability, risk factors, and recommendations."""
+    body = await request.json()
+    deal_id = body.get("deal_id")
+    language = body.get("language", "ru")
+    if not deal_id:
+        return _err("deal_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI API key not configured", 400)
+
+    lang_map = {"ru": "Russian", "en": "English", "az": "Azerbaijani"}
+    lang_name = lang_map.get(language, "Russian")
+
+    deal_info = ""
+    deal_title = ""
+    company_info = ""
+    activities = []
+    try:
+        with get_db() as conn:
+            deal = conn.execute("SELECT * FROM deals WHERE id=?", [deal_id]).fetchone()
+            if not deal:
+                return _err("Deal not found", 404)
+            deal = dict(deal)
+            deal_title = deal.get("title", "")
+            deal_info = f"Title: {deal.get('title','')}, Stage: {deal.get('stage','')}, Amount: {deal.get('value_amount') or deal.get('amount',0)}, Currency: {deal.get('currency','AZN')}, Expected Close: {deal.get('expected_close','')}, Created: {deal.get('created_at','')}, Owner: {deal.get('owner_id','')}"
+
+            # Get company info if available
+            company_id = deal.get("company_id")
+            if company_id:
+                comp = conn.execute("SELECT name, domain, industry FROM companies WHERE id=?", [company_id]).fetchone()
+                if comp:
+                    company_info = f"Company: {comp.get('name','')}, Domain: {comp.get('domain','')}, Industry: {comp.get('industry','')}"
+
+            # Get related activities
+            try:
+                acts = conn.execute("SELECT * FROM activities WHERE deal_id=? ORDER BY COALESCE(timestamp, created_at) DESC LIMIT 10", [deal_id]).fetchall()
+                for a in acts:
+                    a = dict(a)
+                    activities.append(f"[{a.get('activity_type') or a.get('type','')}] {a.get('subject') or a.get('description','')}")
+            except Exception:
+                pass
+
+            # Get historical win rates by stage
+            won = conn.execute("SELECT COUNT(*) as c FROM deals WHERE stage='WON'").fetchone()
+            lost = conn.execute("SELECT COUNT(*) as c FROM deals WHERE stage='LOST'").fetchone()
+            total_closed = (won["c"] if won else 0) + (lost["c"] if lost else 0)
+            win_rate = round((won["c"] / total_closed * 100) if total_closed > 0 else 50, 1)
+    except Exception as e:
+        return _err(str(e), 500)
+
+    prompt = f"""You are a CRM deal forecasting AI expert. Analyze this deal and provide a detailed win probability prediction.
+
+Deal info: {deal_info}
+{f"Company: {company_info}" if company_info else ""}
+
+Recent activities:
+{chr(10).join(activities) if activities else "No recent activities."}
+
+Historical context: Overall win rate = {win_rate}%, Total closed deals = {total_closed}
+
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_name}:
+{{
+  "win_probability": 65,
+  "confidence": 0.75,
+  "risk_level": "medium",
+  "predicted_close_date": "2026-04-15",
+  "risk_factors": ["Risk factor 1", "Risk factor 2"],
+  "positive_signals": ["Positive signal 1", "Positive signal 2"],
+  "recommendations": ["Recommendation 1", "Recommendation 2"],
+  "deal_health": "healthy",
+  "summary": "Brief 2-sentence analysis of the deal's forecast"
+}}
+
+Rules:
+- win_probability: 0-100
+- risk_level: low, medium, high, critical
+- deal_health: healthy, at_risk, stalled, critical
+- Be specific and actionable in recommendations
+- Consider stage, amount, activity level, and time in pipeline"""
+
+    try:
+        import anthropic, time as _time, re as _re
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        result = {}
+        try:
+            clean = text
+            md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
+            if md_match:
+                clean = md_match.group(1)
+            if "{" in clean:
+                json_str = clean[clean.index("{"):clean.rindex("}") + 1]
+                result = json.loads(json_str)
+        except Exception as je:
+            logger.warning("Deal-forecast JSON parse error: %s", je)
+            result = {"win_probability": 50, "summary": text[:300]}
+
+        try:
+            with get_db() as conn:
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("INSERT INTO ai_interaction_logs (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens, cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)",
+                    [0, f"[deal-forecast:deal#{deal_id}]", text[:500], latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "deal_id": deal_id,
+            "deal_title": deal_title,
+            "forecast": result,
+            "latency_ms": latency_ms,
+        })
+    except Exception as e:
+        logger.error("deal-forecast error: %s", e, exc_info=True)
+        return _err(str(e), 500)
+
+
 @app.get("/api/ai/agent-performance")
 async def agent_performance(user=Depends(require_auth)):
     """Get performance metrics for support agents (ticket assignments, resolution times, etc.)."""

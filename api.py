@@ -1708,8 +1708,15 @@ async def get_top_prospects_early(user=Depends(require_auth), limit: int = 10):
                 ORDER BY ls.total_score DESC NULLS LAST
                 LIMIT ?
             """, [limit]).fetchall()
-            cols = [d[0] for d in rows[0].keys()] if rows else []
-            return _ok([dict(r) for r in rows])
+            result = []
+            for r in rows:
+                d = dict(r)
+                try:
+                    d["scoring_factors"] = json.loads(d.get("scoring_factors") or "[]")
+                except Exception:
+                    d["scoring_factors"] = []
+                result.append(d)
+            return _ok(result)
     except Exception as e:
         return _err(str(e), 500)
 

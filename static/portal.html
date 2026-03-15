@@ -195,19 +195,17 @@
 
             const response = await fetch(endpoint, options);
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'API error');
-            return result;
+            if (!response.ok) throw new Error(result.detail || result.error || 'API error');
+            return result.data !== undefined ? result.data : result;
         }
 
         async function handleRegister(email, password, fullName) {
             try {
-                const result = await apiCall('POST', '/api/portal/register', {
+                await apiCall('POST', '/api/portal/register', {
                     email, password, full_name: fullName
                 });
-                currentUser = result.user;
-                currentUser.token = result.token;
-                currentPage = 'tickets';
-                render();
+                // Auto-login after registration
+                await handleLogin(email, password);
             } catch (err) {
                 alert(_t('Registration failed: ' + err.message, 'Ошибка регистрации: ' + err.message, 'Qeydiyyat uğursuz: ' + err.message));
             }
@@ -453,7 +451,7 @@
                     <div class="bg-slate-900 p-6 rounded-lg border border-slate-800">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h2 class="text-2xl font-bold">${_t('Ticket #', 'Билет №', 'Bilet №')}${t.number}</h2>
+                                <h2 class="text-2xl font-bold">${_t('Ticket #', 'Билет №', 'Bilet №')}${t.ticket_number}</h2>
                                 <p class="text-slate-400">${t.subject}</p>
                             </div>
                             <div class="flex gap-2">
@@ -481,7 +479,7 @@
                                 ${(t.comments || []).map(c => `
                                     <div class="bg-slate-800 p-4 rounded">
                                         <p class="text-sm text-slate-400">${c.author} - ${new Date(c.created_at).toLocaleString()}</p>
-                                        <p class="mt-2">${c.text}</p>
+                                        <p class="mt-2">${c.comment || c.text}</p>
                                     </div>
                                 `).join('')}
                             </div>
@@ -591,7 +589,7 @@
                                 const priorityClass = t.priority === 'high' ? 'badge-high' : t.priority === 'medium' ? 'badge-medium' : 'badge-low';
                                 return `
                                     <tr class="table-row cursor-pointer" onclick="viewTicketDetail(${t.id})">
-                                        <td class="p-4">#${t.number}</td>
+                                        <td class="p-4">#${t.ticket_number}</td>
                                         <td class="p-4">${t.subject}</td>
                                         <td class="p-4"><span class="badge ${statusClass}">${t.status}</span></td>
                                         <td class="p-4"><span class="badge ${priorityClass}">${t.priority}</span></td>
@@ -644,11 +642,11 @@
                         <tbody>
                             ${documents.map(d => `
                                 <tr class="table-row">
-                                    <td class="p-4">${d.number}</td>
-                                    <td class="p-4">${d.type}</td>
+                                    <td class="p-4">${d.offer_number || d.number}</td>
+                                    <td class="p-4">${d.offer_type || d.type}</td>
                                     <td class="p-4"><span class="badge badge-pending">${d.status}</span></td>
-                                    <td class="p-4">${d.amount}</td>
-                                    <td class="p-4 text-slate-400">${new Date(d.valid_until).toLocaleDateString()}</td>
+                                    <td class="p-4">${d.total_amount || d.amount}</td>
+                                    <td class="p-4 text-slate-400">${d.valid_until ? new Date(d.valid_until).toLocaleDateString() : '-'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>

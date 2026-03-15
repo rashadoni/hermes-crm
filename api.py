@@ -16,6 +16,7 @@ import unicodedata
 import io
 import base64
 import hashlib
+import jwt
 import httpx
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -46,7 +47,7 @@ from external_api import router as external_api_router, init_api_tables
 BASE_URL = os.getenv("BASE_URL", "").rstrip("/")
 
 from database import init_db, get_db
-from models import Contact, Company, Deal, Activity, EmailSyncLog, PIPELINE_STAGES, User
+from models import Contact, Company, Deal, Activity, EmailSyncLog, PIPELINE_STAGES, User, JWT_SECRET
 
 logger = logging.getLogger(__name__)
 
@@ -8311,7 +8312,7 @@ def _portal_require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = auth[7:]
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         if payload.get("type") != "portal":
             raise HTTPException(status_code=401, detail="Invalid token type")
         return payload
@@ -8388,7 +8389,7 @@ async def portal_login(request: Request):
         "portal_user_id": u["id"], "email": u["email"], "company_id": u.get("company_id"),
         "contact_id": u.get("contact_id"), "type": "portal",
         "exp": datetime.utcnow() + timedelta(hours=24)
-    }, SECRET_KEY, algorithm="HS256")
+    }, JWT_SECRET, algorithm="HS256")
     return _ok({"token": token, "user": {"id": u["id"], "email": u["email"], "full_name": u["full_name"], "company_id": u.get("company_id")}})
 
 

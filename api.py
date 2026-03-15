@@ -9128,25 +9128,34 @@ async def predict_lead_score(lead_id: int, user=Depends(require_auth)):
             lead = conn.execute("SELECT * FROM leads WHERE id=?", [lead_id]).fetchone()
             if not lead:
                 return _err("Lead not found", 404)
-            lead_data = dict(zip([d[0] for d in conn.execute("SELECT * FROM leads LIMIT 0").description], lead))
+            lead_data = dict(lead)
 
-            # 2. Get related deals (by contact or company match)
-            deals = conn.execute(
-                """SELECT stage, amount, probability FROM deals
-                   WHERE (contact_id IN (SELECT id FROM contacts WHERE lead_id=?)
-                   OR company_id=(SELECT company_id FROM leads WHERE id=?))""",
-                [lead_id, lead_id]
-            ).fetchall()
-            deals_history = [dict(zip(["stage", "amount", "probability"], d)) for d in deals] if deals else []
+            # 2. Get related deals (safe)
+            deals_history = []
+            try:
+                company_name = lead_data.get("company_name", "")
+                if company_name:
+                    deals = conn.execute(
+                        "SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)",
+                        [company_name]
+                    ).fetchall()
+                    deals_history = [dict(d) for d in deals]
+            except Exception:
+                pass
 
-            # 3. Get activities for this lead
-            activities = conn.execute(
-                "SELECT id FROM activities WHERE lead_id=? ORDER BY created_at DESC LIMIT 20",
-                [lead_id]
-            ).fetchall()
+            # 3. Get activities (safe)
+            activities = []
+            try:
+                activities = conn.execute(
+                    "SELECT * FROM activities WHERE entity_type='lead' AND entity_id=? ORDER BY created_at DESC LIMIT 20",
+                    [lead_id]
+                ).fetchall()
+            except Exception:
+                pass
 
             # 4. Calculate rule-based score
-            rule_score = _calculate_predictive_score(lead_data, deals_history, [a[0] for a in activities] if activities else [])
+            activity_list = [dict(a) for a in activities] if activities else []
+            rule_score = _calculate_predictive_score(lead_data, deals_history, activity_list)
 
             # 5. Call AI scoring
             ai_result = await _ai_score_lead(lead_data, deals_history)

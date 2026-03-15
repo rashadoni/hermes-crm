@@ -17208,44 +17208,76 @@ async function onLeadDrop(e, newStatus) {
       if (!root) return;
 
       const activeConfig = _builderConfigs.find(c => c.is_active);
-      const toolIcons = {get_tickets:'\u{1f4cb}', create_ticket:'\u{1f4dd}', get_contracts:'\u{1f4c4}', get_documents:'\u{1f4c2}', escalate_to_human:'\u{1f6a8}'};
+      const toolMeta = {
+        get_tickets:{icon:'📋',label:'Получить тикеты',desc:'Список тикетов клиента'},
+        create_ticket:{icon:'📝',label:'Создать тикет',desc:'Создание нового тикета'},
+        get_contracts:{icon:'📄',label:'Контракты',desc:'Список контрактов клиента'},
+        get_documents:{icon:'📂',label:'Документы',desc:'Документы клиента'},
+        escalate_to_human:{icon:'🚨',label:'Эскалация',desc:'Перевод на оператора'}
+      };
+      const modelMeta = {
+        'claude-haiku-4-5-20251001':{emoji:'⚡',tier:'Быстрый',color:'#22d3ee'},
+        'claude-sonnet-4-5-20250514':{emoji:'⚖️',tier:'Сбалансированный',color:'#a78bfa'},
+        'claude-opus-4-0-20250514':{emoji:'🧠',tier:'Мощный',color:'#f59e0b'}
+      };
 
       // Config list cards
       let configCards = _builderConfigs.map(c => {
         const isActive = c.is_active;
-        const modelLabel = (_builderModels.find(m => m.id === c.model) || {}).label || c.model;
+        const ml = (_builderModels.find(m => m.id === c.model) || {});
+        const mm = modelMeta[c.model] || {emoji:'🤖',tier:'',color:'#6366f1'};
         const enabledTools = c.tools_enabled || [];
-        const toolBadges = enabledTools.map(t => '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(99,102,241,0.1);color:#a5b4fc;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:500">' + (toolIcons[t]||'') + ' ' + t + '</span>').join(' ');
 
-        return '<div style="background:#0f172a;border:1px solid ' + (isActive ? 'rgba(34,197,94,0.4)' : '#1e293b') + ';border-radius:14px;padding:20px;position:relative;transition:border-color 0.2s">' +
-          (isActive ? '<div style="position:absolute;top:12px;right:12px;background:rgba(34,197,94,0.15);color:#86efac;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">\u2705 Active</div>' : '') +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
-            '<div style="font-size:16px;font-weight:700;color:#e2e8f0">' + esc(c.config_name) + '</div>' +
-            '<span style="background:#1e293b;color:#64748b;padding:2px 8px;border-radius:6px;font-size:10px">v' + c.version + '</span>' +
+        const toolBadges = enabledTools.map(t => {
+          const tm = toolMeta[t] || {icon:'🔧',label:t};
+          return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15);color:#c7d2fe;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:500">' + tm.icon + ' ' + tm.label + '</span>';
+        }).join(' ');
+
+        return '<div style="background:linear-gradient(135deg,#0f172a,#131c33);border:1px solid ' + (isActive ? 'rgba(34,197,94,0.4)' : '#1e293b') + ';border-radius:16px;padding:24px;position:relative;transition:all 0.2s;' + (isActive ? 'box-shadow:0 0 20px rgba(34,197,94,0.08)' : '') + '">' +
+          // Header
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">' +
+            '<div style="display:flex;align-items:center;gap:12px">' +
+              '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,' + mm.color + '20,' + mm.color + '08);border:1px solid ' + mm.color + '30;display:flex;align-items:center;justify-content:center;font-size:22px">' + mm.emoji + '</div>' +
+              '<div><div style="font-size:17px;font-weight:700;color:#e2e8f0">' + esc(c.config_name) + '</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:2px">' + (ml.label||c.model).split('(')[0].trim() + ' <span style="color:' + mm.color + '">&middot; ' + mm.tier + '</span></div></div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="background:#1e293b;color:#64748b;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600">v' + c.version + '</span>' +
+              (isActive ? '<span style="background:rgba(34,197,94,0.12);color:#86efac;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span> Активен</span>' : '') +
+            '</div>' +
           '</div>' +
-          '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">\u{1f916} ' + modelLabel + ' &middot; Max ' + c.max_tokens + ' tokens &middot; ' + enabledTools.length + '/' + _builderTools.length + ' tools</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px">' + toolBadges + '</div>' +
-          '<div style="display:flex;gap:8px">' +
-            '<button onclick="openConfigEditor(' + c.id + ')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u270f\ufe0f Edit</button>' +
-            (!isActive ? '<button onclick="activateConfig(' + c.id + ')" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.2);color:#86efac;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u26a1 Activate</button>' : '') +
-            (!isActive ? '<button onclick="deleteConfig(' + c.id + ')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);color:#fca5a5;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u{1f5d1}\ufe0f Delete</button>' : '') +
+          // Stats row
+          '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+            '<span style="background:#1e293b;padding:5px 12px;border-radius:8px;font-size:11px;color:#94a3b8">🎯 Max ' + c.max_tokens + ' токенов</span>' +
+            '<span style="background:#1e293b;padding:5px 12px;border-radius:8px;font-size:11px;color:#94a3b8">🔧 ' + enabledTools.length + '/' + _builderTools.length + ' инструментов</span>' +
+            '<span style="background:#1e293b;padding:5px 12px;border-radius:8px;font-size:11px;color:#94a3b8">📚 KB: ' + (c.kb_enabled ? 'вкл' : 'выкл') + '</span>' +
+            '<span style="background:#1e293b;padding:5px 12px;border-radius:8px;font-size:11px;color:#94a3b8">🌡️ ' + c.temperature + '</span>' +
+          '</div>' +
+          // Tool badges
+          '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:18px">' + toolBadges + '</div>' +
+          // Actions
+          '<div style="display:flex;gap:8px;border-top:1px solid #1e293b;padding-top:14px">' +
+            '<button onclick="openConfigEditor(' + c.id + ')" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;padding:8px 18px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.background=\'rgba(99,102,241,0.2)\'" onmouseout="this.style.background=\'rgba(99,102,241,0.1)\'">✏️ Редактировать</button>' +
+            (!isActive ? '<button onclick="activateConfig(' + c.id + ')" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);color:#86efac;padding:8px 18px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.background=\'rgba(34,197,94,0.2)\'" onmouseout="this.style.background=\'rgba(34,197,94,0.1)\'">⚡ Активировать</button>' : '') +
+            (!isActive ? '<button onclick="deleteConfig(' + c.id + ')" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);color:#fca5a5;padding:8px 18px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:600;transition:all 0.15s;margin-left:auto" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.06)\'">🗑️ Удалить</button>' : '') +
           '</div>' +
         '</div>';
       }).join('');
 
       if (!_builderConfigs.length) {
-        configCards = '<div style="text-align:center;padding:40px;color:#64748b;background:#0f172a;border:1px dashed #334155;border-radius:14px">' +
-          '<div style="font-size:28px;margin-bottom:8px">\u{1f527}</div>' +
-          '<div style="font-size:14px;font-weight:600;color:#94a3b8;margin-bottom:4px">No configurations yet</div>' +
-          '<div style="font-size:12px">Create your first agent config to customize the AI behavior</div></div>';
+        configCards = '<div style="text-align:center;padding:60px 40px;color:#64748b;background:linear-gradient(135deg,#0f172a,#131c33);border:2px dashed #1e293b;border-radius:16px">' +
+          '<div style="font-size:48px;margin-bottom:12px">🤖</div>' +
+          '<div style="font-size:16px;font-weight:700;color:#94a3b8;margin-bottom:6px">Конфигураций пока нет</div>' +
+          '<div style="font-size:13px;color:#64748b">Создайте первую конфигурацию, чтобы настроить поведение AI-агента</div></div>';
       }
 
       root.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
-          '<h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px">\u{1f527} Agent Configurations</h3>' +
-          '<button onclick="openConfigEditor(0)" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3)">+ New Config</button>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
+          '<div><h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 4px;display:flex;align-items:center;gap:8px">🛠️ Конфигурации агента</h3>' +
+          '<p style="margin:0;font-size:12px;color:#64748b">Настройте модель, инструменты и поведение AI-агента</p></div>' +
+          '<button onclick="openConfigEditor(0)" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 22px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">✨ Новая конфигурация</button>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;margin-bottom:24px">' + configCards + '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px;margin-bottom:24px">' + configCards + '</div>' +
         '<div id="configEditorPanel"></div>';
     }
 
@@ -17254,16 +17286,16 @@ async function onLeadDrop(e, newStatus) {
         await api.put('/api/ai/agent-configs/' + configId + '/activate', {});
         _builderLoaded = false;
         loadAgentBuilder();
-      } catch(e) { alert('Error: ' + e.message); }
+      } catch(e) { alert('Ошибка: ' + e.message); }
     }
 
     async function deleteConfig(configId) {
-      if (!confirm('Delete this configuration?')) return;
+      if (!confirm('Удалить эту конфигурацию?')) return;
       try {
         await api.remove('/api/ai/agent-configs/' + configId);
         _builderLoaded = false;
         loadAgentBuilder();
-      } catch(e) { alert('Error: ' + e.message); }
+      } catch(e) { alert('Ошибка: ' + e.message); }
     }
 
     async function openConfigEditor(configId) {
@@ -17272,7 +17304,7 @@ async function onLeadDrop(e, newStatus) {
       if (!panel) return;
 
       let cfg = {
-        config_name: 'New Config',
+        config_name: 'Новая конфигурация',
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         temperature: 1.0,
@@ -17292,103 +17324,178 @@ async function onLeadDrop(e, newStatus) {
           const resp = await api.get('/api/ai/agent-configs/' + configId);
           const data = resp.data || resp;
           cfg = { ...cfg, ...data };
-        } catch(e) { alert('Error loading config: ' + e.message); return; }
+        } catch(e) { alert('Ошибка загрузки: ' + e.message); return; }
       }
 
-      const toolIcons = {get_tickets:'\u{1f4cb}', create_ticket:'\u{1f4dd}', get_contracts:'\u{1f4c4}', get_documents:'\u{1f4c2}', escalate_to_human:'\u{1f6a8}'};
+      const toolMeta = {
+        get_tickets:{icon:'📋',label:'Получить тикеты',desc:'Получение списка тикетов клиента из CRM'},
+        create_ticket:{icon:'📝',label:'Создать тикет',desc:'Создание нового тикета от имени клиента'},
+        get_contracts:{icon:'📄',label:'Контракты',desc:'Просмотр контрактов и условий'},
+        get_documents:{icon:'📂',label:'Документы',desc:'Доступ к документам клиента'},
+        escalate_to_human:{icon:'🚨',label:'Эскалация',desc:'Перевод разговора на живого оператора'}
+      };
+      const modelMeta = {
+        'claude-haiku-4-5-20251001':{emoji:'⚡',tier:'Быстрый и дешёвый',color:'#22d3ee',desc:'Быстрые ответы, низкая стоимость. Идеален для стандартных запросов.'},
+        'claude-sonnet-4-5-20250514':{emoji:'⚖️',tier:'Сбалансированный',color:'#a78bfa',desc:'Баланс скорости и качества. Хорош для сложных запросов.'},
+        'claude-opus-4-0-20250514':{emoji:'🧠',tier:'Мощный',color:'#f59e0b',desc:'Максимальное качество. Для самых сложных задач.'}
+      };
       const enabledSet = new Set(cfg.tools_enabled || []);
 
-      const modelOptions = _builderModels.map(m =>
-        '<option value="' + m.id + '"' + (m.id === cfg.model ? ' selected' : '') + '>' + m.label + ' ($' + m.cost_input + '/$' + m.cost_output + ' per M tokens)</option>'
-      ).join('');
-
-      const toolToggles = _builderTools.map(t =>
-        '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:' + (enabledSet.has(t) ? 'rgba(99,102,241,0.08)' : 'transparent') + ';border:1px solid ' + (enabledSet.has(t) ? 'rgba(99,102,241,0.2)' : '#1e293b') + ';border-radius:10px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'rgba(99,102,241,0.3)\'" onmouseout="this.style.borderColor=\'' + (enabledSet.has(t) ? 'rgba(99,102,241,0.2)' : '#1e293b') + '\'">' +
-          '<input type="checkbox" class="cfgTool" value="' + t + '"' + (enabledSet.has(t) ? ' checked' : '') + ' style="accent-color:#6366f1;width:16px;height:16px">' +
-          '<span style="font-size:18px">' + (toolIcons[t]||'\u{1f6e0}\ufe0f') + '</span>' +
-          '<div><div style="font-size:13px;font-weight:600;color:#e2e8f0">' + t + '</div></div></label>'
-      ).join('');
-
-      // Version history
-      let versionHtml = '';
-      if (cfg.versions && cfg.versions.length > 0) {
-        versionHtml = '<div style="margin-top:20px"><h4 style="font-size:14px;font-weight:600;color:#94a3b8;margin:0 0 12px">\u{1f4c7} Version History</h4>' +
-          '<div style="max-height:200px;overflow-y:auto;border:1px solid #1e293b;border-radius:10px">' +
-          cfg.versions.map(v =>
-            '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #1e293b;font-size:12px">' +
-              '<div><span style="color:#a5b4fc;font-weight:600">v' + v.version + '</span> <span style="color:#64748b">&middot; ' + (v.change_note||'') + '</span></div>' +
-              '<div style="display:flex;align-items:center;gap:8px"><span style="color:#475569">' + (v.created_at||'').replace('T',' ').slice(0,16) + '</span>' +
-              (configId > 0 ? '<button onclick="rollbackConfig(' + configId + ',' + v.id + ')" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:#fcd34d;padding:3px 8px;border-radius:6px;font-size:10px;cursor:pointer;font-weight:600">\u21a9\ufe0f</button>' : '') +
-              '</div></div>'
-          ).join('') +
-          '</div></div>';
+      // ── Section builder helper ──
+      function section(icon, title, hint, content, collapsed) {
+        const id = 'sect_' + title.replace(/\s/g,'_');
+        return '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;margin-bottom:12px;overflow:hidden">' +
+          '<div onclick="const c=document.getElementById(\'' + id + '\');const a=this.querySelector(\'.sectArrow\');if(c.style.display===\'none\'){c.style.display=\'block\';a.style.transform=\'rotate(0deg)\'}else{c.style.display=\'none\';a.style.transform=\'rotate(-90deg)\'}" style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none">' +
+            '<span style="font-size:20px">' + icon + '</span>' +
+            '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#e2e8f0">' + title + '</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:1px">' + hint + '</div></div>' +
+            '<span class="sectArrow" style="color:#475569;font-size:14px;transition:transform 0.2s;transform:rotate(' + (collapsed ? '-90' : '0') + 'deg)">▼</span>' +
+          '</div>' +
+          '<div id="' + id + '" style="padding:0 20px 20px;display:' + (collapsed ? 'none' : 'block') + '">' + content + '</div>' +
+        '</div>';
       }
 
+      // ── 1. Model section ──
+      const modelCards = _builderModels.map(m => {
+        const mm = modelMeta[m.id] || {emoji:'🤖',tier:'',color:'#6366f1',desc:''};
+        const sel = m.id === cfg.model;
+        return '<label style="display:flex;gap:14px;padding:14px 16px;background:' + (sel ? mm.color + '10' : 'transparent') + ';border:2px solid ' + (sel ? mm.color + '60' : '#1e293b') + ';border-radius:12px;cursor:pointer;transition:all 0.15s" onmouseover="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'' + mm.color + '30\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#1e293b\'">' +
+          '<input type="radio" name="cfgModelRadio" value="' + m.id + '"' + (sel ? ' checked' : '') + ' style="display:none" onchange="document.querySelectorAll(\'[name=cfgModelRadio]\').forEach(r=>{const l=r.closest(\'label\');l.style.borderColor=r.checked?\'' + mm.color + '60\':\'#1e293b\';l.style.background=r.checked?\'' + mm.color + '10\':\'transparent\'})">' +
+          '<div style="width:44px;height:44px;border-radius:10px;background:' + mm.color + '15;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">' + mm.emoji + '</div>' +
+          '<div style="flex:1">' +
+            '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:700;color:#e2e8f0">' + m.label.split('(')[0].trim() + '</span>' +
+            (sel ? '<span style="background:' + mm.color + '20;color:' + mm.color + ';padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase">Выбрана</span>' : '') + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-top:3px">' + mm.desc + '</div>' +
+            '<div style="font-size:10px;color:#475569;margin-top:4px">💰 $' + m.cost_input + ' вход / $' + m.cost_output + ' выход за 1М токенов</div>' +
+          '</div></label>';
+      }).join('');
+      const modelContent = '<div style="display:flex;flex-direction:column;gap:8px">' + modelCards + '</div>';
+
+      // ── 2. Parameters section ──
+      function slider(id, label, hint, val, min, max, step, unit) {
+        return '<div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+            '<div><span style="font-size:13px;font-weight:600;color:#e2e8f0">' + label + '</span>' +
+            '<span style="font-size:10px;color:#475569;margin-left:8px">' + hint + '</span></div>' +
+            '<span id="' + id + '_val" style="font-size:14px;font-weight:700;color:#a78bfa;min-width:50px;text-align:right">' + val + (unit||'') + '</span>' +
+          '</div>' +
+          '<input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" ' +
+            'oninput="document.getElementById(\'' + id + '_val\').textContent=this.value+\'' + (unit||'') + '\'" ' +
+            'style="width:100%;height:6px;border-radius:3px;-webkit-appearance:none;background:linear-gradient(to right,#6366f1 ' + (((val-min)/(max-min))*100) + '%,#1e293b ' + (((val-min)/(max-min))*100) + '%);outline:none;cursor:pointer" />' +
+          '<div style="display:flex;justify-content:space-between;font-size:10px;color:#475569;margin-top:3px"><span>' + min + '</span><span>' + max + '</span></div>' +
+        '</div>';
+      }
+      const paramsContent = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">' +
+        slider('cfgMaxTokens', '🎯 Макс. токенов', 'Длина ответа', cfg.max_tokens, 256, 4096, 128, '') +
+        slider('cfgTemp', '🌡️ Температура', 'Креативность', cfg.temperature, 0, 2, 0.1, '') +
+        slider('cfgIterations', '🔄 Итерации инструментов', 'Макс. циклов', cfg.max_tool_iterations, 1, 10, 1, '') +
+        slider('cfgHistory', '💬 История сообщений', 'Контекст чата', cfg.max_history_messages, 1, 50, 1, '') +
+      '</div>';
+
+      // ── 3. Tools section ──
+      const toolToggles = _builderTools.map(t => {
+        const tm = toolMeta[t] || {icon:'🔧',label:t,desc:''};
+        const on = enabledSet.has(t);
+        return '<label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:' + (on ? 'rgba(99,102,241,0.06)' : 'transparent') + ';border:1px solid ' + (on ? 'rgba(99,102,241,0.2)' : '#1e293b') + ';border-radius:12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'rgba(99,102,241,0.3)\'" onmouseout="this.style.borderColor=this.querySelector(\'input\').checked?\'rgba(99,102,241,0.2)\':\'#1e293b\'">' +
+          '<div style="position:relative;width:40px;height:22px;flex-shrink:0">' +
+            '<input type="checkbox" class="cfgTool" value="' + t + '"' + (on ? ' checked' : '') + ' style="opacity:0;width:0;height:0;position:absolute" onchange="const tr=this.closest(\'label\');const dot=tr.querySelector(\'.tDot\');const bg=tr.querySelector(\'.tBg\');if(this.checked){bg.style.background=\'#6366f1\';dot.style.transform=\'translateX(18px)\';tr.style.background=\'rgba(99,102,241,0.06)\';tr.style.borderColor=\'rgba(99,102,241,0.2)\'}else{bg.style.background=\'#334155\';dot.style.transform=\'translateX(0)\';tr.style.background=\'transparent\';tr.style.borderColor=\'#1e293b\'}">' +
+            '<div class="tBg" style="position:absolute;top:0;left:0;width:40px;height:22px;border-radius:11px;background:' + (on ? '#6366f1' : '#334155') + ';transition:background 0.2s"></div>' +
+            '<div class="tDot" style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform 0.2s;transform:translateX(' + (on ? '18' : '0') + 'px);box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>' +
+          '</div>' +
+          '<span style="font-size:22px">' + tm.icon + '</span>' +
+          '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#e2e8f0">' + tm.label + '</div>' +
+          '<div style="font-size:11px;color:#64748b;margin-top:1px">' + tm.desc + '</div></div>' +
+        '</label>';
+      }).join('');
+      const toolsContent = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + toolToggles + '</div>';
+
+      // ── 4. KB section ──
+      const kbContent = '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">' +
+        '<div style="position:relative;width:46px;height:26px;flex-shrink:0;cursor:pointer" onclick="const cb=document.getElementById(\'cfgKbEnabled\');cb.checked=!cb.checked;cb.dispatchEvent(new Event(\'change\'))">' +
+          '<input type="checkbox" id="cfgKbEnabled"' + (cfg.kb_enabled ? ' checked' : '') + ' style="opacity:0;width:0;height:0;position:absolute" onchange="const dot=this.parentElement.querySelector(\'.kDot\');const bg=this.parentElement.querySelector(\'.kBg\');if(this.checked){bg.style.background=\'#22c55e\';dot.style.transform=\'translateX(20px)\';document.getElementById(\'kbSettings\').style.opacity=\'1\';document.getElementById(\'kbSettings\').style.pointerEvents=\'auto\'}else{bg.style.background=\'#334155\';dot.style.transform=\'translateX(0)\';document.getElementById(\'kbSettings\').style.opacity=\'0.4\';document.getElementById(\'kbSettings\').style.pointerEvents=\'none\'}">' +
+          '<div class="kBg" style="position:absolute;top:0;left:0;width:46px;height:26px;border-radius:13px;background:' + (cfg.kb_enabled ? '#22c55e' : '#334155') + ';transition:background 0.2s"></div>' +
+          '<div class="kDot" style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform 0.2s;transform:translateX(' + (cfg.kb_enabled ? '20' : '0') + 'px);box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>' +
+        '</div>' +
+        '<div><span style="font-size:14px;font-weight:600;color:#e2e8f0">База знаний ' + (cfg.kb_enabled ? 'включена' : 'выключена') + '</span>' +
+        '<div style="font-size:11px;color:#64748b">AI использует статьи из KB для ответов</div></div>' +
+      '</div>' +
+      '<div id="kbSettings" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;opacity:' + (cfg.kb_enabled ? '1' : '0.4') + ';pointer-events:' + (cfg.kb_enabled ? 'auto' : 'none') + ';transition:opacity 0.2s">' +
+        '<div><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">📊 Макс. статей</label>' +
+        '<div style="display:flex;align-items:center;gap:10px"><input id="cfgKbMax" type="range" min="1" max="10" value="' + cfg.kb_max_articles + '" oninput="document.getElementById(\'kbMaxV\').textContent=this.value" style="flex:1;height:6px;border-radius:3px;-webkit-appearance:none;background:linear-gradient(to right,#22d3ee ' + (cfg.kb_max_articles*10) + '%,#1e293b ' + (cfg.kb_max_articles*10) + '%);outline:none;cursor:pointer"><span id="kbMaxV" style="font-size:16px;font-weight:700;color:#22d3ee;min-width:20px;text-align:right">' + cfg.kb_max_articles + '</span></div>' +
+        '<div style="font-size:10px;color:#475569;margin-top:3px">Сколько статей AI получает для контекста</div></div>' +
+        '<div><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">🎚️ Мин. релевантность</label>' +
+        '<input id="cfgKbMin" type="number" value="' + cfg.kb_min_score + '" min="0" max="1" step="0.001" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box">' +
+        '<div style="font-size:10px;color:#475569;margin-top:3px">Порог TF-IDF Score (0.001 = почти всё)</div></div>' +
+      '</div>';
+
+      // ── 5. System prompt section ──
+      const promptContent = '<div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+        '<span onclick="const ta=document.getElementById(\'cfgPrompt\');ta.value+=\'{kb_context}\';ta.focus()" style="background:#1e293b;border:1px solid #334155;color:#a5b4fc;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:monospace">{kb_context}</span>' +
+        '<span onclick="const ta=document.getElementById(\'cfgPrompt\');ta.value+=\'{current_date}\';ta.focus()" style="background:#1e293b;border:1px solid #334155;color:#22d3ee;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:monospace">{current_date}</span>' +
+        '<span onclick="const ta=document.getElementById(\'cfgPrompt\');ta.value+=\'{company_id}\';ta.focus()" style="background:#1e293b;border:1px solid #334155;color:#f59e0b;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:monospace">{company_id}</span>' +
+        '<span style="font-size:11px;color:#475569;padding:4px 0">← нажмите для вставки переменных</span>' +
+      '</div>' +
+      '<textarea id="cfgPrompt" rows="6" placeholder="Оставьте пустым для использования системного промпта по умолчанию..." style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px 16px;color:#e2e8f0;font-size:12px;font-family:\'JetBrains Mono\',monospace;resize:vertical;box-sizing:border-box;line-height:1.6">' + esc(cfg.system_prompt_template||'') + '</textarea>';
+
+      // ── 6. Version history ──
+      let versionContent = '';
+      if (cfg.versions && cfg.versions.length > 0) {
+        versionContent = cfg.versions.map(v =>
+          '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #1e293b">' +
+            '<span style="background:rgba(167,139,250,0.1);color:#a5b4fc;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700">v' + v.version + '</span>' +
+            '<span style="font-size:12px;color:#94a3b8;flex:1">' + (v.change_note||'Без описания') + '</span>' +
+            '<span style="font-size:11px;color:#475569">' + (v.created_at||'').replace('T',' ').slice(0,16) + '</span>' +
+            (configId > 0 ? '<button onclick="rollbackConfig(' + configId + ',' + v.id + ')" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px" title="Откатить к версии v' + v.version + '">↩️ Откатить</button>' : '') +
+          '</div>'
+        ).join('');
+      } else {
+        versionContent = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px">Версия ещё не была сохранена</div>';
+      }
+
+      // ── Compose editor ──
       panel.innerHTML =
-        '<div style="background:#0f172a;border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:28px;margin-top:16px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
-            '<h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0">' + (configId > 0 ? '\u270f\ufe0f Edit Config' : '\u2728 New Config') + '</h3>' +
-            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px">\u2715</button>' +
+        '<div style="background:linear-gradient(180deg,#0f172a,#131c33);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:28px;margin-top:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">' +
+          // Header
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
+            '<div style="display:flex;align-items:center;gap:12px">' +
+              '<div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px">' + (configId > 0 ? '✏️' : '✨') + '</div>' +
+              '<div><h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0">' + (configId > 0 ? 'Редактирование конфигурации' : 'Новая конфигурация') + '</h3>' +
+              '<span style="font-size:12px;color:#64748b">Настройте параметры AI-агента</span></div>' +
+            '</div>' +
+            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>' +
           '</div>' +
 
-          // Name + Model row
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Config Name</label>' +
-            '<input id="cfgName" value="' + esc(cfg.config_name) + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f916} Model</label>' +
-            '<select id="cfgModel" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box">' + modelOptions + '</select></div>' +
-          '</div>' +
+          // Config name
+          '<div style="margin-bottom:16px"><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">📛 Название конфигурации</label>' +
+          '<input id="cfgName" value="' + esc(cfg.config_name) + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px 16px;color:#e2e8f0;font-size:15px;font-weight:600;box-sizing:border-box;transition:border-color 0.2s" onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#334155\'" /></div>' +
 
-          // Sliders row
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px">' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Max Tokens</label>' +
-            '<input id="cfgMaxTokens" type="number" value="' + cfg.max_tokens + '" min="100" max="4096" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Temperature</label>' +
-            '<input id="cfgTemp" type="number" value="' + cfg.temperature + '" min="0" max="2" step="0.1" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Tool Iterations</label>' +
-            '<input id="cfgIterations" type="number" value="' + cfg.max_tool_iterations + '" min="1" max="10" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">History Messages</label>' +
-            '<input id="cfgHistory" type="number" value="' + cfg.max_history_messages + '" min="1" max="50" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-          '</div>' +
-
-          // KB Settings row
-          '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:16px;margin-bottom:20px;align-items:end">' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4da} Knowledge Base</label>' +
-            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="cfgKbEnabled" type="checkbox"' + (cfg.kb_enabled ? ' checked' : '') + ' style="accent-color:#6366f1;width:18px;height:18px"><span style="color:#e2e8f0;font-size:13px">Enabled</span></label></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Max KB Articles</label>' +
-            '<input id="cfgKbMax" type="number" value="' + cfg.kb_max_articles + '" min="1" max="10" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Min KB Score</label>' +
-            '<input id="cfgKbMin" type="number" value="' + cfg.kb_min_score + '" min="0" max="1" step="0.001" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
-          '</div>' +
-
-          // Tools
-          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:8px">\u{1f6e0}\ufe0f Tool Registry</label>' +
-          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' + toolToggles + '</div></div>' +
-
-          // System Prompt
-          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4dd} System Prompt Template <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave empty for default; use {kb_context}, {current_date}, {company_id} placeholders)</span></label>' +
-          '<textarea id="cfgPrompt" rows="8" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 14px;color:#e2e8f0;font-size:12px;font-family:monospace;resize:vertical;box-sizing:border-box;line-height:1.5">' + esc(cfg.system_prompt_template||'') + '</textarea></div>' +
+          // Sections
+          section('🧠', 'Модель AI', 'Выберите модель для ответов агента', modelContent, false) +
+          section('⚙️', 'Параметры', 'Настройте длину ответов, температуру и лимиты', paramsContent, false) +
+          section('🔧', 'Инструменты', 'Включите/выключите доступные инструменты CRM', toolsContent, false) +
+          section('📚', 'База знаний', 'Настройка поиска по Knowledge Base', kbContent, true) +
+          section('💬', 'Системный промпт', 'Кастомный промпт для агента (необязательно)', promptContent, true) +
+          section('📋', 'История версий', 'Предыдущие версии конфигурации', versionContent, true) +
 
           // Notes
-          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4ac} Notes</label>' +
-          '<input id="cfgNotes" value="' + esc(cfg.notes||'') + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" placeholder="What changed..." /></div>' +
+          '<div style="margin:12px 0 16px"><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">📝 Описание изменений</label>' +
+          '<input id="cfgNotes" value="' + esc(cfg.notes||'') + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px 16px;color:#e2e8f0;font-size:13px;box-sizing:border-box" placeholder="Что изменено в этой версии..." /></div>' +
 
           // Actions
-          '<div style="display:flex;gap:10px;justify-content:flex-end">' +
-            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;padding:10px 22px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Cancel</button>' +
-            '<button onclick="saveConfig(' + configId + ')" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 28px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600;box-shadow:0 2px 8px rgba(99,102,241,0.3)">' + (configId > 0 ? '\u{1f4be} Save Changes' : '\u2728 Create Config') + '</button>' +
+          '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px;border-top:1px solid #1e293b">' +
+            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;padding:10px 24px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.borderColor=\'#475569\'" onmouseout="this.style.borderColor=\'#334155\'">Отмена</button>' +
+            '<button onclick="saveConfig(' + configId + ')" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 32px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">' + (configId > 0 ? '💾 Сохранить' : '✨ Создать') + '</button>' +
           '</div>' +
-
-          versionHtml +
         '</div>';
 
-      // Scroll to editor
       panel.scrollIntoView({behavior:'smooth',block:'start'});
     }
 
     async function saveConfig(configId) {
       const name = document.getElementById('cfgName').value.trim();
-      const model = document.getElementById('cfgModel').value;
+      // Model: read from radio buttons or fallback to select
+      const modelRadio = document.querySelector('[name=cfgModelRadio]:checked');
+      const model = modelRadio ? modelRadio.value : 'claude-haiku-4-5-20251001';
       const maxTokens = parseInt(document.getElementById('cfgMaxTokens').value) || 1024;
       const temperature = parseFloat(document.getElementById('cfgTemp').value) || 1.0;
       const iterations = parseInt(document.getElementById('cfgIterations').value) || 3;
@@ -17401,14 +17508,14 @@ async function onLeadDrop(e, newStatus) {
       const toolEls = document.querySelectorAll('.cfgTool:checked');
       const tools = Array.from(toolEls).map(e => e.value);
 
-      if (!name) { alert('Config name is required'); return; }
+      if (!name) { alert('Укажите название конфигурации'); return; }
 
       const body = {
         config_name: name, model, max_tokens: maxTokens, temperature,
         max_tool_iterations: iterations, max_history_messages: history,
         kb_enabled: kbEnabled, kb_max_articles: kbMax, kb_min_score: kbMin,
         system_prompt_template: prompt, tools_enabled: tools, notes,
-        change_note: notes || 'Updated config'
+        change_note: notes || 'Обновление конфигурации'
       };
 
       try {
@@ -17420,17 +17527,17 @@ async function onLeadDrop(e, newStatus) {
         document.getElementById('configEditorPanel').innerHTML = '';
         _builderLoaded = false;
         loadAgentBuilder();
-      } catch(e) { alert('Error saving: ' + e.message); }
+      } catch(e) { alert('Ошибка сохранения: ' + e.message); }
     }
 
     async function rollbackConfig(configId, versionId) {
-      if (!confirm('Rollback to this version?')) return;
+      if (!confirm('Откатить к этой версии?')) return;
       try {
         await api.put('/api/ai/agent-configs/' + configId + '/rollback/' + versionId, {});
         _builderLoaded = false;
         loadAgentBuilder();
         openConfigEditor(configId);
-      } catch(e) { alert('Error: ' + e.message); }
+      } catch(e) { alert('Ошибка: ' + e.message); }
     }
 
 </script>

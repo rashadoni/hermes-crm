@@ -17862,8 +17862,8 @@ async function onLeadDrop(e, newStatus) {
                     const chIcon = {telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱',portal:'🖥️'}[c.channel_type] || '💬';
                     h += `<div onclick="loadConversation(${c.contact_id||0})" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;display:flex;align-items:center;gap:12px" class="conv-item">`;
                     h += `<span style="font-size:20px">${chIcon}</span>`;
-                    h += `<div style="flex:1;min-width:0"><div style="color:#e2e8f0;font-weight:500">${_esc(c.contact_name||c.sender_name||'Unknown')}</div>`;
-                    h += `<div style="color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc((c.last_message||'').substring(0,50))}</div></div>`;
+                    h += `<div style="flex:1;min-width:0"><div style="color:#e2e8f0;font-weight:500">${esc(c.contact_name||c.sender_name||'Unknown')}</div>`;
+                    h += `<div style="color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((c.last_message||'').substring(0,50))}</div></div>`;
                     if (c.unread_count > 0) h += `<span style="background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px">${c.unread_count}</span>`;
                     h += '</div>';
                 });
@@ -17904,7 +17904,7 @@ async function onLeadDrop(e, newStatus) {
                 h += `<div style="display:flex;justify-content:${isOut?'flex-end':'flex-start'}">`;
                 h += `<div style="max-width:70%;padding:10px 14px;border-radius:12px;background:${isOut?'#3b82f6':'#1e293b'};color:#e2e8f0">`;
                 h += `<div style="font-size:11px;color:${isOut?'#bfdbfe':'#64748b'};margin-bottom:4px">${chIcon} ${m.channel_type} · ${new Date(m.created_at).toLocaleString()}</div>`;
-                h += `<div>${_esc(m.content||'')}</div>`;
+                h += `<div>${esc(m.content||'')}</div>`;
                 h += '</div></div>';
             });
             h += '</div>';
@@ -17952,7 +17952,7 @@ async function onLeadDrop(e, newStatus) {
             configs.forEach(c => {
                 h += `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px">`;
                 h += `<span style="font-size:32px">${icons[c.channel_type]||'📡'}</span>`;
-                h += `<div style="flex:1"><div style="color:#e2e8f0;font-weight:600">${_esc(c.config_name)}</div>`;
+                h += `<div style="flex:1"><div style="color:#e2e8f0;font-weight:600">${esc(c.config_name)}</div>`;
                 h += `<div style="color:#64748b;font-size:13px">${c.channel_type.toUpperCase()} · ${c.is_active?'🟢 Активен':'🔴 Неактивен'}</div></div>`;
                 h += `<button onclick="openChannelConfigModal(${c.id})" style="padding:6px 12px;border-radius:6px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">✏️</button>`;
                 h += `<button onclick="deleteChannelConfig(${c.id})" style="padding:6px 12px;border-radius:6px;background:#7f1d1d;color:#fca5a5;border:none;cursor:pointer">🗑️</button>`;
@@ -18090,11 +18090,11 @@ async function onLeadDrop(e, newStatus) {
                 h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">`;
                 h += `<td style="padding:10px"><span style="background:${gc}33;color:${gc};padding:4px 12px;border-radius:6px;font-weight:700">${p.score_grade||'-'}</span></td>`;
                 h += `<td style="padding:10px;color:#e2e8f0;font-weight:600">${p.total_score||0}</td>`;
-                h += `<td style="padding:10px;color:#e2e8f0">${_esc(p.contact_name||'—')}</td>`;
-                h += `<td style="padding:10px;color:#94a3b8">${_esc(p.company||'—')}</td>`;
-                h += `<td style="padding:10px;color:#94a3b8">${_esc(p.source||'—')}</td>`;
+                h += `<td style="padding:10px;color:#e2e8f0">${esc(p.contact_name||'—')}</td>`;
+                h += `<td style="padding:10px;color:#94a3b8">${esc(p.company||'—')}</td>`;
+                h += `<td style="padding:10px;color:#94a3b8">${esc(p.source||'—')}</td>`;
                 h += `<td style="padding:10px"><span style="color:#22c55e;font-weight:600">${Math.round((p.conversion_probability||0)*100)}%</span></td>`;
-                h += `<td style="padding:10px;color:#94a3b8;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(p.ai_prediction_reason||'—')}</td>`;
+                h += `<td style="padding:10px;color:#94a3b8;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.ai_prediction_reason||'—')}</td>`;
                 h += `<td style="padding:10px"><button onclick="rescoreLead(${p.lead_id||p.id})" style="padding:4px 10px;border-radius:6px;background:#8b5cf633;color:#a78bfa;border:none;cursor:pointer;font-size:12px">🔄 Пересчитать</button></td>`;
                 h += '</tr>';
             });
@@ -18159,12 +18159,12 @@ async function onLeadDrop(e, newStatus) {
                 h += `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px">`;
                 h += `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">`;
                 h += `<span style="background:${sc}33;color:${sc};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">${statusLabels[j.status]||j.status}</span>`;
-                h += `<h3 style="color:#e2e8f0;margin:0;flex:1">${_esc(j.name)}</h3>`;
+                h += `<h3 style="color:#e2e8f0;margin:0;flex:1">${esc(j.name)}</h3>`;
                 h += `<button onclick="openJourneyDetail(${j.id})" style="padding:6px 14px;border-radius:6px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">📋 Шаги</button>`;
                 if (j.status==='draft') h += `<button onclick="activateJourney(${j.id})" style="padding:6px 14px;border-radius:6px;background:#22c55e33;color:#22c55e;border:none;cursor:pointer">▶ Запустить</button>`;
                 if (j.status==='active') h += `<button onclick="pauseJourney(${j.id})" style="padding:6px 14px;border-radius:6px;background:#f59e0b33;color:#f59e0b;border:none;cursor:pointer">⏸ Пауза</button>`;
                 h += '</div>';
-                h += `<div style="color:#94a3b8;font-size:13px;margin-bottom:8px">${_esc(j.description||'')}</div>`;
+                h += `<div style="color:#94a3b8;font-size:13px;margin-bottom:8px">${esc(j.description||'')}</div>`;
                 h += `<div style="display:flex;gap:20px;color:#64748b;font-size:12px">`;
                 h += `<span>🎯 Триггер: ${triggerLabels[j.trigger_type]||j.trigger_type}</span>`;
                 h += `<span>📥 Вошли: ${j.entry_count||0}</span>`;
@@ -18257,7 +18257,7 @@ async function onLeadDrop(e, newStatus) {
             const stepLabels = {send_email:'Отправить email',wait:'Ожидание',condition:'Условие',send_sms:'Отправить SMS',create_task:'Создать задачу',update_field:'Обновить поле',send_telegram:'Telegram',send_whatsapp:'WhatsApp'};
 
             let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">`;
-            h += `<h3 style="color:#e2e8f0;margin:0">${_esc(journey.name||'')}</h3>`;
+            h += `<h3 style="color:#e2e8f0;margin:0">${esc(journey.name||'')}</h3>`;
             h += `<button onclick="document.getElementById('journeyDetailModal')?.remove()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px">✕</button></div>`;
 
             // Steps timeline
@@ -18271,7 +18271,7 @@ async function onLeadDrop(e, newStatus) {
                 h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:18px">${icon}</span><strong style="color:#e2e8f0">${stepLabels[s.step_type]||s.step_type}</strong>`;
                 h += `<button onclick="deleteJourneyStep(${s.id},${journeyId})" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px">🗑️</button></div>`;
                 if (s.step_type==='wait') h += `<div style="color:#94a3b8;font-size:13px">Ждать ${config.wait_days||1} дн.</div>`;
-                if (s.step_type==='condition') h += `<div style="color:#94a3b8;font-size:13px">${_esc(config.condition_field||'')} ${config.condition_operator||''} ${_esc(config.condition_value||'')}</div>`;
+                if (s.step_type==='condition') h += `<div style="color:#94a3b8;font-size:13px">${esc(config.condition_field||'')} ${config.condition_operator||''} ${esc(config.condition_value||'')}</div>`;
                 if (s.step_type==='send_email') h += `<div style="color:#94a3b8;font-size:13px">Шаблон #${config.template_id||'?'}</div>`;
                 h += `<div style="color:#64748b;font-size:11px;margin-top:4px">Вошли: ${s.stats_entered||0} · Прошли: ${s.stats_completed||0}</div>`;
                 h += '</div>';

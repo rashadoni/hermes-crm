@@ -2705,6 +2705,31 @@ function updateUserMenuVisibility() {
 
 // ─── Helpers ─────────────────────────────────────────────────
 function esc(str) { if (!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatTicketDesc(desc) {
+  if (!desc) return '';
+  let h = esc(desc);
+  // Style separator lines (=== or ---)
+  h = h.replace(/^={3,}.*$/gm, function(m) {
+    // If it's a header line (text after ===)
+    return '';
+  });
+  // Style section headers (ESCALATION, SUMMARY, CHAT TRANSCRIPT, etc.)
+  h = h.replace(/^(🚨 ESCALATION FROM AI AGENT)$/gm, '<div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fca5a5;padding:10px 16px;border-radius:8px;font-weight:700;font-size:14px;margin:0 0 12px;letter-spacing:0.5px">$1</div>');
+  h = h.replace(/^(SUMMARY)$/gm, '<div style="background:#1e293b;color:#93c5fd;padding:8px 14px;border-radius:6px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;border-left:3px solid #3b82f6">📋 $1</div>');
+  h = h.replace(/^(CHAT TRANSCRIPT)$/gm, '<div style="background:#1e293b;color:#c4b5fd;padding:8px 14px;border-radius:6px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;border-left:3px solid #8b5cf6">💬 $1</div>');
+  // Style metadata lines (👤 Client:, 📋 Reason:, 💬 Session ID:)
+  h = h.replace(/^(👤 Client:)(.*)$/gm, '<span style="color:#94a3b8;font-weight:600">$1</span><span style="color:#e2e8f0;font-weight:500">$2</span>');
+  h = h.replace(/^(📋 Reason:)(.*)$/gm, '<span style="color:#94a3b8;font-weight:600">$1</span><span style="color:#fbbf24;font-weight:500">$2</span>');
+  h = h.replace(/^(💬 Session ID:)(.*)$/gm, '<span style="color:#94a3b8;font-weight:600">$1</span><span style="color:#64748b">$2</span>');
+  // Style transcript entries
+  h = h.replace(/^(👤 \[.*?\] Client:)$/gm, '<div style="color:#60a5fa;font-weight:600;font-size:12px;margin-top:12px;padding:4px 8px;background:#172554;border-radius:4px;display:inline-block">$1</div>');
+  h = h.replace(/^(🤖 \[.*?\] AI Agent:)$/gm, '<div style="color:#a78bfa;font-weight:600;font-size:12px;margin-top:12px;padding:4px 8px;background:#1e1b4b;border-radius:4px;display:inline-block">$1</div>');
+  // Style dividers
+  h = h.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #334155;margin:8px 0">');
+  // Remove leftover === lines
+  h = h.replace(/^=+$/gm, '');
+  return h;
+}
 // Escape for HTML attributes in handlers - prevents XSS via quotes, backticks, backslashes
 function escapeAttr(str) { if (!str) return ''; return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/`/g,'\\`').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -13272,7 +13297,7 @@ async function showTicketDetail(ticketId) {
       <div><span class="text-slate-500">${_t('Priority','Приоритет','Prioritet')}:</span> <span class="font-medium">${tk.priority}</span></div>
       <div><span class="text-slate-500">${_t('Category','Категория','Kateqoriya')}:</span> <span class="font-medium">${tk.category}</span></div>
     </div>
-    ${tk.description ? `<div class="card p-3 mb-4 text-sm">${esc(tk.description)}</div>` : ''}
+    ${tk.description ? `<div class="card p-3 mb-4 text-sm" style="white-space:pre-wrap;line-height:1.6;font-family:'Segoe UI',system-ui,sans-serif;">${formatTicketDesc(tk.description)}</div>` : ''}
     ${slaInfo}
     <div class="mt-4">
       <div class="flex justify-between items-center mb-2">
@@ -16531,7 +16556,7 @@ async function onLeadDrop(e, newStatus) {
 
     // ─── AI Command Center ─────────────────────────────────
     async function renderAICommandCenter(el) {
-      el.innerHTML = '<div style="text-align:center;padding:60px;color:#64748b">Loading AI Command Center...</div>';
+      el.innerHTML = '<div style="text-align:center;padding:60px;color:#64748b"><div style="display:inline-block;width:32px;height:32px;border:3px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div><p style="margin-top:12px">Loading AI Command Center...</p></div>';
       try {
         const data = await apiFetch('/api/ai/command-center');
         const d = data.data || data;
@@ -16539,103 +16564,123 @@ async function onLeadDrop(e, newStatus) {
         const csat = d.avg_csat || 0;
         const fcr = d.first_contact_resolution_rate || 0;
         const resTime = d.avg_resolution_time_minutes || 0;
+        const L = currentLang;
+        const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
 
-        const sessionsHtml = (d.recent_sessions||[]).map(s => {
-          const tools = (s.tools_used||[]).map(t => '<span style="background:#1e1b4b;color:#8b5cf6;padding:2px 6px;border-radius:4px;font-size:10px">' + t + '</span>').join(' ');
-          const esc = (s.tools_used||[]).includes('escalate_to_human');
-          return '<tr style="border-bottom:1px solid #1e293b">' +
-            '<td style="padding:8px;color:#64748b">#' + s.id + '</td>' +
-            '<td style="padding:8px">' + (s.user_name||'—') + '<br><span style="font-size:11px;color:#64748b">' + (s.user_email||'') + '</span></td>' +
-            '<td style="padding:8px;text-align:center">' + s.messages_count + '</td>' +
-            '<td style="padding:8px">' + (tools || '<span style="color:#475569">—</span>') + '</td>' +
-            '<td style="padding:8px"><span style="padding:2px 8px;border-radius:4px;font-size:11px;' + (esc ? 'background:#7f1d1d;color:#fca5a5' : 'background:#052e16;color:#4ade80') + '">' + (esc ? 'Escalated' : 'AI Resolved') + '</span></td>' +
-            '<td style="padding:8px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td></tr>';
-        }).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#475569">No sessions yet</td></tr>';
+        // Tool friendly names
+        const toolFriendly = {get_tickets:_t('Tickets','Тикеты','Tiketl\u0259r'), create_ticket:_t('Create Ticket','Создание тикета','Tiket yaratma'), get_contracts:_t('Contracts','Контракты','M\u00fcqavil\u0259l\u0259r'), get_documents:_t('Documents','Документы','S\u0259n\u0259dl\u0259r'), escalate_to_human:_t('Escalation','Эскалация','Eskalasiya')};
+        const toolIcon = {get_tickets:'\u{1f4cb}', create_ticket:'\u{1f4dd}', get_contracts:'\u{1f4c4}', get_documents:'\u{1f4c2}', escalate_to_human:'\u{1f6a8}'};
+        const toolColor = {get_tickets:'#3b82f6', create_ticket:'#22c55e', get_contracts:'#f59e0b', get_documents:'#8b5cf6', escalate_to_human:'#ef4444'};
 
-        el.innerHTML = '<div style="padding:24px;max-width:1400px;margin:0 auto">' +
-          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">' +
-            '<div style="width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🤖</div>' +
-            '<div><h2 style="font-size:22px;font-weight:700;color:#e2e8f0;margin:0">AI Command Center</h2>' +
-            '<p style="color:#64748b;font-size:13px;margin:0">Hermes AI Agent Performance Dashboard</p></div></div>' +
+        // Build KPI card helper
+        function kpiCard(icon, label, value, sub, color, bgGrad) {
+          return '<div style="background:linear-gradient(135deg,' + (bgGrad||'#0f172a') + ',#0f172a);border:1px solid #1e293b;border-radius:16px;padding:20px 22px;position:relative;overflow:hidden">' +
+            '<div style="position:absolute;top:-8px;right:-8px;font-size:48px;opacity:0.06">' + icon + '</div>' +
+            '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600">' + label + '</div>' +
+            '<div style="font-size:32px;font-weight:800;color:' + (color||'#e2e8f0') + ';margin-top:6px;line-height:1">' + value + '</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-top:6px">' + sub + '</div></div>';
+        }
 
-          // KPI Cards (8 metrics)
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px">' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Total Sessions</div>' +
-              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_sessions||0) + '</div>' +
-              '<div style="font-size:12px;color:#3b82f6;margin-top:4px">Today: ' + (d.sessions_today||0) + '</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Deflection Rate</div>' +
-              '<div style="font-size:28px;font-weight:700;color:' + (deflect >= 80 ? '#4ade80' : deflect >= 50 ? '#facc15' : '#f87171') + ';margin-top:4px">' + deflect + '%</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">AI resolved</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">CSAT</div>' +
-              '<div style="font-size:28px;font-weight:700;color:' + (csat >= 4 ? '#4ade80' : csat >= 3 ? '#facc15' : '#f87171') + ';margin-top:4px">' + csat + '/5</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg satisfaction</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">FCR Rate</div>' +
-              '<div style="font-size:28px;font-weight:700;color:' + (fcr >= 80 ? '#4ade80' : fcr >= 50 ? '#facc15' : '#f87171') + ';margin-top:4px">' + fcr + '%</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">First contact resolve</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Avg Resolution</div>' +
-              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + resTime + ' min</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Time to resolve</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Messages</div>' +
-              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_messages||0) + '</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg ' + (d.avg_messages_per_session||0) + '/session</div></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Escalations</div>' +
-              '<div style="font-size:28px;font-weight:700;color:#f87171;margin-top:4px">' + (d.escalated||0) + '</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">To human agents</div></div>' +
+        // Sessions table
+        const sessionsHtml = (d.recent_sessions||[]).slice(0,10).map((s,i) => {
+          const tools = (s.tools_used||[]).map(t => '<span style="background:' + (toolColor[t]||'#6366f1') + '15;color:' + (toolColor[t]||'#6366f1') + ';padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600">' + (toolIcon[t]||'') + ' ' + (toolFriendly[t]||t) + '</span>').join(' ');
+          const isEsc = (s.tools_used||[]).includes('escalate_to_human');
+          const rowBg = i%2===0 ? 'transparent' : 'rgba(30,41,59,0.3)';
+          return '<tr style="background:' + rowBg + ';transition:background 0.15s" onmouseover="this.style.background=\'rgba(51,65,85,0.3)\'" onmouseout="this.style.background=\'' + rowBg + '\'">' +
+            '<td style="padding:12px 10px;color:#94a3b8;font-weight:600;font-size:12px">#' + s.id + '</td>' +
+            '<td style="padding:12px 10px"><div style="font-weight:600;color:#e2e8f0;font-size:13px">' + (s.user_name||'\u2014') + '</div><div style="font-size:11px;color:#64748b;margin-top:1px">' + (s.user_email||'') + '</div></td>' +
+            '<td style="padding:12px 10px;text-align:center"><span style="background:#1e293b;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600;color:#94a3b8">' + s.messages_count + '</span></td>' +
+            '<td style="padding:12px 10px">' + (tools || '<span style="color:#475569;font-size:12px">\u2014</span>') + '</td>' +
+            '<td style="padding:12px 10px"><span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:0.3px;' + (isEsc ? 'background:rgba(239,68,68,0.12);color:#fca5a5' : 'background:rgba(34,197,94,0.12);color:#86efac') + '"><span style="width:6px;height:6px;border-radius:50%;background:' + (isEsc?'#ef4444':'#22c55e') + '"></span>' + (isEsc ? _t('Escalated','\u042d\u0441\u043a\u0430\u043b\u0430\u0446\u0438\u044f','Eskalasiya') : _t('AI Resolved','AI \u0440\u0435\u0448\u0438\u043b','AI h\u0259ll etdi')) + '</span></td>' +
+            '<td style="padding:12px 10px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td></tr>';
+        }).join('') || '<tr><td colspan="6" style="padding:32px;text-align:center;color:#475569;font-size:14px">' + _t('No sessions yet','\u041d\u0435\u0442 \u0441\u0435\u0441\u0441\u0438\u0439','Sessiya yoxdur') + '</td></tr>';
+
+        // Deflection rate bar
+        const deflectBarColor = deflect >= 80 ? '#22c55e' : deflect >= 50 ? '#eab308' : '#ef4444';
+
+        el.innerHTML = '<div style="padding:28px 32px;max-width:1440px;margin:0 auto">' +
+          // Header
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">' +
+            '<div style="display:flex;align-items:center;gap:16px">' +
+              '<div style="width:48px;height:48px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 16px rgba(99,102,241,0.3)">\u{1f916}</div>' +
+              '<div><h2 style="font-size:24px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.3px">AI Command Center</h2>' +
+              '<p style="color:#64748b;font-size:13px;margin:2px 0 0">' + _t('AI Agent performance & analytics','AI \u0410\u0433\u0435\u043d\u0442: \u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0430\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430','AI Agent performans v\u0259 analitika') + '</p></div></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:8px 14px">' +
+              '<span style="width:8px;height:8px;background:#22c55e;border-radius:50%;animation:pulse-dot 2s infinite"></span>' +
+              '<span style="font-size:12px;color:#94a3b8;font-weight:500">' + _t('Agent Online','\u0410\u0433\u0435\u043d\u0442 \u043e\u043d\u043b\u0430\u0439\u043d','Agent onlayn') + '</span></div>' +
           '</div>' +
 
-          // Charts row (Chart.js)
-          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:24px">' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Sessions (Last 7 Days)</h3>' +
-              '<canvas id="dailySessionsChart" style="max-height:250px"></canvas></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Resolution Status</h3>' +
-              '<canvas id="resolutionChart" style="max-height:250px"></canvas></div>' +
-            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Top Tools</h3>' +
-              '<canvas id="toolsChart" style="max-height:250px"></canvas></div>' +
+          // Top metrics row - 4 big cards
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">' +
+            kpiCard('\u{1f4ac}', _t('Total Sessions','\u0412\u0441\u0435\u0433\u043e \u0441\u0435\u0441\u0441\u0438\u0439','Cmi sessiyalar'), d.total_sessions||0, _t('Today','\u0421\u0435\u0433\u043e\u0434\u043d\u044f','Bu g\u00fcn') + ': <span style="color:#60a5fa;font-weight:700">' + (d.sessions_today||0) + '</span>', '#e2e8f0', '#0f172a') +
+            kpiCard('\u{1f3af}', _t('Deflection Rate','\u0414\u0435\u0444\u043b\u0435\u043a\u0446\u0438\u044f','Defleksiya d\u0259r\u0259c\u0259si'), deflect + '%', '<div style="background:#1e293b;border-radius:4px;height:6px;margin-top:2px"><div style="background:' + deflectBarColor + ';height:100%;border-radius:4px;width:' + Math.min(deflect,100) + '%;transition:width 0.5s"></div></div>', deflectBarColor, '#0f172a') +
+            kpiCard('\u2b50', 'CSAT', csat + '<span style="font-size:16px;color:#64748b;font-weight:400">/5</span>', _t('Avg satisfaction','\u0421\u0440. \u0443\u0434\u043e\u0432\u043b\u0435\u0442\u0432\u043e\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c','Ort. m\u0259mnuniyy\u0259t'), csat >= 4 ? '#4ade80' : csat >= 3 ? '#facc15' : '#f87171', '#0f172a') +
+            kpiCard('\u26a1', 'FCR', fcr + '%', _t('First contact resolve','\u0420\u0435\u0448\u0435\u043d\u043e \u0441 \u043f\u0435\u0440\u0432\u043e\u0433\u043e \u0440\u0430\u0437\u0430','Ilk t\u0259masda h\u0259ll'), fcr >= 80 ? '#4ade80' : fcr >= 50 ? '#facc15' : '#f87171', '#0f172a') +
           '</div>' +
 
-          // Agent Performance section
-          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px;margin-bottom:24px">' +
-            '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Agent Performance</h3>' +
-            '<div id="agentPerfTable" style="overflow-x:auto">Loading...</div></div>' +
+          // Secondary metrics row - 3 smaller cards
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(59,130,246,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{23f1}\ufe0f</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Avg Resolution','\u0421\u0440. \u0432\u0440\u0435\u043c\u044f \u0440\u0435\u0448\u0435\u043d\u0438\u044f','Ort. h\u0259ll vaxt\u0131') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#e2e8f0;margin-top:2px">' + resTime + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('min','\u043c\u0438\u043d','d\u0259q') + '</span></div></div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(139,92,246,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f4e8}</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Total Messages','\u0412\u0441\u0435\u0433\u043e \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439','Cmi mesajlar') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#e2e8f0;margin-top:2px">' + (d.total_messages||0) + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('avg','ср.','ort.') + ' ' + (d.avg_messages_per_session||0) + '/' + _t('session','сессия','sessiya') + '</span></div></div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px">' +
+              '<div style="width:42px;height:42px;background:rgba(239,68,68,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">\u{1f6a8}</div>' +
+              '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">' + _t('Escalations','\u042d\u0441\u043a\u0430\u043b\u0430\u0446\u0438\u0438','Eskalasiyalar') + '</div>' +
+              '<div style="font-size:22px;font-weight:700;color:#fca5a5;margin-top:2px">' + (d.escalated||0) + ' <span style="font-size:13px;color:#64748b;font-weight:400">' + _t('to agents','\u043a \u0430\u0433\u0435\u043d\u0442\u0430\u043c','agentl\u0259r\u0259') + '</span></div></div></div>' +
+          '</div>' +
 
-          // Sessions table
-          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-            '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Recent Chat Sessions</h3>' +
+          // Charts
+          '<div style="display:grid;grid-template-columns:5fr 3fr;gap:16px;margin-bottom:24px">' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px"><span style="color:#3b82f6">\u{1f4c8}</span> ' + _t('Sessions — Last 7 Days','\u0421\u0435\u0441\u0441\u0438\u0438 \u0437\u0430 7 \u0434\u043d\u0435\u0439','Son 7 g\u00fcn sessiyalar\u0131') + '</h3></div>' +
+              '<div style="height:220px"><canvas id="dailySessionsChart"></canvas></div></div>' +
+            '<div style="display:grid;grid-rows:1fr 1fr;gap:16px">' +
+              '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px">' +
+                '<h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0 0 16px;display:flex;align-items:center;gap:8px"><span style="color:#22c55e">\u{1f4ca}</span> ' + _t('Resolution','\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u044b','N\u0259tic\u0259l\u0259r') + '</h3>' +
+                '<div style="height:180px"><canvas id="resolutionChart"></canvas></div></div>' +
+              '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px">' +
+                '<h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0 0 16px;display:flex;align-items:center;gap:8px"><span style="color:#8b5cf6">\u{1f6e0}\ufe0f</span> ' + _t('Tools Used','\u0418\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b','Alitl\u0259r') + '</h3>' +
+                '<div style="height:180px"><canvas id="toolsChart"></canvas></div></div>' +
+            '</div>' +
+          '</div>' +
+
+          // Agent Performance
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px"><span>\u{1f464}</span> ' + _t('Agent Performance','\u041f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0430\u0433\u0435\u043d\u0442\u043e\u0432','Agent performans\u0131') + '</h3></div>' +
+            '<div id="agentPerfTable" style="overflow-x:auto"><div style="text-align:center;padding:20px;color:#64748b">' + _t('Loading...','Загрузка...','Y\u00fckl\u0259nir...') + '</div></div></div>' +
+
+          // Recent Sessions
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px"><span>\u{1f4ac}</span> ' + _t('Recent Sessions','\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0435 \u0441\u0435\u0441\u0441\u0438\u0438','Son sessiyalar') + '</h3>' +
+            '<span style="font-size:12px;color:#64748b;background:#1e293b;padding:4px 12px;border-radius:8px">' + _t('Last 10','10 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0445','Son 10') + '</span></div>' +
+            '<div style="overflow-x:auto;border-radius:12px;border:1px solid #1e293b">' +
             '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-              '<thead><tr style="border-bottom:1px solid #334155">' +
-                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">ID</th>' +
-                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">User</th>' +
-                '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Msgs</th>' +
-                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Tools</th>' +
-                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Status</th>' +
-                '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Date</th></tr></thead>' +
-              '<tbody>' + sessionsHtml + '</tbody></table></div>' +
+              '<thead><tr style="background:#1e293b">' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">ID</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('User','\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c','\u0130stifad\u0259\u00e7i') + '</th>' +
+                '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Msgs','\u0421\u043e\u043e\u0431\u0449.','Msj') + '</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Tools','\u0418\u043d\u0441\u0442\u0440.','Al\u0259tl\u0259r') + '</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Status','\u0421\u0442\u0430\u0442\u0443\u0441','Status') + '</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Date','\u0414\u0430\u0442\u0430','Tarix') + '</th></tr></thead>' +
+              '<tbody>' + sessionsHtml + '</tbody></table></div></div>' +
           '</div>';
 
-        // Render Chart.js charts
         setTimeout(() => renderAICharts(d), 100);
-        // Load agent performance
         renderAgentPerformance();
       } catch(e) {
-        el.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171">Error loading Command Center: ' + e.message + '</div>';
+        el.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171">\u26a0\ufe0f Error: ' + e.message + '</div>';
       }
     }
 
     function renderAICharts(d) {
-      const chartTextColor = '#94a3b8';
-      const gridColor = '#334155';
+      const txtC = '#94a3b8', gridC = 'rgba(51,65,85,0.5)';
 
-      // Daily Sessions Chart
+      // Daily Sessions
       const dailyLabels = (d.daily_sessions||[]).map(x => (x.date||'').slice(5));
       const dailyData = (d.daily_sessions||[]).map(x => x.count || 0);
       const dailyCtx = document.getElementById('dailySessionsChart');
@@ -16643,31 +16688,39 @@ async function onLeadDrop(e, newStatus) {
         new Chart(dailyCtx, {
           type: 'line',
           data: {
-            labels: dailyLabels.length ? dailyLabels : ['—'],
+            labels: dailyLabels.length ? dailyLabels : ['\u2014'],
             datasets: [{
               label: 'Sessions',
               data: dailyData.length ? dailyData : [0],
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59,130,246,0.1)',
-              borderWidth: 2,
+              borderColor: '#6366f1',
+              backgroundColor: function(ctx) {
+                const g = ctx.chart.ctx.createLinearGradient(0,0,0,200);
+                g.addColorStop(0,'rgba(99,102,241,0.25)');
+                g.addColorStop(1,'rgba(99,102,241,0.01)');
+                return g;
+              },
+              borderWidth: 2.5,
               fill: true,
-              pointRadius: 4,
-              pointBackgroundColor: '#3b82f6',
-              tension: 0.3
+              pointRadius: 5,
+              pointBackgroundColor: '#6366f1',
+              pointBorderColor: '#0f172a',
+              pointBorderWidth: 2,
+              pointHoverRadius: 7,
+              tension: 0.4
             }]
           },
           options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8, padding: 10 } },
             scales: {
-              y: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: gridColor } },
-              x: { ticks: { color: chartTextColor }, grid: { color: gridColor } }
+              y: { beginAtZero: true, ticks: { color: txtC, font: { size: 11 } }, grid: { color: gridC } },
+              x: { ticks: { color: txtC, font: { size: 11 } }, grid: { display: false } }
             }
           }
         });
       }
 
-      // Resolution Status (Doughnut Chart)
+      // Resolution Doughnut
       const resCtx = document.getElementById('resolutionChart');
       if (resCtx && window.Chart) {
         new Chart(resCtx, {
@@ -16676,43 +16729,50 @@ async function onLeadDrop(e, newStatus) {
             labels: ['AI Resolved', 'Escalated'],
             datasets: [{
               data: [d.resolved_without_human || 0, d.escalated || 0],
-              backgroundColor: ['#4ade80', '#f87171'],
+              backgroundColor: ['#22c55e', '#ef4444'],
               borderColor: '#0f172a',
-              borderWidth: 2
+              borderWidth: 3,
+              hoverOffset: 6
             }]
           },
           options: {
             responsive: true, maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
-              legend: { labels: { color: chartTextColor } }
+              legend: { position: 'bottom', labels: { color: txtC, padding: 16, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+              tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8 }
             }
           }
         });
       }
 
-      // Tool Usage Chart
-      const toolLabels = Object.keys(d.tool_usage || {});
+      // Tool Usage
+      const toolFriendly = {get_tickets:'Tickets', create_ticket:'Create', get_contracts:'Contracts', get_documents:'Documents', escalate_to_human:'Escalation'};
+      const toolColors = {get_tickets:'#3b82f6', create_ticket:'#22c55e', get_contracts:'#f59e0b', get_documents:'#8b5cf6', escalate_to_human:'#ef4444'};
+      const toolLabels = Object.keys(d.tool_usage || {}).map(k => toolFriendly[k]||k);
       const toolData = Object.values(d.tool_usage || {});
+      const toolBgColors = Object.keys(d.tool_usage || {}).map(k => toolColors[k]||'#6366f1');
       const toolCtx = document.getElementById('toolsChart');
       if (toolCtx && window.Chart) {
         new Chart(toolCtx, {
           type: 'bar',
           data: {
-            labels: toolLabels.length ? toolLabels : ['—'],
+            labels: toolLabels.length ? toolLabels : ['\u2014'],
             datasets: [{
               label: 'Uses',
               data: toolData.length ? toolData : [0],
-              backgroundColor: '#8b5cf6',
-              borderRadius: 6
+              backgroundColor: toolBgColors.length ? toolBgColors : ['#6366f1'],
+              borderRadius: 8,
+              barThickness: 22
             }]
           },
           options: {
             indexAxis: 'y',
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8 } },
             scales: {
-              x: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: gridColor } },
-              y: { ticks: { color: chartTextColor }, grid: { color: gridColor } }
+              x: { beginAtZero: true, ticks: { color: txtC, font: { size: 11 } }, grid: { color: gridC } },
+              y: { ticks: { color: txtC, font: { size: 11, weight: 600 } }, grid: { display: false } }
             }
           }
         });
@@ -16720,34 +16780,40 @@ async function onLeadDrop(e, newStatus) {
     }
 
     async function renderAgentPerformance() {
+      const L = currentLang;
+      const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
       try {
         const resp = await apiFetch('/api/ai/agent-performance');
         const agents = resp.data || resp || [];
         const tableHtml = agents.length ?
+          '<div style="overflow-x:auto;border-radius:12px;border:1px solid #1e293b">' +
           '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-          '<thead><tr style="border-bottom:1px solid #334155">' +
-          '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Agent</th>' +
-          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Total</th>' +
-          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Open</th>' +
-          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Closed</th>' +
-          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Closure %</th>' +
-          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Avg Hours</th>' +
+          '<thead><tr style="background:#1e293b">' +
+          '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Agent','\u0410\u0433\u0435\u043d\u0442','Agent') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Total','\u0412\u0441\u0435\u0433\u043e','C\u0259mi') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Open','\u041e\u0442\u043a\u0440\u044b\u0442\u043e','A\u00e7\u0131q') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closed','\u0417\u0430\u043a\u0440\u044b\u0442\u043e','Ba\u011fl\u0131') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Closure','% \u0437\u0430\u043a\u0440.','% ba\u011fl.') + '</th>' +
+          '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Avg Hours','\u0421\u0440. \u0447\u0430\u0441\u044b','Ort. saat') + '</th>' +
           '</tr></thead><tbody>' +
-          agents.map(a => '<tr style="border-bottom:1px solid #1e293b">' +
-            '<td style="padding:8px"><strong>' + a.agent_name + '</strong><br><span style="font-size:11px;color:#64748b">' + a.email + '</span></td>' +
-            '<td style="padding:8px;text-align:center">' + a.total_tickets + '</td>' +
-            '<td style="padding:8px;text-align:center;color:#f87171">' + a.open_tickets + '</td>' +
-            '<td style="padding:8px;text-align:center;color:#4ade80">' + a.closed_tickets + '</td>' +
-            '<td style="padding:8px;text-align:center"><span style="background:#052e16;color:#4ade80;padding:2px 8px;border-radius:4px">' + a.closure_rate + '%</span></td>' +
-            '<td style="padding:8px;text-align:center">' + a.avg_resolution_hours + '</td>' +
-          '</tr>').join('') +
-          '</tbody></table>' :
-          '<div style="color:#64748b;padding:20px;text-align:center">No agents found</div>';
+          agents.map((a,i) => {
+            const rowBg = i%2===0 ? 'transparent' : 'rgba(30,41,59,0.3)';
+            const closureColor = a.closure_rate >= 80 ? '#22c55e' : a.closure_rate >= 50 ? '#eab308' : '#ef4444';
+            return '<tr style="background:' + rowBg + '">' +
+            '<td style="padding:12px 10px"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px">' + (a.agent_name||'?').charAt(0).toUpperCase() + '</div><div><div style="font-weight:600;color:#e2e8f0">' + a.agent_name + '</div><div style="font-size:11px;color:#64748b">' + a.email + '</div></div></div></td>' +
+            '<td style="padding:12px 10px;text-align:center;font-weight:600;color:#e2e8f0">' + a.total_tickets + '</td>' +
+            '<td style="padding:12px 10px;text-align:center"><span style="color:#fca5a5;font-weight:600">' + a.open_tickets + '</span></td>' +
+            '<td style="padding:12px 10px;text-align:center"><span style="color:#86efac;font-weight:600">' + a.closed_tickets + '</span></td>' +
+            '<td style="padding:12px 10px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:40px;height:5px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:' + Math.min(a.closure_rate,100) + '%;height:100%;background:' + closureColor + ';border-radius:3px"></div></div><span style="font-weight:700;color:' + closureColor + ';font-size:12px">' + a.closure_rate + '%</span></div></td>' +
+            '<td style="padding:12px 10px;text-align:center;color:#94a3b8">' + a.avg_resolution_hours + 'h</td></tr>';
+          }).join('') +
+          '</tbody></table></div>' :
+          '<div style="color:#64748b;padding:32px;text-align:center">' + _t('No agents found','\u0410\u0433\u0435\u043d\u0442\u044b \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b','Agent tap\u0131lmad\u0131') + '</div>';
         const el = document.getElementById('agentPerfTable');
         if (el) el.innerHTML = tableHtml;
       } catch (e) {
         const el = document.getElementById('agentPerfTable');
-        if (el) el.innerHTML = '<div style="color:#f87171">Error loading agent performance</div>';
+        if (el) el.innerHTML = '<div style="color:#f87171">' + e.message + '</div>';
       }
     }
 

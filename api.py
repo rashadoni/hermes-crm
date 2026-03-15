@@ -9097,22 +9097,31 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 summary = tool_input.get("summary", "")
 
                 # Fetch full chat transcript for the session
-                transcript = ""
+                transcript_lines = []
                 if session_id:
                     try:
                         msgs = conn.execute(
                             "SELECT role, content, created_at FROM ai_chat_messages WHERE session_id=? ORDER BY created_at",
                             [session_id]
                         ).fetchall()
-                        transcript_parts = ["=== Full Chat Transcript ===\n"]
                         for msg in msgs:
                             role, content, created_at = msg
-                            role_label = "User" if role == "user" else "AI Agent"
-                            transcript_parts.append(f"\n[{created_at}] {role_label}:\n{content}\n")
-                        transcript = "".join(transcript_parts)
+                            ts = str(created_at).split('.')[0] if created_at else ''
+                            role_icon = "\U0001F464" if role == "user" else "\U0001F916"
+                            role_label = "Client" if role == "user" else "AI Agent"
+                            transcript_lines.append(f"{role_icon} [{ts}] {role_label}:\n{content}")
                     except Exception as e:
                         logger.warning("Failed to fetch transcript: %s", e)
-                        transcript = f"[Could not retrieve full transcript: {str(e)}]"
+                        transcript_lines = [f"[Could not retrieve transcript: {str(e)}]"]
+
+                # Get portal user info
+                pu_info = ""
+                try:
+                    pu_row = conn.execute("SELECT full_name, email FROM portal_users WHERE id=?", [portal_user_id]).fetchone()
+                    if pu_row:
+                        pu_info = f"{pu_row[0]} ({pu_row[1]})"
+                except Exception:
+                    pu_info = f"Portal user #{portal_user_id}"
 
                 # Create an escalation ticket
                 agent_row = conn.execute("""
@@ -9120,7 +9129,23 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 """).fetchone()
                 assigned = agent_row[0] if agent_row else None
 
-                full_description = f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}\n\n{transcript}"
+                transcript_text = "\n\n---\n\n".join(transcript_lines) if transcript_lines else "No messages recorded."
+
+                full_description = (
+                    f"\U0001F6A8 ESCALATION FROM AI AGENT\n"
+                    f"{'=' * 40}\n\n"
+                    f"\U0001F464 Client: {pu_info}\n"
+                    f"\U0001F4CB Reason: {reason}\n"
+                    f"\U0001F4AC Session ID: {session_id or 'N/A'}\n\n"
+                    f"{'=' * 40}\n"
+                    f"SUMMARY\n"
+                    f"{'=' * 40}\n\n"
+                    f"{summary}\n\n"
+                    f"{'=' * 40}\n"
+                    f"CHAT TRANSCRIPT\n"
+                    f"{'=' * 40}\n\n"
+                    f"{transcript_text}"
+                )
 
                 conn.execute(
                     "INSERT INTO tickets (subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?)",

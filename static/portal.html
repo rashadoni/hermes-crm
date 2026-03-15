@@ -186,22 +186,24 @@
         .chat-bubble-wrap.user { align-items: flex-end; }
         .chat-bubble-wrap.ai { align-items: flex-start; }
 
-        .chat-msg { max-width: 88%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; }
+        .chat-msg { max-width: 88%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.65; word-wrap: break-word; overflow-wrap: break-word; }
         .chat-msg.ai { background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 6px; }
-        .chat-msg.user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; border-bottom-right-radius: 6px; }
+        .chat-msg.user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; border-bottom-right-radius: 6px; box-shadow: 0 2px 8px rgba(59,130,246,0.25); }
         .chat-msg.ai strong, .chat-msg.ai b { color: #93c5fd; font-weight: 600; }
         .chat-msg.ai em, .chat-msg.ai i { color: #a5b4fc; }
         .chat-msg.ai ul, .chat-msg.ai ol { margin: 6px 0 6px 18px; padding: 0; }
-        .chat-msg.ai li { margin-bottom: 3px; }
+        .chat-msg.ai li { margin-bottom: 4px; }
         .chat-msg.ai p { margin: 0 0 6px; }
         .chat-msg.ai p:last-child { margin-bottom: 0; }
         .chat-msg.ai code { background: #0f172a; padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #a5b4fc; }
-        .chat-msg.ai .ticket-card { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px 12px; margin: 8px 0 4px; }
+        .chat-msg.ai .ticket-card { background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%); border: 1px solid #334155; border-radius: 10px; padding: 10px 12px; margin: 8px 0 4px; }
         .chat-msg.ai .ticket-card .tc-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
         .chat-msg.ai .ticket-card .tc-label { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
         .chat-msg.ai .ticket-card .tc-value { color: #e2e8f0; font-size: 13px; font-weight: 500; }
 
-        .chat-tool-badge { display: inline-flex; align-items: center; gap: 4px; background: #1e1b4b; color: #a5b4fc; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; align-self: flex-start; margin-top: 2px; }
+        .chat-tool-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; align-self: flex-start; margin-top: 2px; }
+        .chat-tool-badge.escalate { background: linear-gradient(135deg, #7f1d1d, #991b1b); color: #fca5a5; }
+        .chat-tool-badge.tool { background: #1e1b4b; color: #a5b4fc; }
         .chat-tool-badge svg { width: 12px; height: 12px; }
 
         .chat-time { font-size: 10px; color: #475569; margin-top: 2px; padding: 0 4px; }
@@ -802,11 +804,20 @@
         wrap.className = 'chat-bubble-wrap ' + role;
 
         if (toolsUsed && toolsUsed.length) {
-            const toolNames = { get_tickets: '\u{1f4cb} Tickets loaded', create_ticket: '\u2705 Ticket created', get_contracts: '\u{1f4c4} Contracts loaded', get_documents: '\u{1f4c2} Documents loaded', escalate_to_human: '\u{1f464} Escalated to agent' };
+            const lang = localStorage.getItem('portalLang') || 'az';
+            const toolNames = {
+                get_tickets: { icon: '\u{1f4cb}', ru: 'Тикеты загружены', en: 'Tickets loaded', az: 'Tiketl\u0259r y\u00fckl\u0259ndi' },
+                create_ticket: { icon: '\u2705', ru: 'Тикет создан', en: 'Ticket created', az: 'Tiket yarad\u0131ld\u0131' },
+                get_contracts: { icon: '\u{1f4c4}', ru: 'Контракты загружены', en: 'Contracts loaded', az: 'M\u00fcqavil\u0259l\u0259r y\u00fckl\u0259ndi' },
+                get_documents: { icon: '\u{1f4c2}', ru: 'Документы загружены', en: 'Documents loaded', az: 'S\u0259n\u0259dl\u0259r y\u00fckl\u0259ndi' },
+                escalate_to_human: { icon: '\u{1f680}', ru: 'Передано менеджеру', en: 'Escalated to agent', az: 'Menecer\u0259 \u00f6t\u00fcr\u00fcld\u00fc' }
+            };
             toolsUsed.forEach(t => {
+                const info = toolNames[t];
                 const badge = document.createElement('div');
-                badge.className = 'chat-tool-badge';
-                badge.innerHTML = (toolNames[t] || t);
+                const isEsc = t === 'escalate_to_human';
+                badge.className = 'chat-tool-badge ' + (isEsc ? 'escalate' : 'tool');
+                badge.innerHTML = info ? (info.icon + ' ' + (info[lang] || info.en)) : t;
                 wrap.appendChild(badge);
             });
         }

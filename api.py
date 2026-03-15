@@ -13632,7 +13632,7 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_
         if sql:
             sql_upper = sql.upper().strip()
             forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH", "PRAGMA", "VACUUM"]
-            is_safe = sql_upper.startswith("SELECT") and not any(f in sql_upper for f in forbidden)
+            is_safe = sql_upper.startswith("SELECT") and not any(_re.search(r'\b' + f + r'\b', sql_upper) for f in forbidden)
             if is_safe:
                 try:
                     with get_db() as conn:

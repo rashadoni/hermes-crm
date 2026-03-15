@@ -9030,14 +9030,14 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 sf = tool_input.get("status_filter", "all")
                 if tid:
                     row = conn.execute(
-                        "SELECT id, ticket_number, subject, status, priority, created_at, updated_at FROM tickets WHERE id=? AND company_id=?",
+                        "SELECT id, 'TK-' || printf('%04d', id) as ticket_number, subject, status, priority, created_at, updated_at FROM tickets WHERE id=? AND company_id=?",
                         [tid, company_id]
                     ).fetchone()
                     if row:
                         cols = ["id", "ticket_number", "subject", "status", "priority", "created_at", "updated_at"]
                         return json.dumps(dict(zip(cols, row)), ensure_ascii=False)
                     return json.dumps({"error": f"Ticket #{tid} not found"})
-                query = "SELECT id, ticket_number, subject, status, priority, created_at FROM tickets WHERE company_id=?"
+                query = "SELECT id, 'TK-' || printf('%04d', id) as ticket_number, subject, status, priority, created_at FROM tickets WHERE company_id=?"
                 params = [company_id]
                 if sf == "open":
                     query += " AND status NOT IN ('closed','resolved')"
@@ -9052,10 +9052,6 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 subj = tool_input.get("subject", "New ticket")
                 desc = tool_input.get("description", "")
                 prio = tool_input.get("priority", "medium")
-                # Generate ticket number
-                last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()
-                next_id = (last[0] or 0) + 1
-                tnum = f"TK-{next_id:04d}"
                 # Auto-assign (least loaded)
                 agent_row = conn.execute("""
                     SELECT u.id FROM users u
@@ -9066,10 +9062,11 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 """).fetchone()
                 assigned = agent_row[0] if agent_row else None
                 conn.execute(
-                    "INSERT INTO tickets (ticket_number, subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?,?)",
-                    [tnum, subj, f"[Created by AI Agent for portal user #{portal_user_id}]\n\n{desc}", "new", prio, company_id, assigned, '["ai-created"]']
+                    "INSERT INTO tickets (subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?)",
+                    [subj, f"[Created by AI Agent for portal user #{portal_user_id}]\n\n{desc}", "new", prio, company_id, assigned, '["ai-created"]']
                 )
                 new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                tnum = f"TK-{new_id:04d}"
                 return json.dumps({"success": True, "ticket_id": new_id, "ticket_number": tnum, "subject": subj, "priority": prio, "assigned_to": assigned}, ensure_ascii=False)
 
             elif tool_name == "get_contracts":
@@ -9098,18 +9095,16 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 reason = tool_input.get("reason", "User requested human support")
                 summary = tool_input.get("summary", "")
                 # Create an escalation ticket
-                last = conn.execute("SELECT MAX(id) FROM tickets").fetchone()
-                next_id = (last[0] or 0) + 1
-                tnum = f"TK-{next_id:04d}"
                 agent_row = conn.execute("""
                     SELECT u.id FROM users u WHERE u.role IN ('admin','manager') AND u.is_active=1 ORDER BY u.id ASC LIMIT 1
                 """).fetchone()
                 assigned = agent_row[0] if agent_row else None
                 conn.execute(
-                    "INSERT INTO tickets (ticket_number, subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?,?)",
-                    [tnum, f"[AI Escalation] {reason}", f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}", "new", "high", company_id, assigned, '["ai-escalation"]']
+                    "INSERT INTO tickets (subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?)",
+                    [f"[AI Escalation] {reason}", f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}", "new", "high", company_id, assigned, '["ai-escalation"]']
                 )
                 new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                tnum = f"TK-{new_id:04d}"
                 # Send notification
                 try:
                     _ensure_portal_notifications_table(conn)

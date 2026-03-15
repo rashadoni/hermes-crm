@@ -17826,12 +17826,12 @@ async function onLeadDrop(e, newStatus) {
         container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">📡 Omni-Channel / Бір каналды платформа</h2><div id="omniContent"><div class="loading">Загрузка...</div></div></div>';
 
         try {
-            const [convRes, statsRes] = await Promise.all([
+            const [convRes, statsRes] = await Promise.allSettled([
                 api.get('/api/channels/conversations'),
                 api.get('/api/channels/stats')
             ]);
-            const conversations = convRes.data || [];
-            const stats = statsRes.data || {};
+            const conversations = convRes.status==='fulfilled' ? (convRes.value.data || []) : [];
+            const stats = statsRes.status==='fulfilled' ? (statsRes.value.data || {}) : {};
 
             let h = '';
             // Stats cards

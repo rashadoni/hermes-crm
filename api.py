@@ -8614,33 +8614,19 @@ async def get_channel_messages(user=Depends(require_auth), contact_id: int = Non
 
 @app.get("/api/channels/conversations")
 async def get_conversations(user=Depends(require_auth), limit: int = 50, offset: int = 0):
-    """Get grouped conversations - latest message per contact/sender. Includes unread count and last message preview."""
+    """Get grouped conversations - latest message per contact/sender."""
     try:
         with get_db() as conn:
-            query = """
-                SELECT
-                    MAX(cm.id) as msg_id,
-                    cm.channel_type,
-                    cm.contact_id,
-                    cm.lead_id,
-                    cm.sender_identifier,
-                    COALESCE(c.full_name, l.contact_name, cm.sender_name, cm.sender_identifier) as display_name,
-                    cm.content as last_message,
-                    cm.created_at as last_message_at,
-                    COUNT(CASE WHEN cm.status = 'received' AND cm.direction = 'inbound' THEN 1 END) as unread_count
+            # Simple approach: get latest messages grouped by sender
+            rows = conn.execute("""
+                SELECT cm.id, cm.channel_type, cm.contact_id, cm.lead_id,
+                       cm.sender_name, cm.sender_identifier, cm.content, cm.direction,
+                       cm.status, cm.created_at
                 FROM channel_messages cm
-                LEFT JOIN contacts c ON cm.contact_id = c.id
-                LEFT JOIN leads l ON cm.lead_id = l.id
-                GROUP BY COALESCE(cm.contact_id, cm.lead_id, cm.sender_identifier)
-                ORDER BY last_message_at DESC
+                ORDER BY cm.created_at DESC
                 LIMIT ? OFFSET ?
-            """
-            rows = conn.execute(query, [limit, offset]).fetchall()
-            cols = ["msg_id", "channel_type", "contact_id", "lead_id", "sender_identifier", "display_name",
-                   "last_message", "last_message_at", "unread_count"]
-
-            result = [dict(zip(cols, r)) for r in rows]
-            return _ok(result)
+            """, [limit, offset]).fetchall()
+            return _ok([dict(r) for r in rows])
     except Exception as e:
         logger.error("get_conversations: %s", e)
         return _err(str(e), 500)

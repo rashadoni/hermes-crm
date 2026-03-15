@@ -1771,37 +1771,64 @@ async def predict_all_leads_early(user=Depends(require_admin)):
             leads = conn.execute("SELECT * FROM leads WHERE status NOT IN ('converted','lost','rejected')").fetchall()
             scored = 0
             for lead in leads:
-                ld = dict(lead)
-                deals = conn.execute("SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)", [ld.get("company_name","")]).fetchall()
-                deals_list = [dict(d) for d in deals]
-                activities = conn.execute("SELECT * FROM activities WHERE entity_type='lead' AND entity_id=?", [ld["id"]]).fetchall()
-                score_result = _calculate_predictive_score(ld, deals_list, [dict(a) for a in activities])
-                ai_result = None
                 try:
-                    ai_result = await _ai_score_lead(ld, deals_list)
-                except Exception:
-                    pass
-                total = score_result["total_score"]
-                ai_score = 0
-                ai_reason = ""
-                predicted_value = 0.0
-                if ai_result:
-                    ai_score = int(ai_result.get("probability", 0) * 100)
-                    ai_reason = ai_result.get("reason", "")
-                    predicted_value = ai_result.get("predicted_value", 0)
-                    total = int(total * 0.7 + ai_score * 0.3)
-                grade = "A" if total >= 80 else "B" if total >= 60 else "C" if total >= 40 else "D" if total >= 20 else "F"
-                conn.execute("DELETE FROM lead_scores WHERE lead_id=?", [ld["id"]])
-                conn.execute("""INSERT INTO lead_scores (lead_id,total_score,score_grade,demographic_score,behavioral_score,
-                    engagement_score,ai_prediction_score,ai_prediction_reason,conversion_probability,predicted_deal_value,scoring_factors)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                    [ld["id"], total, grade, score_result["demographic_score"], score_result["behavioral_score"],
-                     score_result["engagement_score"], ai_score, ai_reason, score_result["conversion_probability"],
-                     predicted_value, json.dumps(score_result["factors"])])
-                scored += 1
+                    ld = dict(lead)
+                    # Safely get deals
+                    deals_list = []
+                    try:
+                        company_name = ld.get("company_name", "")
+                        if company_name:
+                            deals = conn.execute(
+                                "SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)",
+                                [company_name]
+                            ).fetchall()
+                            deals_list = [dict(d) for d in deals]
+                    except Exception:
+                        pass
+                    # Safely get activities
+                    activity_list = []
+                    try:
+                        activities = conn.execute(
+                            "SELECT * FROM activities WHERE entity_type='lead' AND entity_id=?",
+                            [ld["id"]]
+                        ).fetchall()
+                        activity_list = [dict(a) for a in activities]
+                    except Exception:
+                        pass
+                    # Calculate rule-based score
+                    score_result = _calculate_predictive_score(ld, deals_list, activity_list)
+                    # AI scoring (optional, skip if fails)
+                    ai_score = 0
+                    ai_reason = ""
+                    predicted_value = 0.0
+                    try:
+                        ai_result = await _ai_score_lead(ld, deals_list)
+                        if ai_result:
+                            ai_score = int(ai_result.get("probability", 0) * 100)
+                            ai_reason = ai_result.get("reason", "")
+                            predicted_value = ai_result.get("predicted_value", 0)
+                    except Exception:
+                        pass
+                    total = score_result["total_score"]
+                    if ai_score > 0:
+                        total = int(total * 0.7 + ai_score * 0.3)
+                    grade = "A" if total >= 80 else "B" if total >= 60 else "C" if total >= 40 else "D" if total >= 20 else "F"
+                    conv_prob = score_result.get("conversion_probability", round(total / 100 * 0.9, 2))
+                    conn.execute("DELETE FROM lead_scores WHERE lead_id=?", [ld["id"]])
+                    conn.execute("""INSERT INTO lead_scores (lead_id,total_score,score_grade,demographic_score,behavioral_score,
+                        engagement_score,ai_prediction_score,ai_prediction_reason,conversion_probability,predicted_deal_value,scoring_factors)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                        [ld["id"], total, grade, score_result["demographic_score"], score_result["behavioral_score"],
+                         score_result["engagement_score"], ai_score, ai_reason, conv_prob,
+                         predicted_value, json.dumps(score_result["factors"])])
+                    scored += 1
+                except Exception as e:
+                    logger.warning("Error scoring lead %s: %s", ld.get("id"), e)
+                    continue
             conn.commit()
         return _ok({"scored": scored})
     except Exception as e:
+        logger.error("predict_all error: %s", e)
         return _err(str(e), 500)
 
 # --- End early routes ---

@@ -214,7 +214,6 @@
       <a href="#/clients" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="clients" data-i18n="nav_clients">Leads</a>
       <a href="#/accounts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="accounts" data-i18n="nav_accounts">Accounts</a>
       <a href="#/contacts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="contacts" data-i18n="nav_contacts">Contacts</a>
-      <a href="#/partners" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="partners" data-i18n="nav_partners">Partners</a>
       <div class="nav-dropdown">
         <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_deals">Deals</span>
         <div class="nav-dropdown-menu">
@@ -3315,7 +3314,7 @@ async function renderPage(page) {
       case 'clients': await renderCompanyList(app, 'client'); break;
       case 'accounts': await renderAccounts(app); break;
       case 'inactive': window._leadsFilter = 'inactive'; await renderCompanyList(app, 'client'); break;
-      case 'partners': await renderCompanyList(app, 'partner'); break;
+      case 'partners': location.hash='#/accounts'; break;
       case 'contacts': await renderContacts(app); break;
       case 'deals': await renderDeals(app); break;
       case 'tasks': await renderTasks(app); break;
@@ -3861,18 +3860,17 @@ async function renderAnalytics(el) {
   const adv = advResp.data || {};
   const funnel = adv.lead_funnel || {};
   const health = adv.contact_activity_health || {};
-  const funnelLabels = {prospect:t('lead_status_new'),contacted:t('lead_status_contacted'),qualified:t('lead_status_qualified'),client:t('lead_status_converted'),not_suitable:t('lead_status_not_suitable'),inactive:t('lead_status_cancelled'),partner:t('nav_partners')||'Partner'};
-  const funnelColors = {prospect:'#6366f1',contacted:'#3b82f6',qualified:'#f59e0b',client:'#10b981',not_suitable:'#ef4444',inactive:'#6b7280',partner:'#8b5cf6'};
-  const funnelOrder = ['prospect','contacted','qualified','client','partner','not_suitable','inactive'];
+  const funnelLabels = {prospect:t('lead_status_new'),contacted:t('lead_status_contacted'),qualified:t('lead_status_qualified'),client:t('lead_status_converted'),not_suitable:t('lead_status_not_suitable'),inactive:t('lead_status_cancelled')};
+  const funnelColors = {prospect:'#6366f1',contacted:'#3b82f6',qualified:'#f59e0b',client:'#10b981',not_suitable:'#ef4444',inactive:'#6b7280'};
+  const funnelOrder = ['prospect','contacted','qualified','client','not_suitable','inactive'];
 
     el.innerHTML = `
     <div style="margin-bottom:28px">
       <h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">${t('dash_title')}</h1>
       <p style="color:#64748b;font-size:14px;margin-top:4px">Analytics &amp; Reports</p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr) repeat(3,1fr);gap:14px;margin-bottom:28px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px">
       <div onclick="location.hash='#/clients'" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(99,102,241,0.3)';this.style.boxShadow='0 4px 20px rgba(99,102,241,0.1)'" onmouseout="this.style.borderColor='rgba(99,102,241,0.15)';this.style.boxShadow='none'"><div style="font-size:28px;font-weight:800;color:#818cf8">${summary.clients_total||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('dash_stat_clients')}</div></div>
-      <div onclick="location.hash='#/partners'" style="background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(139,92,246,0.3)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.15)'"><div style="font-size:28px;font-weight:800;color:#a78bfa">${summary.partners_total||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('dash_stat_partners')}</div></div>
       <div onclick="location.hash='#/contracts'" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(16,185,129,0.3)'" onmouseout="this.style.borderColor='rgba(16,185,129,0.15)'"><div style="font-size:28px;font-weight:800;color:#34d399">${summary.contracts_total||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('dash_stat_contracts_total')}</div></div>
       <div onclick="location.hash='#/deals'" style="background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border:1px solid rgba(59,130,246,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(59,130,246,0.3)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.15)'"><div style="font-size:28px;font-weight:800;color:#60a5fa">${summary.deals_active||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('nav_deals')}</div></div>
       <div onclick="window._leadsFilter='new';location.hash='#/clients'" style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04));border:1px solid rgba(245,158,11,0.15);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='rgba(245,158,11,0.3)'" onmouseout="this.style.borderColor='rgba(245,158,11,0.15)'"><div style="font-size:28px;font-weight:800;color:#fbbf24">${leadStats.data?.new||leadStats.new||0}</div><div style="font-size:12px;color:#64748b;font-weight:500;margin-top:4px">${t('leads_title')} <span style="color:#60a5fa;font-size:11px">(${t('lead_status_new').toLowerCase()})</span></div></div>
@@ -5830,7 +5828,7 @@ function onCompaniesSearch(q) {
 }
 function _updateCompanyGrid(grid) {
   // Get current page mode
-  const mode = state.page === 'partners' ? 'partner' : 'client';
+  const mode = 'client';
   const allItems = window._lastCompanyItems || [];
   let filtered = allItems;
   const _lf = window._leadsFilter || 'converted';
@@ -6213,7 +6211,6 @@ async function showCompanyForm(idOrCategory = null) {
           <option value="qualified" ${c.category==='qualified'?'selected':''}>${t('lead_status_qualified')}</option>
           <option value="client" ${c.category==='client'?'selected':''}>${t('lead_status_converted')}</option>
           <option value="not_suitable" ${c.category==='not_suitable'?'selected':''}>${t('lead_status_not_suitable')}</option>
-          <option value="partner" ${c.category==='partner'?'selected':''}>${t('company_cat_partner')}</option>
           <option value="inactive" ${c.category==='inactive'?'selected':''}>${t('lead_status_cancelled')}</option>
         </select>
       </div>

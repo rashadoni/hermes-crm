@@ -6132,8 +6132,16 @@ async def mark_all_notifications_read(user=Depends(require_auth)):
 @app.get("/api/notification-preferences")
 async def get_notification_preferences(user=Depends(require_auth)):
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM notification_preferences WHERE user_id=?", (user["user_id"],)).fetchall()
-        cols = [d[0] for d in conn.execute("SELECT * FROM notification_preferences LIMIT 0").description]
+        conn.execute("""CREATE TABLE IF NOT EXISTS notification_preferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            channel_web INTEGER DEFAULT 1,
+            channel_email INTEGER DEFAULT 0,
+            channel_telegram INTEGER DEFAULT 0,
+            UNIQUE(user_id, event_type))""")
+        rows = conn.execute("SELECT user_id, event_type, channel_web, channel_email, channel_telegram FROM notification_preferences WHERE user_id=?", (user["user_id"],)).fetchall()
+        cols = ["user_id", "event_type", "channel_web", "channel_email", "channel_telegram"]
         return _ok([dict(zip(cols, r)) for r in rows])
 
 @app.put("/api/notification-preferences")
@@ -6142,6 +6150,14 @@ async def update_notification_preferences(request: Request, user=Depends(require
     prefs = data.get("preferences", [])
     uid = user["user_id"]
     with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS notification_preferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            channel_web INTEGER DEFAULT 1,
+            channel_email INTEGER DEFAULT 0,
+            channel_telegram INTEGER DEFAULT 0,
+            UNIQUE(user_id, event_type))""")
         for p in prefs:
             event_type = p.get("event_type","")
             if not event_type:

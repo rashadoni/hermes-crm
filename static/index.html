@@ -3302,8 +3302,7 @@ async function renderPage(page) {
         await renderNotificationsPage(app);
         break;
       case 'notification-preferences':
-        if (isAdmin()) await renderNotificationPreferences(app);
-        else app.innerHTML = `<h2 class="text-xl text-red-400">${t('error_page_not_found')}</h2>`;
+        await renderNotificationPreferences(app);
         break;
       case 'user-management':
         await renderUserManagement(app);
@@ -16301,6 +16300,10 @@ async function renderNotificationsPage(el) {
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">${_i._g('np_title')} ${unread ? `<span class="text-sm bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">${unread}</span>` : ''}</h1>
         <div class="flex gap-2">
+          <a href="#/notification-preferences" class="btn btn-sm btn-secondary flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            ${currentLang==='ru'?'Настройки':currentLang==='az'?'Ayarlar':'Settings'}
+          </a>
           ${unread ? `<button class="btn btn-sm btn-secondary" onclick="markAllNotifReadPage()">${_i._g('np_mark_all')}</button>` : ''}
         </div>
       </div>
@@ -16346,73 +16349,134 @@ async function renderNotificationsPage(el) {
   await render('all');
 }
 
-// ─── ADMIN: Notification Preferences ─────────────────────────
+// ─── Notification Preferences ─────────────────────────────────
 async function renderNotificationPreferences(el) {
   showLoading(el);
-  const {data: prefs} = await api.get('/api/notification-preferences');
+  const L = currentLang;
+  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
 
-  const eventTypes = [
-    { type: 'lead_new', label: _i._g('npp_lead_new') },
-    { type: 'lead_assigned', label: _i._g('npp_lead_assigned') },
-    { type: 'deal_stage_changed', label: _i._g('npp_deal_stage') },
-    { type: 'deal_won', label: _i._g('npp_deal_won') },
-    { type: 'deal_lost', label: _i._g('npp_deal_lost') },
-    { type: 'task_assigned', label: _i._g('npp_task_assigned') },
-    { type: 'task_overdue', label: _i._g('npp_task_overdue') },
-    { type: 'contract_expiring', label: _i._g('npp_contract_exp') },
-  ];
-
+  let prefs = [];
+  try { const r = await api.get('/api/notification-preferences'); prefs = r.data || r || []; } catch(e){}
   const prefMap = {};
   prefs.forEach(p => { prefMap[p.event_type] = p; });
 
+  const categories = [
+    { title: _t('Deals','Сделки','Sövdələşmələr'), icon: '📊', items: [
+      { type: 'deal_won', name: _t('Deal won','Сделка выиграна','Sövdələşmə uduldu'), desc: _t('When a deal moves to WON','Когда сделка переходит в ВЫИГРЫШ','Sövdələşmə UDUŞ-a keçdikdə') },
+      { type: 'deal_lost', name: _t('Deal lost','Сделка проиграна','Sövdələşmə itirdi'), desc: _t('When a deal moves to LOST','Когда сделка переходит в ПРОИГРЫШ','Sövdələşmə İTKİ-yə keçdikdə') },
+      { type: 'deal_stage_changed', name: _t('Stage changed','Смена стадии','Mərhələ dəyişdi'), desc: _t('When deal stage changes','Когда меняется стадия сделки','Sövdələşmə mərhələsi dəyişdikdə') },
+    ]},
+    { title: _t('Leads','Лиды','Lidlər'), icon: '🆕', items: [
+      { type: 'lead_new', name: _t('New lead','Новый лид','Yeni lid'), desc: _t('From web forms','Из веб-форм','Veb formalardan') },
+      { type: 'lead_assigned', name: _t('Lead assigned','Лид назначен','Lid təyin edildi'), desc: _t('When a lead is reassigned','Когда лид переназначен','Lid yenidən təyin edildikdə') },
+    ]},
+    { title: _t('Tasks','Задачи','Tapşırıqlar'), icon: '📋', items: [
+      { type: 'task_assigned', name: _t('Task assigned','Задача назначена','Tapşırıq təyin edildi'), desc: _t('When a task is assigned to you','Когда вам назначена задача','Sizə tapşırıq təyin edildikdə') },
+      { type: 'task_overdue', name: _t('Task overdue','Просроченная задача','Gecikmiş tapşırıq'), desc: _t('When a task is past due','Когда задача просрочена','Tapşırıq vaxtı keçdikdə') },
+    ]},
+    { title: _t('Contracts','Контракты','Müqavilələr'), icon: '📄', items: [
+      { type: 'contract_created', name: _t('New contract','Новый контракт','Yeni müqavilə'), desc: _t('When a contract is created','Когда создан контракт','Müqavilə yaradıldıqda') },
+      { type: 'contract_status_changed', name: _t('Status changed','Смена статуса','Status dəyişdi'), desc: _t('When contract status changes','Когда меняется статус контракта','Müqavilə statusu dəyişdikdə') },
+      { type: 'contract_expiring', name: _t('Expiring soon','Скоро истекает','Tezliklə bitir'), desc: _t('Contract expiring within 30 days','Контракт истекает в течение 30 дней','30 gün ərzində bitən müqavilə') },
+    ]},
+    { title: _t('Support','Поддержка','Dəstək'), icon: '🎫', items: [
+      { type: 'ticket_assigned', name: _t('Ticket assigned','Тикет назначен','Bilet təyin edildi'), desc: _t('When a ticket is assigned','Когда назначен тикет','Bilet təyin edildikdə') },
+    ]},
+    { title: _t('Activities','Активности','Fəaliyyətlər'), icon: '📅', items: [
+      { type: 'activity_scheduled', name: _t('Activity scheduled','Запланирована активность','Fəaliyyət planlaşdırıldı'), desc: _t('When a new activity is scheduled','Когда запланирована активность','Yeni fəaliyyət planlaşdırıldıqda') },
+    ]},
+  ];
+
   el.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">${_i._g('npp_title')}</h1>
-      <p class="text-slate-400 text-sm mt-1">${_i._g('npp_subtitle')}</p>
-    </div>
-    <div class="card overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-slate-700">
-            <th class="text-left p-3">${_i._g('npp_event')}</th>
-            <th class="text-center p-3">${_i._g('npp_web')}</th>
-            <th class="text-center p-3">${_i._g('npp_email')}</th>
-            <th class="text-center p-3">${_i._g('npp_telegram')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${eventTypes.map(ev => {
-            const p = prefMap[ev.type] || { channel_web: 1, channel_email: 0, channel_telegram: 0 };
-            return `<tr class="border-b border-slate-700/50">
-              <td class="p-3">${ev.label}</td>
-              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="web" ${p.channel_web ? 'checked' : ''}></td>
-              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="email" ${p.channel_email ? 'checked' : ''}></td>
-              <td class="p-3 text-center"><input type="checkbox" data-event="${ev.type}" data-channel="telegram" ${p.channel_telegram ? 'checked' : ''}></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div class="mt-4">
-      <button class="btn btn-primary" onclick="saveNotifPrefs()">${_i._g('c_save')}</button>
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <a href="#/notifications" class="p-2 rounded-lg hover:bg-slate-800 transition">
+            <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </a>
+          <div>
+            <h1 class="text-2xl font-bold">${_t('Notification Settings','Настройка уведомлений','Bildiriş ayarları')}</h1>
+            <p class="text-sm text-slate-400">${_t('Choose which notifications you want to receive','Выберите, какие уведомления получать','Hansı bildirişləri almaq istədiyinizi seçin')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6" id="notifPrefsContainer">
+        ${categories.map(cat => `
+          <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700/50 flex items-center gap-2">
+              <span class="text-lg">${cat.icon}</span>
+              <h3 class="font-semibold text-white">${cat.title}</h3>
+            </div>
+            <div class="divide-y divide-slate-700/30">
+              ${cat.items.map(item => {
+                const p = prefMap[item.type] || {};
+                const webOn = p.channel_web !== undefined ? !!p.channel_web : true;
+                return `<div class="px-5 py-3.5 flex items-center justify-between hover:bg-slate-800/20 transition" data-pref-type="${item.type}">
+                  <div class="flex-1 min-w-0 mr-4">
+                    <div class="text-sm font-medium text-white">${item.name}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">${item.desc}</div>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <button class="notif-toggle w-11 h-6 rounded-full ${webOn ? 'bg-indigo-500' : 'bg-slate-700'} flex items-center px-0.5 transition-all cursor-pointer" onclick="toggleNotifPref(this,'${item.type}')" data-enabled="${webOn ? '1' : '0'}">
+                      <div class="w-5 h-5 rounded-full bg-white shadow transition-transform ${webOn ? 'translate-x-5' : ''}"></div>
+                    </button>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button class="btn btn-primary px-6 py-2.5 text-sm" onclick="saveNotifPrefs()" id="saveNotifPrefsBtn">
+          <svg class="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          ${_t('Save','Сохранить','Yadda saxla')}
+        </button>
+      </div>
     </div>
   `;
 }
 
+function toggleNotifPref(btn, eventType) {
+  const enabled = btn.dataset.enabled === '1';
+  btn.dataset.enabled = enabled ? '0' : '1';
+  const dot = btn.querySelector('div');
+  if (enabled) {
+    btn.className = 'notif-toggle w-11 h-6 rounded-full bg-slate-700 flex items-center px-0.5 transition-all cursor-pointer';
+    dot.className = 'w-5 h-5 rounded-full bg-white shadow transition-transform';
+  } else {
+    btn.className = 'notif-toggle w-11 h-6 rounded-full bg-indigo-500 flex items-center px-0.5 transition-all cursor-pointer';
+    dot.className = 'w-5 h-5 rounded-full bg-white shadow transition-transform translate-x-5';
+  }
+}
+
 async function saveNotifPrefs() {
-  const checkboxes = document.querySelectorAll('[data-event][data-channel]');
-  const prefMap = {};
-  checkboxes.forEach(cb => {
-    const ev = cb.dataset.event;
-    if (!prefMap[ev]) prefMap[ev] = { event_type: ev, channel_web: 0, channel_email: 0, channel_telegram: 0 };
-    if (cb.dataset.channel === 'web') prefMap[ev].channel_web = cb.checked ? 1 : 0;
-    if (cb.dataset.channel === 'email') prefMap[ev].channel_email = cb.checked ? 1 : 0;
-    if (cb.dataset.channel === 'telegram') prefMap[ev].channel_telegram = cb.checked ? 1 : 0;
+  const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+  const toggles = document.querySelectorAll('.notif-toggle');
+  const preferences = [];
+  toggles.forEach(btn => {
+    const row = btn.closest('[data-pref-type]');
+    if (!row) return;
+    preferences.push({
+      event_type: row.dataset.prefType,
+      channel_web: btn.dataset.enabled === '1' ? 1 : 0,
+      channel_email: 0,
+      channel_telegram: 0
+    });
   });
+  const btn = document.getElementById('saveNotifPrefsBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin inline mr-1.5" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path></svg> ...';
   try {
-    await api.put('/api/notification-preferences', { preferences: Object.values(prefMap) });
-    showToast(_i._g('npp_saved'), 'success');
-  } catch(e) { showToast(esc(e.message), 'error'); }
+    await api.put('/api/notification-preferences', { preferences });
+    showToast(_t('Settings saved','Настройки сохранены','Ayarlar yadda saxlanıldı'), 'success');
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> ' + _t('Save','Сохранить','Yadda saxla');
+  }
 }
 
 // ─── Leads Kanban View ───────────────────────────────────────

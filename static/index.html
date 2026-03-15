@@ -16961,80 +16961,200 @@ async function onLeadDrop(e, newStatus) {
       try {
         const resp = await apiFetch('/api/ai/interaction-logs?session_id=' + sessionId + '&limit=10');
         const logs = resp.data || resp || [];
-        if (!logs.length) { alert('No trace data for this session'); return; }
-        // Show the latest log's trace
+        if (!logs.length) { alert('Нет данных трассировки для этой сессии'); return; }
         const logId = logs[0].id;
         const detail = await apiFetch('/api/ai/interaction-logs/' + logId);
         const logData = detail.data || detail;
         const trace = logData.trace_json || [];
-        const stepColors = {kb_search:'#22d3ee', llm_call:'#6366f1', tool_exec:'#f59e0b', quality_check:'#22c55e'};
-        const stepIcons = {kb_search:'\u{1f4da}', llm_call:'\u{1f916}', tool_exec:'\u{1f6e0}\ufe0f', quality_check:'\u2705'};
-        const stepLabels = {kb_search:'KB Search', llm_call:'LLM Call', tool_exec:'Tool Exec', quality_check:'Quality Check'};
+        const totalMs = trace.reduce((s, t) => s + (t.duration_ms || 0), 0) || 1;
+        const totalLatency = logData.latency_ms || totalMs;
+        const totalTokens = (logData.prompt_tokens||0) + (logData.completion_tokens||0);
+        const qScore = logData.quality_score || 0;
+        const qColor = qScore >= 8 ? '#22c55e' : qScore >= 6 ? '#a78bfa' : qScore >= 4 ? '#facc15' : qScore > 0 ? '#f87171' : '#475569';
+        const qLabel = qScore >= 8 ? 'Отлично' : qScore >= 6 ? 'Хорошо' : qScore >= 4 ? 'Средне' : qScore > 0 ? 'Плохо' : 'Не оценено';
 
-        let traceHtml = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">' +
-          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:20px;max-width:700px;width:90%;max-height:85vh;overflow-y:auto;padding:28px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
-            '<h3 style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700">\u{1f50d} Debug Trace — Session #' + sessionId + '</h3>' +
-            '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px">\u2715</button>' +
-          '</div>' +
-          '<div style="margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap">' +
-            '<span style="font-size:12px;color:#94a3b8">\u{23f1}\ufe0f Latency: <strong style="color:#22d3ee">' + (logData.latency_ms||0).toFixed(0) + 'ms</strong></span>' +
-            '<span style="font-size:12px;color:#94a3b8">\u{1f4ac} Tokens: <strong style="color:#a78bfa">' + (logData.prompt_tokens||0) + ' in / ' + (logData.completion_tokens||0) + ' out</strong></span>' +
-            '<span style="font-size:12px;color:#94a3b8">\u{1f4b0} Cost: <strong style="color:#34d399">$' + (logData.cost_usd||0).toFixed(4) + '</strong></span>' +
-            (logData.quality_score ? '<span style="font-size:12px;color:#94a3b8">\u{1f3af} Quality: <strong style="color:' + (logData.quality_score >= 7 ? '#a78bfa' : logData.quality_score >= 5 ? '#facc15' : '#f87171') + '">' + logData.quality_score + '/10</strong></span>' : '') +
-          '</div>' +
-          '<div style="font-size:12px;color:#64748b;margin-bottom:12px;padding:10px 14px;background:#1e293b;border-radius:10px"><strong style="color:#94a3b8">\u{1f464} User:</strong> ' + esc(logData.user_message||'').slice(0,200) + '</div>';
+        const stepConfig = {
+          kb_search:      {icon:'📚', label:'Поиск по базе знаний', color:'#22d3ee', desc:'Поиск релевантных статей в KB'},
+          llm_call:       {icon:'🧠', label:'Вызов LLM', color:'#818cf8', desc:'Запрос к Claude API'},
+          tool_exec:      {icon:'⚙️', label:'Выполнение инструмента', color:'#f59e0b', desc:'Вызов инструмента CRM'},
+          quality_check:  {icon:'✅', label:'Проверка качества', color:'#22c55e', desc:'Анализ флагов качества'}
+        };
 
+        // ── Build HTML ──
+        let h = '';
+        // Overlay
+        h += '<div id="traceOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)this.remove()">';
+        h += '<div style="background:linear-gradient(180deg,#0f172a 0%,#1a1f3a 100%);border:1px solid #2d3561;border-radius:20px;max-width:780px;width:94%;max-height:90vh;overflow-y:auto;padding:0;box-shadow:0 24px 64px rgba(0,0,0,0.5)">';
+
+        // ── Header ──
+        h += '<div style="padding:24px 28px 16px;border-bottom:1px solid #1e293b">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">';
+        h += '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:18px">🔬</div>';
+        h += '<div><h3 style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700">Трассировка сессии #' + sessionId + '</h3>';
+        h += '<span style="font-size:12px;color:#64748b">' + (logData.created_at || '') + ' • Модель: ' + esc(logData.model_used || 'claude-haiku') + '</span></div></div>';
+        h += '<button onclick="this.closest(\'#traceOverlay\').remove()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>';
+        h += '</div>';
+
+        // ── KPI Cards Row ──
+        h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">';
+        // Latency
+        h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Задержка</div>';
+        h += '<div style="font-size:22px;font-weight:800;color:#22d3ee">' + (totalLatency/1000).toFixed(1) + 's</div>';
+        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + totalLatency.toFixed(0) + ' мс</div></div>';
+        // Tokens
+        h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Токены</div>';
+        h += '<div style="font-size:22px;font-weight:800;color:#a78bfa">' + totalTokens + '</div>';
+        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + (logData.prompt_tokens||0) + ' вх / ' + (logData.completion_tokens||0) + ' вых</div></div>';
+        // Cost
+        h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Стоимость</div>';
+        h += '<div style="font-size:22px;font-weight:800;color:#34d399">$' + (logData.cost_usd||0).toFixed(4) + '</div>';
+        h += '<div style="font-size:10px;color:#475569;margin-top:2px">' + (logData.model_used||'haiku') + '</div></div>';
+        // Quality
+        h += '<div style="background:#1e293b;border-radius:12px;padding:14px;text-align:center">';
+        h += '<div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Качество</div>';
+        h += '<div style="font-size:22px;font-weight:800;color:' + qColor + '">' + (qScore > 0 ? qScore + '/10' : '—') + '</div>';
+        h += '<div style="font-size:10px;color:' + qColor + ';margin-top:2px">' + qLabel + '</div></div>';
+        h += '</div>'; // grid
+
+        h += '</div>'; // header
+
+        // ── User Message ──
+        h += '<div style="padding:16px 28px 0">';
+        h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:14px;background:#1e293b;border-radius:12px;border-left:3px solid #3b82f6">';
+        h += '<div style="width:28px;height:28px;border-radius:8px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">👤</div>';
+        h += '<div><div style="font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:4px">ЗАПРОС ПОЛЬЗОВАТЕЛЯ</div>';
+        h += '<div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(logData.user_message||'').slice(0,300) + '</div></div></div>';
+
+        // ── Waterfall Timeline Bar ──
+        h += '<div style="margin-top:16px;margin-bottom:4px;display:flex;align-items:center;gap:8px">';
+        h += '<span style="font-size:11px;color:#64748b;font-weight:600">КАСКАД ОБРАБОТКИ</span>';
+        h += '<div style="flex:1;height:1px;background:#1e293b"></div>';
+        h += '<span style="font-size:10px;color:#475569">' + trace.length + ' шагов • ' + (totalLatency/1000).toFixed(2) + 's</span></div>';
+
+        // Waterfall bar
+        h += '<div style="display:flex;height:28px;border-radius:8px;overflow:hidden;background:#0f172a;margin-bottom:20px">';
+        trace.forEach(step => {
+          const sc = stepConfig[step.step] || {color:'#6366f1'};
+          const pct = Math.max(((step.duration_ms || 0) / totalLatency) * 100, 2);
+          h += '<div title="' + (sc.label||step.step) + ': ' + (step.duration_ms||0) + 'мс (' + pct.toFixed(1) + '%)" style="width:' + pct + '%;background:' + sc.color + ';display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700;min-width:20px;transition:all 0.3s">';
+          h += pct > 8 ? (step.duration_ms||0) + 'мс' : '';
+          h += '</div>';
+        });
+        h += '</div>';
+
+        // ── Steps Timeline ──
         trace.forEach((step, i) => {
-          const color = stepColors[step.step] || '#6366f1';
-          const icon = stepIcons[step.step] || '\u2022';
-          const label = stepLabels[step.step] || step.step;
-          let detail = '';
+          const sc = stepConfig[step.step] || {icon:'•', label:step.step, color:'#6366f1', desc:''};
+          const dur = step.duration_ms || 0;
+          const pct = ((dur / totalLatency) * 100).toFixed(1);
+          const isLast = i === trace.length - 1;
+
+          h += '<div style="display:flex;gap:14px;position:relative">';
+          // Left timeline
+          h += '<div style="display:flex;flex-direction:column;align-items:center;width:40px;flex-shrink:0">';
+          h += '<div style="width:36px;height:36px;border-radius:10px;background:' + sc.color + '18;border:2px solid ' + sc.color + '40;display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;z-index:1">' + sc.icon + '</div>';
+          if (!isLast) h += '<div style="width:2px;flex:1;background:linear-gradient(to bottom,' + sc.color + '40,#1e293b);margin:4px 0"></div>';
+          h += '</div>';
+
+          // Right content
+          h += '<div style="flex:1;padding-bottom:' + (isLast ? '0' : '18') + 'px">';
+          // Header row
+          h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+          h += '<span style="font-size:14px;font-weight:700;color:' + sc.color + '">' + sc.label + '</span>';
+          h += '<span style="font-size:10px;color:#475569">(' + sc.desc + ')</span>';
+          h += '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">';
+          h += '<div style="width:60px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + sc.color + ';border-radius:3px"></div></div>';
+          h += '<span style="font-size:12px;font-weight:700;color:' + sc.color + ';min-width:55px;text-align:right">' + dur + ' мс</span>';
+          h += '<span style="font-size:10px;color:#475569;min-width:35px;text-align:right">' + pct + '%</span>';
+          h += '</div></div>';
+
+          // Detail card
+          h += '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;font-size:12px;color:#94a3b8">';
           if (step.step === 'kb_search') {
-            detail = step.articles_found + ' found, ' + step.articles_selected + ' selected';
+            h += '<div style="display:flex;gap:12px;margin-bottom:6px"><span>📊 Найдено: <strong style="color:#e2e8f0">' + (step.articles_found||0) + '</strong></span>';
+            h += '<span>✅ Выбрано: <strong style="color:#22c55e">' + (step.articles_selected||0) + '</strong></span></div>';
             if (step.articles && step.articles.length) {
-              detail += '<div style="margin-top:6px">' + step.articles.map(a =>
-                '<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:6px;height:6px;border-radius:50%;background:' + (a.score > 0.3 ? '#22c55e' : '#64748b') + '"></span><span style="color:#e2e8f0;font-size:12px">' + esc(a.title) + '</span><span style="color:' + (a.score > 0.3 ? '#22c55e' : '#64748b') + ';font-size:11px;font-weight:600">' + (a.score||0).toFixed(3) + '</span></div>'
-              ).join('') + '</div>';
+              step.articles.forEach(a => {
+                const barW = Math.max(Math.min((a.score||0) * 300, 100), 5);
+                const sColor = a.score > 0.1 ? '#22c55e' : a.score > 0.01 ? '#facc15' : '#64748b';
+                h += '<div style="display:flex;align-items:center;gap:8px;margin:5px 0">';
+                h += '<div style="width:100px;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;flex-shrink:0"><div style="width:' + barW + '%;height:100%;background:' + sColor + ';border-radius:3px"></div></div>';
+                h += '<span style="font-size:11px;font-weight:700;color:' + sColor + ';min-width:45px">' + (a.score||0).toFixed(3) + '</span>';
+                h += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + esc(a.title||'') + '</span></div>';
+              });
+            } else {
+              h += '<span style="color:#64748b">Нет подходящих статей</span>';
             }
           } else if (step.step === 'llm_call') {
-            detail = 'Iter ' + step.iteration + ' \u2022 ' + (step.prompt_tokens||0) + ' in / ' + (step.completion_tokens||0) + ' out \u2022 stop: ' + (step.stop_reason||'?');
+            const stopColor = step.stop_reason === 'tool_use' ? '#f59e0b' : '#22c55e';
+            const stopLabel = step.stop_reason === 'tool_use' ? '🔧 Вызов инструмента' : step.stop_reason === 'end_turn' ? '✅ Ответ завершён' : (step.stop_reason || '?');
+            h += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
+            h += '<span>🔄 Итерация: <strong style="color:#e2e8f0">' + (step.iteration||1) + '</strong></span>';
+            h += '<span>📥 Вход: <strong style="color:#a78bfa">' + (step.prompt_tokens||0) + ' токенов</strong></span>';
+            h += '<span>📤 Выход: <strong style="color:#c084fc">' + (step.completion_tokens||0) + ' токенов</strong></span>';
+            h += '</div>';
+            h += '<div style="margin-top:6px">Результат: <span style="color:' + stopColor + ';font-weight:600">' + stopLabel + '</span></div>';
           } else if (step.step === 'tool_exec') {
-            detail = '<span style="color:#f59e0b;font-weight:600">' + (step.tool||'?') + '</span> \u2022 result: ' + (step.result_size||0) + ' bytes';
+            h += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
+            h += '<span>🔧 Инструмент: <strong style="color:#f59e0b">' + esc(step.tool||'?') + '</strong></span>';
+            h += '<span>📦 Результат: <strong style="color:#e2e8f0">' + (step.result_size||0) + ' байт</strong></span>';
+            h += '</div>';
+            if (step.tool === 'get_tickets') h += '<div style="margin-top:4px;color:#475569">→ Получение списка тикетов клиента</div>';
+            if (step.tool === 'get_contracts') h += '<div style="margin-top:4px;color:#475569">→ Получение списка контрактов</div>';
+            if (step.tool === 'get_invoices') h += '<div style="margin-top:4px;color:#475569">→ Получение счетов-фактур</div>';
+            if (step.tool === 'search_kb') h += '<div style="margin-top:4px;color:#475569">→ Поиск в базе знаний</div>';
           } else if (step.step === 'quality_check') {
             const checks = [];
-            if (step.uncertainty_detected) checks.push('<span style="color:#f87171">\u26a0\ufe0f Uncertainty</span>');
-            if (step.no_kb_match) checks.push('<span style="color:#facc15">\u{1f4ad} No KB match</span>');
-            if (step.escalation_suggested) checks.push('<span style="color:#ef4444">\u{1f6a8} Escalation suggested</span>');
-            detail = checks.length ? checks.join(' \u2022 ') : '<span style="color:#22c55e">\u2705 All clear</span>';
+            if (step.uncertainty_detected) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);border-radius:6px;color:#f87171;font-size:11px">⚠️ Неуверенность</span>');
+            if (step.no_kb_match) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);border-radius:6px;color:#facc15;font-size:11px">💭 Нет совпадений в KB</span>');
+            if (step.escalation_suggested) checks.push('<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef4444;font-size:11px">🚨 Рекомендована эскалация</span>');
+            h += checks.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' + checks.join('') + '</div>'
+              : '<div style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:11px">✅ Все проверки пройдены</span></div>';
           }
-
-          traceHtml += '<div style="display:flex;gap:12px;margin-bottom:2px">' +
-            '<div style="display:flex;flex-direction:column;align-items:center;width:24px">' +
-              '<div style="width:24px;height:24px;border-radius:6px;background:' + color + '20;display:flex;align-items:center;justify-content:center;font-size:12px">' + icon + '</div>' +
-              (i < trace.length - 1 ? '<div style="width:2px;flex:1;background:#1e293b;margin:4px 0"></div>' : '') +
-            '</div>' +
-            '<div style="flex:1;padding-bottom:14px">' +
-              '<div style="display:flex;align-items:center;justify-content:space-between">' +
-                '<span style="font-size:13px;font-weight:700;color:' + color + '">' + label + '</span>' +
-                '<span style="font-size:11px;color:#64748b;background:#1e293b;padding:2px 8px;border-radius:6px">' + (step.duration_ms||0) + 'ms</span>' +
-              '</div>' +
-              '<div style="font-size:12px;color:#94a3b8;margin-top:4px">' + detail + '</div>' +
-            '</div>' +
-          '</div>';
+          h += '</div>'; // detail card
+          h += '</div>'; // right content
+          h += '</div>'; // step row
         });
 
-        traceHtml += '<div style="margin-top:16px;padding:10px 14px;background:#1e293b;border-radius:10px;font-size:12px;color:#64748b"><strong style="color:#94a3b8">\u{1f916} AI:</strong> ' + esc(logData.ai_response||'').slice(0,300) + (logData.ai_response && logData.ai_response.length > 300 ? '...' : '') + '</div>';
-        if (logData.quality_notes) {
-          traceHtml += '<div style="margin-top:8px;padding:10px 14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);border-radius:10px;font-size:12px;color:#c4b5fd"><strong>\u{1f3af} Quality Auditor:</strong> ' + esc(logData.quality_notes) + '</div>';
+        // ── AI Response ──
+        h += '<div style="margin-top:16px;border-top:1px solid #1e293b;padding-top:16px">';
+        h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:14px;background:#1e293b;border-radius:12px;border-left:3px solid #22c55e">';
+        h += '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🤖</div>';
+        h += '<div style="flex:1"><div style="font-size:11px;color:#22c55e;font-weight:600;margin-bottom:4px">ОТВЕТ AI-АГЕНТА</div>';
+        h += '<div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(logData.ai_response||'').slice(0,500) + (logData.ai_response && logData.ai_response.length > 500 ? '...' : '') + '</div></div></div>';
+
+        // Quality Auditor result
+        if (qScore > 0) {
+          h += '<div style="margin-top:10px;padding:14px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.15);border-radius:12px">';
+          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">';
+          h += '<span style="font-size:11px;color:#a78bfa;font-weight:700;text-transform:uppercase;letter-spacing:1px">🎯 Оценка Quality Auditor</span>';
+          // Score stars
+          h += '<div style="display:flex;gap:2px;margin-left:auto">';
+          for (let s = 1; s <= 10; s++) {
+            h += '<div style="width:8px;height:16px;border-radius:2px;background:' + (s <= qScore ? qColor : '#1e293b') + '"></div>';
+          }
+          h += '</div>';
+          h += '<span style="font-size:14px;font-weight:800;color:' + qColor + '">' + qScore + '/10</span>';
+          h += '</div>';
+          if (logData.quality_notes) {
+            h += '<div style="font-size:12px;color:#c4b5fd;line-height:1.5">' + esc(logData.quality_notes) + '</div>';
+          }
+          h += '</div>';
         }
-        traceHtml += '</div></div>';
+
+        h += '</div>'; // bottom section
+        h += '</div>'; // padding wrapper
+
+        h += '</div></div>'; // modal + overlay
 
         const traceEl = document.createElement('div');
-        traceEl.innerHTML = traceHtml;
+        traceEl.innerHTML = h;
         document.body.appendChild(traceEl.firstChild);
       } catch(e) {
-        alert('Error loading trace: ' + e.message);
+        alert('Ошибка загрузки трассировки: ' + e.message);
       }
     }
 

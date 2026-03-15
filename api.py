@@ -9368,13 +9368,12 @@ def _get_relevant_kb_articles(query: str, conn, limit: int = 3) -> list:
         return []
 
 
-async def _quality_auditor(log_id: int, user_message: str, ai_response: str, kb_articles: list):
-    """Async Quality Auditor — rates AI response quality 1-10 using a mini-prompt."""
-    import asyncio
-    await asyncio.sleep(0.1)  # yield to event loop
+def _quality_auditor_sync(log_id: int, user_message: str, ai_response: str, kb_articles: list):
+    """Quality Auditor — rates AI response quality 1-10 using a mini-prompt. Runs in a thread."""
     try:
         api_key = _get_ai_api_key()
         if not api_key:
+            logger.warning("Quality Auditor: no API key available")
             return
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
@@ -9397,7 +9396,12 @@ Respond ONLY in this exact JSON format, nothing else:
             messages=[{"role": "user", "content": audit_prompt}]
         )
         raw = resp.content[0].text.strip()
-        # Parse JSON from response
+        # Try to extract JSON even if wrapped in markdown
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
         audit_data = json.loads(raw)
         score = float(audit_data.get("score", 0))
         notes = audit_data.get("notes", "")[:200]
@@ -9416,9 +9420,15 @@ Respond ONLY in this exact JSON format, nothing else:
                      sid, log_id,
                      json.dumps({"score": score, "notes": notes})]
                 )
-        logger.info("Quality Auditor: log_id=%d score=%.1f", log_id, score)
+        logger.info("Quality Auditor: log_id=%d score=%.1f notes=%s", log_id, score, notes)
     except Exception as e:
-        logger.warning("Quality Auditor error: %s", e)
+        logger.warning("Quality Auditor error for log_id=%d: %s", log_id, e)
+
+async def _quality_auditor(log_id: int, user_message: str, ai_response: str, kb_articles: list):
+    """Async wrapper — runs the sync quality auditor in a thread pool to avoid blocking."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _quality_auditor_sync, log_id, user_message, ai_response, kb_articles)
 
 
 def _check_alerts(session_id: int, latency_ms: float, total_tokens: int, log_id: int):

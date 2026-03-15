@@ -18463,6 +18463,7 @@ async function onLeadDrop(e, newStatus) {
         try{
             await api.post('/api/journeys/'+journeyId+'/steps',{step_type:type,step_order:stepOrder,config:config});
             document.getElementById('addStepModal')?.remove();
+            document.getElementById('journeyDetailModal')?.remove();
             openJourneyDetail(journeyId);
             showToast('Шаг добавлен!','success');
         }catch(e){showToast('Ошибка: '+e.message,'error');}
@@ -18499,6 +18500,7 @@ async function onLeadDrop(e, newStatus) {
         try{
             await api.put('/api/journeys/steps/'+stepId,{config:JSON.stringify(config)});
             document.getElementById('editStepModal')?.remove();
+            document.getElementById('journeyDetailModal')?.remove();
             openJourneyDetail(journeyId);
             showToast('Шаг обновлён!','success');
         }catch(e){showToast(e.message,'error');}
@@ -18506,7 +18508,7 @@ async function onLeadDrop(e, newStatus) {
 
     async function deleteJourneyStep(stepId,journeyId){
         if(!confirm('Удалить этот шаг?'))return;
-        try{await api.remove('/api/journeys/steps/'+stepId);openJourneyDetail(journeyId);showToast('Шаг удалён','success');}catch(e){showToast(e.message,'error');}
+        try{await api.remove('/api/journeys/steps/'+stepId);document.getElementById('journeyDetailModal')?.remove();openJourneyDetail(journeyId);showToast('Шаг удалён','success');}catch(e){showToast(e.message,'error');}
     }
 
 </script>

@@ -18247,7 +18247,8 @@ async function onLeadDrop(e, newStatus) {
                 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">`;
                 h+=`<strong style="color:#e2e8f0">${i+1}. ${_jbx.labels[s.step_type]||s.step_type}</strong>`;
                 h+=`<span style="margin-left:auto;display:flex;gap:4px">`;
-                h+=`<button onclick="editJourneyStep(${s.id},${journeyId},'${s.step_type}',\`${btoa(JSON.stringify(config))}\`)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px" title="Редактировать">✏️</button>`;
+                window._stepConfigs=window._stepConfigs||{};window._stepConfigs[s.id]=config;
+                h+=`<button onclick="editJourneyStep(${s.id},${journeyId},'${s.step_type}')" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px" title="Редактировать">✏️</button>`;
                 h+=`<button onclick="deleteJourneyStep(${s.id},${journeyId})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px" title="Удалить">🗑️</button></span></div>`;
 
                 // Config details
@@ -18368,6 +18369,43 @@ async function onLeadDrop(e, newStatus) {
         toggleStepConfig();
     }
 
+    function _richEditor(id, placeholder){
+        const tb='display:flex;gap:2px;padding:6px;background:#0f172a;border:1px solid rgba(255,255,255,0.15);border-bottom:none;border-radius:8px 8px 0 0;flex-wrap:wrap';
+        const tbtn='padding:4px 8px;border:none;border-radius:4px;cursor:pointer;font-size:13px;background:#1e293b;color:#e2e8f0;min-width:28px;text-align:center';
+        const btns=[
+            {cmd:'bold',icon:'<b>B</b>',title:'Жирный'},
+            {cmd:'italic',icon:'<i>I</i>',title:'Курсив'},
+            {cmd:'underline',icon:'<u>U</u>',title:'Подчёркнутый'},
+            {cmd:'strikeThrough',icon:'<s>S</s>',title:'Зачёркнутый'},
+            {sep:true},
+            {cmd:'formatBlock',val:'H2',icon:'H2',title:'Заголовок'},
+            {cmd:'formatBlock',val:'H3',icon:'H3',title:'Подзаголовок'},
+            {cmd:'formatBlock',val:'P',icon:'¶',title:'Обычный текст'},
+            {sep:true},
+            {cmd:'insertUnorderedList',icon:'• —',title:'Маркированный список'},
+            {cmd:'insertOrderedList',icon:'1.',title:'Нумерованный список'},
+            {sep:true},
+            {cmd:'justifyLeft',icon:'≡←',title:'По левому'},
+            {cmd:'justifyCenter',icon:'≡↔',title:'По центру'},
+            {sep:true},
+            {cmd:'foreColor',val:'#8b5cf6',icon:'<span style="color:#8b5cf6">A</span>',title:'Фиолетовый'},
+            {cmd:'foreColor',val:'#22c55e',icon:'<span style="color:#22c55e">A</span>',title:'Зелёный'},
+            {cmd:'foreColor',val:'#e2e8f0',icon:'<span style="color:#e2e8f0">A</span>',title:'Белый (по умолч.)'},
+            {sep:true},
+            {cmd:'removeFormat',icon:'✕',title:'Очистить формат'},
+        ];
+        let toolbar='';
+        btns.forEach(b=>{
+            if(b.sep){toolbar+=`<div style="width:1px;background:rgba(255,255,255,0.1);margin:2px 4px"></div>`;return;}
+            const valArg=b.val?`,'${b.val}'`:'';
+            toolbar+=`<button type="button" title="${b.title}" style="${tbtn}" onmousedown="event.preventDefault();document.execCommand('${b.cmd}',false${valArg})">${b.icon}</button>`;
+        });
+        const phText=placeholder.replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        return `<div style="${tb}">${toolbar}</div>`+
+               `<div id="${id}" contenteditable="true" style="width:100%;min-height:120px;padding:12px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-top:none;border-radius:0 0 8px 8px;box-sizing:border-box;margin-bottom:10px;font-size:13px;line-height:1.5;outline:none;overflow-y:auto;max-height:300px" data-placeholder="${phText}"></div>`+
+               `<style>#${id}:empty:before{content:attr(data-placeholder);color:#475569;pointer-events:none}</style>`;
+    }
+
     function selectStepType(type,el){
         window._selectedStepType=type;
         document.querySelectorAll('.stepTypeTile').forEach(t=>{t.style.border='2px solid transparent';t.style.background='#0f172a';});
@@ -18382,8 +18420,8 @@ async function onLeadDrop(e, newStatus) {
         if(type==='send_email'){
             h+=`<label style="color:#94a3b8;font-size:12px">Тема письма</label>`;
             h+=`<input id="stepEmailSubject" placeholder="Добро пожаловать в Hermes CRM!" style="${_jbx.inp}">`;
-            h+=`<label style="color:#94a3b8;font-size:12px">Текст письма (HTML) · Переменные: {{contact_name}}, {{company_name}}</label>`;
-            h+=`<textarea id="stepEmailBody" rows="5" placeholder="<h2>Здравствуйте, {{contact_name}}!</h2><p>Текст...</p>" style="${_jbx.inp};resize:vertical;font-family:monospace;font-size:12px"></textarea>`;
+            h+=`<label style="color:#94a3b8;font-size:12px">Текст письма · Переменные: {{contact_name}}, {{company_name}}</label>`;
+            h+=_richEditor('stepEmailBody','Здравствуйте, {{contact_name}}!\n\nМы рады приветствовать вас...');
         } else if(type==='send_sms'){
             h+=`<label style="color:#94a3b8;font-size:12px">Текст SMS · Переменные: {{contact_name}}, {{company_name}}</label>`;
             h+=`<textarea id="stepSmsMsg" rows="3" placeholder="{{contact_name}}, спасибо за интерес к Hermes CRM!" style="${_jbx.inp};resize:vertical"></textarea>`;
@@ -18412,7 +18450,8 @@ async function onLeadDrop(e, newStatus) {
     async function saveJourneyStep(journeyId,stepOrder){
         const type=window._selectedStepType||'send_email';
         let config={};
-        if(type==='send_email'){config.subject=document.getElementById('stepEmailSubject')?.value||'';config.body=document.getElementById('stepEmailBody')?.value||'';}
+        if(type==='send_email'){config.subject=document.getElementById('stepEmailSubject')?.value||'';const eb=document.getElementById('stepEmailBody');config.body=eb?(eb.innerHTML||''):'';}
+
         if(type==='send_sms'){config.message=document.getElementById('stepSmsMsg')?.value||'';}
         if(type==='wait'){
             const val=parseInt(document.getElementById('stepWaitVal')?.value||1);
@@ -18429,16 +18468,19 @@ async function onLeadDrop(e, newStatus) {
         }catch(e){showToast('Ошибка: '+e.message,'error');}
     }
 
-    function editJourneyStep(stepId,journeyId,stepType,configB64){
-        try{const config=JSON.parse(atob(configB64));
+    function editJourneyStep(stepId,journeyId,stepType){
+        try{const config=(window._stepConfigs||{})[stepId]||{};
         const m=document.createElement('div');m.id='editStepModal';
         m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10002;display:flex;align-items:center;justify-content:center';
         let fields='';
         if(stepType==='send_email'){
-            fields+=`<label style="color:#94a3b8;font-size:12px">Тема</label><input id="editSubject" value="${esc(config.subject||config.email_subject||'')}" style="${_jbx.inp}">`;
-            fields+=`<label style="color:#94a3b8;font-size:12px">Текст (HTML)</label><textarea id="editBody" rows="5" style="${_jbx.inp};resize:vertical;font-family:monospace;font-size:12px">${esc(config.body||config.email_body||'')}</textarea>`;
+            const bodyHtml=config.body||config.email_body||'';
+            fields+=`<label style="color:#94a3b8;font-size:12px">Тема письма</label><input id="editSubject" value="${esc(config.subject||config.email_subject||'')}" style="${_jbx.inp}">`;
+            fields+=`<label style="color:#94a3b8;font-size:12px">Текст письма · Переменные: {{contact_name}}, {{company_name}}</label>`;
+            fields+=_richEditor('editBody','');
+            setTimeout(()=>{const el=document.getElementById('editBody');if(el)el.innerHTML=bodyHtml;},80);
         }else if(stepType==='send_sms'){
-            fields+=`<label style="color:#94a3b8;font-size:12px">Текст SMS</label><textarea id="editSms" rows="3" style="${_jbx.inp};resize:vertical">${esc(config.message||config.sms_message||'')}</textarea>`;
+            fields+=`<label style="color:#94a3b8;font-size:12px">Текст SMS · Переменные: {{contact_name}}, {{company_name}}</label><textarea id="editSms" rows="3" style="${_jbx.inp};resize:vertical">${esc(config.message||config.sms_message||'')}</textarea>`;
         }else if(stepType==='wait'){
             const val=config.duration_minutes||config.wait_days||1;const isMin=!!config.duration_minutes;
             fields+=`<label style="color:#94a3b8;font-size:12px">Длительность</label><div style="display:flex;gap:8px"><input id="editWaitVal" type="number" value="${val}" style="${_jbx.inp};flex:1"><select id="editWaitUnit" style="${_jbx.inp};flex:1"><option value="minutes" ${isMin?'selected':''}>Минут</option><option value="days" ${!isMin?'selected':''}>Дней</option></select></div>`;
@@ -18450,7 +18492,8 @@ async function onLeadDrop(e, newStatus) {
 
     async function updateJourneyStep(stepId,journeyId,stepType){
         let config={};
-        if(stepType==='send_email'){config.subject=document.getElementById('editSubject')?.value||'';config.body=document.getElementById('editBody')?.value||'';}
+        if(stepType==='send_email'){config.subject=document.getElementById('editSubject')?.value||'';const eb=document.getElementById('editBody');config.body=eb?(eb.innerHTML||''):'';}
+
         else if(stepType==='send_sms'){config.message=document.getElementById('editSms')?.value||'';}
         else if(stepType==='wait'){const v=parseInt(document.getElementById('editWaitVal')?.value||1);const u=document.getElementById('editWaitUnit')?.value;if(u==='minutes')config.duration_minutes=v;else config.wait_days=v;}
         try{

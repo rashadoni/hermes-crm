@@ -7376,6 +7376,19 @@ function showDealDetail(id) {
               <button class="btn btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);font-size:12px" onclick="runDealForecast(${id})">🔮 AI Прогноз сделки</button>
             </div>
           </div>
+          <!-- AI Document Generation -->
+          <div class="border-t border-slate-700 pt-4 mb-4">
+            <div class="flex items-center gap-2 mb-2">
+              <select id="dealDocType" class="text-xs" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:6px;padding:4px 8px">
+                <option value="proposal">📋 Коммерческое предложение</option>
+                <option value="contract_summary">📄 Резюме контракта</option>
+                <option value="report">📊 Отчёт</option>
+                <option value="brief">📝 Бриф проекта</option>
+              </select>
+              <button class="btn btn-sm" style="background:linear-gradient(135deg,#10b981,#059669);font-size:11px" onclick="runDocGeneration('deal',${id})">📄 Сгенерировать документ</button>
+            </div>
+            <div id="dealDocContent"></div>
+          </div>
           <div class="flex gap-2">
             <button class="btn btn-primary flex-1" onclick="showDealForm(${id})">${t('btn_edit')}</button>
             ${isAdmin() ? `<button class="btn btn-danger flex-1" onclick="deleteDeal(${id})">${t('btn_delete')}</button>` : ''}
@@ -7461,6 +7474,72 @@ async function runDealForecast(dealId) {
   } catch(e) {
     container.innerHTML = '<div class="text-center text-red-400 py-2 text-sm">⚠️ ' + esc(e.message||'Error') + '</div>';
   }
+}
+
+async function runDocGeneration(entityType, entityId) {
+  const container = document.getElementById('dealDocContent');
+  if (!container) return;
+  const L = currentLang || 'ru';
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  const docType = document.getElementById('dealDocType')?.value || 'proposal';
+  container.innerHTML = '<div class="text-center py-3"><div class="inline-block w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-slate-400 mt-2">' + _t('Generating document...','Генерация документа...','Sənəd yaradılır...') + '</p></div>';
+  try {
+    const res = await api.post('/api/ai/generate-document', { entity_type: entityType, entity_id: entityId, doc_type: docType, language: L });
+    const d = res.data || res;
+    const doc = d.document || {};
+    const sections = doc.sections || [];
+    const meta = doc.metadata || {};
+    let html = '';
+    // Document header
+    html += '<div style="background:#0f172a;border:1px solid rgba(16,185,129,0.2);border-radius:12px;overflow:hidden;margin-top:8px">';
+    html += '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(5,150,105,0.05));padding:12px 16px;border-bottom:1px solid rgba(16,185,129,0.15)">';
+    html += '<div style="font-size:16px;font-weight:700;color:#e2e8f0">' + esc(doc.title || 'Document') + '</div>';
+    if (meta.date || meta.prepared_for) {
+      html += '<div style="font-size:11px;color:#64748b;margin-top:4px">';
+      if (meta.date) html += '📅 ' + esc(meta.date) + ' ';
+      if (meta.prepared_for) html += '| 👤 ' + esc(meta.prepared_for) + ' ';
+      if (meta.prepared_by) html += '| ✍️ ' + esc(meta.prepared_by);
+      html += '</div>';
+    }
+    html += '</div>';
+    // Sections
+    html += '<div style="padding:12px 16px;max-height:350px;overflow-y:auto">';
+    sections.forEach(function(s, i) {
+      html += '<div style="margin-bottom:12px">';
+      html += '<div style="font-size:13px;font-weight:600;color:#10b981;margin-bottom:4px">' + (i+1) + '. ' + esc(s.heading || '') + '</div>';
+      html += '<div style="font-size:12px;color:#94a3b8;line-height:1.5;white-space:pre-wrap">' + esc(s.content || '') + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+    // Action buttons
+    html += '<div style="display:flex;gap:8px;margin-top:8px;justify-content:center">';
+    html += '<button class="btn btn-sm" style="background:linear-gradient(135deg,#10b981,#059669);font-size:11px" onclick="copyDocument()">📋 ' + _t('Copy','Копировать','Kopyala') + '</button>';
+    html += '<button class="btn btn-sm btn-secondary" style="font-size:11px" onclick="runDocGeneration(\'' + entityType + '\',' + entityId + ')">↻ ' + _t('Regenerate','Пересоздать','Yenidən') + '</button>';
+    html += '</div>';
+    html += '<div style="text-align:center;margin-top:4px;font-size:10px;color:#475569">' + (d.latency_ms||0) + 'ms</div>';
+    container.innerHTML = html;
+    // Store for copy
+    window._lastDoc = doc;
+  } catch(e) {
+    container.innerHTML = '<div class="text-center text-red-400 py-2 text-xs">⚠️ ' + esc(e.message||'Error') + '</div>';
+  }
+}
+
+function copyDocument() {
+  const doc = window._lastDoc;
+  if (!doc) return;
+  let text = doc.title + '\n' + '='.repeat(40) + '\n\n';
+  (doc.sections || []).forEach(function(s, i) {
+    text += (i+1) + '. ' + s.heading + '\n' + '-'.repeat(30) + '\n' + s.content + '\n\n';
+  });
+  if (doc.metadata) {
+    text += '\n---\n';
+    if (doc.metadata.date) text += 'Дата: ' + doc.metadata.date + '\n';
+    if (doc.metadata.prepared_for) text += 'Для: ' + doc.metadata.prepared_for + '\n';
+    if (doc.metadata.prepared_by) text += 'Подготовлено: ' + doc.metadata.prepared_by + '\n';
+  }
+  navigator.clipboard.writeText(text).then(() => showToast('Документ скопирован!','success')).catch(() => showToast('Ошибка','error'));
 }
 
 function showDealForm(id = null) {

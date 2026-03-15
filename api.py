@@ -13435,6 +13435,127 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/generate-document")
+async def ai_generate_document(request: Request, user=Depends(require_auth)):
+    """AI generates a structured document (proposal, contract summary, report) for a deal or lead."""
+    body = await request.json()
+    entity_type = body.get("entity_type", "deal")
+    entity_id = body.get("entity_id")
+    doc_type = body.get("doc_type", "proposal")  # proposal, contract_summary, report, brief
+    language = body.get("language", "ru")
+    extra_notes = body.get("extra_notes", "")
+    if not entity_id:
+        return _err("entity_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI API key not configured", 400)
+
+    lang_map = {"ru": "Russian", "en": "English", "az": "Azerbaijani"}
+    lang_name = lang_map.get(language, "Russian")
+
+    entity_info = ""
+    entity_name = ""
+    try:
+        with get_db() as conn:
+            if entity_type == "deal":
+                row = conn.execute("SELECT d.*, c.name as company_name_r, c.domain, c.industry FROM deals d LEFT JOIN companies c ON d.company_id=c.id WHERE d.id=?", [entity_id]).fetchone()
+                if row:
+                    row = dict(row)
+                    entity_name = row.get("title", "")
+                    entity_info = f"Deal: {row.get('title','')}, Amount: {row.get('value_amount') or row.get('amount',0)}, Stage: {row.get('stage','')}, Contact: {row.get('contact_name','')}, Company: {row.get('company_name_r') or row.get('company_name','')}, Industry: {row.get('industry','')}, Domain: {row.get('domain','')}"
+            elif entity_type == "lead":
+                row = conn.execute("SELECT * FROM leads WHERE id=?", [entity_id]).fetchone()
+                if row:
+                    row = dict(row)
+                    entity_name = row.get("company_name", "")
+                    entity_info = f"Lead: {row.get('company_name','')}, Contact: {row.get('contact_name','')}, Email: {row.get('email','')}, Phone: {row.get('phone','')}, Source: {row.get('source','')}, Value: {row.get('estimated_value','')}, Notes: {row.get('notes','')}"
+    except Exception:
+        pass
+
+    doc_templates = {
+        "proposal": "a commercial proposal / business offer document with sections: Executive Summary, Our Solution, Pricing, Timeline, Next Steps",
+        "contract_summary": "a contract/agreement summary document with sections: Parties, Scope of Work, Terms, Deliverables, Payment Schedule",
+        "report": "a client report with sections: Overview, Key Metrics, Analysis, Recommendations, Action Items",
+        "brief": "a project brief with sections: Background, Objectives, Scope, Requirements, Timeline",
+    }
+    doc_desc = doc_templates.get(doc_type, doc_templates["proposal"])
+
+    prompt = f"""You are a CRM document generation expert. Generate {doc_desc}.
+
+Entity: {entity_info}
+{f"Additional notes: {extra_notes}" if extra_notes else ""}
+
+Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_name}:
+{{
+  "title": "Document title",
+  "sections": [
+    {{
+      "heading": "Section heading",
+      "content": "Section content with full professional text. Use \\n for line breaks."
+    }}
+  ],
+  "metadata": {{
+    "date": "{datetime.now().strftime('%Y-%m-%d')}",
+    "prepared_for": "Client name",
+    "prepared_by": "Hermes CRM"
+  }}
+}}
+
+Rules:
+- Each section should have substantive, professional content (3-5 sentences minimum)
+- Use specific data from the entity info where possible
+- Monetary amounts should include currency
+- Be detailed and ready for client presentation"""
+
+    try:
+        import anthropic, time as _time, re as _re
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        result = {}
+        try:
+            clean = text
+            md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
+            if md_match:
+                clean = md_match.group(1)
+            if "{" in clean:
+                json_str = clean[clean.index("{"):clean.rindex("}") + 1]
+                result = json.loads(json_str)
+        except Exception as je:
+            logger.warning("Generate-doc JSON parse error: %s", je)
+            result = {"title": "Document", "sections": [{"heading": "Content", "content": text}], "metadata": {}}
+
+        try:
+            with get_db() as conn:
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("INSERT INTO ai_interaction_logs (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens, cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)",
+                    [0, f"[generate-doc:{doc_type}:{entity_type}#{entity_id}]", text[:500], latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "entity_name": entity_name,
+            "doc_type": doc_type,
+            "document": result,
+            "latency_ms": latency_ms,
+        })
+    except Exception as e:
+        logger.error("generate-doc error: %s", e, exc_info=True)
+        return _err(str(e), 500)
+
+
 @app.post("/api/ai/deal-forecast")
 async def ai_deal_forecast(request: Request, user=Depends(require_auth)):
     """AI analyzes a deal and predicts win probability, risk factors, and recommendations."""

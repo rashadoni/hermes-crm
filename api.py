@@ -1650,6 +1650,12 @@ async def update_lead(lead_id: int, request: Request, user=Depends(require_auth)
                 lead_id,
             ]
         )
+        # Notify if lead reassigned
+        new_assigned = data.get("assigned_to", existing["assigned_to"])
+        old_assigned = existing["assigned_to"]
+        if new_assigned and new_assigned != old_assigned and new_assigned != user["user_id"]:
+            lead_name = data.get("company_name", existing["company_name"])
+            send_notification(new_assigned, "lead_assigned", f"Lead assigned: {lead_name}", "", "lead", lead_id)
         log_audit(user["user_id"], "update_lead", "lead", lead_id, ip=_get_ip(request))
         return _ok({"id": lead_id, "message": "Lead updated"})
 
@@ -2030,6 +2036,12 @@ async def update_task(task_id: int, request: Request, user=Depends(require_auth)
                 task_id,
             ]
         )
+        # Notify if task reassigned
+        new_assigned = body.get("assigned_to", existing["assigned_to"])
+        old_assigned = existing["assigned_to"]
+        if new_assigned and new_assigned != old_assigned and new_assigned != user["user_id"]:
+            task_title = body.get("title", existing["title"])
+            send_notification(new_assigned, "task_assigned", f"Task assigned: {task_title}", "", "task", task_id)
         log_audit(user["user_id"], "update_task", "task", task_id, ip=_get_ip(request))
         return _ok({"message": "Task updated"})
 
@@ -2453,6 +2465,16 @@ async def create_activity(request: Request, user=Depends(require_auth)):
     if company_id and act_id:
         with get_db() as conn:
             conn.execute("UPDATE activities SET company_id=? WHERE id=?", (company_id, act_id))
+    # Notify contact owner of scheduled activity
+    if act_id and data.get("status") == "scheduled":
+        contact_id = data.get("contact_id")
+        if contact_id:
+            with get_db() as conn:
+                admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+                for a in admins:
+                    if a[0] != user["user_id"]:
+                        atype = data.get("activity_type", "call")
+                        send_notification(a[0], "activity_scheduled", f"Activity: {atype.title()} — {data.get('subject','')}", "", "contact", contact_id)
     log_audit(user["user_id"], "create_activity", "activity", act_id, ip=_get_ip(request))
     return _ok(activity)
 
@@ -3315,6 +3337,11 @@ async def create_contract(request: Request, user=Depends(require_auth)):
         conn.commit()
         new_id = cur.lastrowid
         row = conn.execute("SELECT * FROM contracts WHERE id = ?", (new_id,)).fetchone()
+        # Notify admins of new contract
+            admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+            for a in admins:
+                if a[0] != user["user_id"]:
+                    send_notification(a[0], "contract_created", f"New contract: {data.get('contract_name','')}", f"Counterparty: {data.get('counterparty','')}", "contract", new_id)
         log_audit(user["user_id"], "create_contract", "contract", new_id, ip=_get_ip(request))
         return _ok(dict(row))
 
@@ -3336,6 +3363,12 @@ async def update_contract(contract_id: int, request: Request, user=Depends(requi
         conn.execute(f"UPDATE contracts SET {', '.join(fields)} WHERE id = ?", params)
         conn.commit()
         row = conn.execute("SELECT * FROM contracts WHERE id = ?", (contract_id,)).fetchone()
+        # Notify on contract status change
+            if "status" in data:
+                admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager')").fetchall()
+                for a in admins:
+                    if a[0] != user["user_id"]:
+                        send_notification(a[0], "contract_status_changed", f"Contract: {row['contract_name']}", f"Status: {data['status']}", "contract", contract_id)
         log_audit(user["user_id"], "update_contract", "contract", contract_id, ip=_get_ip(request))
         return _ok(dict(row))
 

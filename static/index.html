@@ -3453,7 +3453,7 @@ async function loadNotifications() {
 function toggleNotifications() {
   const panel = document.getElementById('notifPanel');
   if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
-  const typeIcons = { lead_new:'🆕', lead_assigned:'👤', deal_stage_changed:'📊', deal_won:'🏆', deal_lost:'❌', task_assigned:'📋', task_overdue:'⚠️', task_due_today:'📅', contract_expiring:'⏰', contract_expired:'🔴', mention:'💬', contract_expiry:'⏰', silent_contact:'😴', stuck_negotiation:'⏳' };
+  const typeIcons = { lead_new:'🆕', lead_assigned:'👤', deal_stage_changed:'📊', deal_won:'🏆', deal_lost:'❌', task_assigned:'📋', task_overdue:'⚠️', task_due_today:'📅', contract_expiring:'⏰', contract_expired:'🔴', contract_created:'📄', contract_status_changed:'📋', activity_scheduled:'📅', ticket_assigned:'🎫', mention:'💬', contract_expiry:'⏰', silent_contact:'😴', stuck_negotiation:'⏳' };
   const lang = currentLang || 'en';
   let html = `<div class="p-3 border-b border-slate-700 flex justify-between items-center">
     <span class="font-semibold text-sm">${t('notif_header')}</span>
@@ -16295,7 +16295,7 @@ async function renderNotificationsPage(el) {
     const {data} = await api.get('/api/notifications?limit=100' + (unreadOnly ? '&unread_only=true' : ''));
     const items = data.items || [];
     const unread = data.unread || 0;
-    const typeIcons = { lead_new:'🆕', lead_assigned:'👤', deal_stage_changed:'📊', deal_won:'🏆', deal_lost:'❌', task_assigned:'📋', task_overdue:'⚠️', task_due_today:'📅', contract_expiring:'⏰', contract_expired:'🔴', mention:'💬' };
+    const typeIcons = { lead_new:'🆕', lead_assigned:'👤', deal_stage_changed:'📊', deal_won:'🏆', deal_lost:'❌', task_assigned:'📋', task_overdue:'⚠️', task_due_today:'📅', contract_expiring:'⏰', contract_expired:'🔴', contract_created:'📄', contract_status_changed:'📋', activity_scheduled:'📅', ticket_assigned:'🎫', mention:'💬' };
 
     el.innerHTML = `
       <div class="flex justify-between items-center mb-6">

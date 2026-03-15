@@ -16536,18 +16536,9 @@ async function onLeadDrop(e, newStatus) {
         const data = await apiFetch('/api/ai/command-center');
         const d = data.data || data;
         const deflect = d.deflection_rate || 0;
-        const toolHtml = Object.entries(d.tool_usage || {}).map(([k,v]) => 
-          `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1e293b"><span style="color:#94a3b8">${k}</span><span style="color:#e2e8f0;font-weight:600">${v}</span></div>`
-        ).join('') || '<div style="color:#475569;padding:12px">No tools used yet</div>';
-
-        const dailyMax = Math.max(...(d.daily_sessions||[]).map(x=>x.count), 1);
-        const barsHtml = (d.daily_sessions||[]).map(x => {
-          const h = Math.max(20, (x.count / dailyMax) * 120);
-          return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
-            '<span style="font-size:12px;color:#e2e8f0">' + x.count + '</span>' +
-            '<div style="width:32px;height:' + h + 'px;background:linear-gradient(to top,#3b82f6,#8b5cf6);border-radius:4px"></div>' +
-            '<span style="font-size:10px;color:#64748b">' + (x.date||'').slice(5) + '</span></div>';
-        }).join('') || '<div style="color:#475569">No data yet</div>';
+        const csat = d.avg_csat || 0;
+        const fcr = d.first_contact_resolution_rate || 0;
+        const resTime = d.avg_resolution_time_minutes || 0;
 
         const sessionsHtml = (d.recent_sessions||[]).map(s => {
           const tools = (s.tools_used||[]).map(t => '<span style="background:#1e1b4b;color:#8b5cf6;padding:2px 6px;border-radius:4px;font-size:10px">' + t + '</span>').join(' ');
@@ -16561,14 +16552,14 @@ async function onLeadDrop(e, newStatus) {
             '<td style="padding:8px;color:#64748b;font-size:12px">' + (s.created_at||'').replace('T',' ').slice(0,16) + '</td></tr>';
         }).join('') || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#475569">No sessions yet</td></tr>';
 
-        el.innerHTML = '<div style="padding:24px;max-width:1200px;margin:0 auto">' +
+        el.innerHTML = '<div style="padding:24px;max-width:1400px;margin:0 auto">' +
           '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">' +
             '<div style="width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🤖</div>' +
             '<div><h2 style="font-size:22px;font-weight:700;color:#e2e8f0;margin:0">AI Command Center</h2>' +
             '<p style="color:#64748b;font-size:13px;margin:0">Hermes AI Agent Performance Dashboard</p></div></div>' +
 
-          // KPI Cards
-          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">' +
+          // KPI Cards (8 metrics)
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px">' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
               '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Total Sessions</div>' +
               '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_sessions||0) + '</div>' +
@@ -16576,25 +16567,46 @@ async function onLeadDrop(e, newStatus) {
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
               '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Deflection Rate</div>' +
               '<div style="font-size:28px;font-weight:700;color:' + (deflect >= 80 ? '#4ade80' : deflect >= 50 ? '#facc15' : '#f87171') + ';margin-top:4px">' + deflect + '%</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Resolved by AI without human</div></div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">AI resolved</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">CSAT</div>' +
+              '<div style="font-size:28px;font-weight:700;color:' + (csat >= 4 ? '#4ade80' : csat >= 3 ? '#facc15' : '#f87171') + ';margin-top:4px">' + csat + '/5</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg satisfaction</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">FCR Rate</div>' +
+              '<div style="font-size:28px;font-weight:700;color:' + (fcr >= 80 ? '#4ade80' : fcr >= 50 ? '#facc15' : '#f87171') + ';margin-top:4px">' + fcr + '%</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">First contact resolve</div></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Avg Resolution</div>' +
+              '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + resTime + ' min</div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Time to resolve</div></div>' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
               '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Messages</div>' +
               '<div style="font-size:28px;font-weight:700;color:#e2e8f0;margin-top:4px">' + (d.total_messages||0) + '</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg ' + (d.avg_messages_per_session||0) + ' per session</div></div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">Avg ' + (d.avg_messages_per_session||0) + '/session</div></div>' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
               '<div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px">Escalations</div>' +
               '<div style="font-size:28px;font-weight:700;color:#f87171;margin-top:4px">' + (d.escalated||0) + '</div>' +
-              '<div style="font-size:12px;color:#64748b;margin-top:4px">Transferred to human</div></div>' +
+              '<div style="font-size:12px;color:#64748b;margin-top:4px">To human agents</div></div>' +
           '</div>' +
 
-          // Charts row
-          '<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px">' +
+          // Charts row (Chart.js)
+          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:24px">' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
               '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Sessions (Last 7 Days)</h3>' +
-              '<div style="display:flex;align-items:flex-end;gap:12px;height:160px;padding-top:16px">' + barsHtml + '</div></div>' +
+              '<canvas id="dailySessionsChart" style="max-height:250px"></canvas></div>' +
             '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
-              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Tool Usage</h3>' + toolHtml + '</div>' +
+              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Resolution Status</h3>' +
+              '<canvas id="resolutionChart" style="max-height:250px"></canvas></div>' +
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
+              '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Top Tools</h3>' +
+              '<canvas id="toolsChart" style="max-height:250px"></canvas></div>' +
           '</div>' +
+
+          // Agent Performance section
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px;margin-bottom:24px">' +
+            '<h3 style="font-size:14px;font-weight:600;color:#e2e8f0;margin:0 0 16px">Agent Performance</h3>' +
+            '<div id="agentPerfTable" style="overflow-x:auto">Loading...</div></div>' +
 
           // Sessions table
           '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px">' +
@@ -16607,9 +16619,135 @@ async function onLeadDrop(e, newStatus) {
                 '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Tools</th>' +
                 '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Status</th>' +
                 '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Date</th></tr></thead>' +
-              '<tbody>' + sessionsHtml + '</tbody></table></div></div>';
+              '<tbody>' + sessionsHtml + '</tbody></table></div>' +
+          '</div>';
+
+        // Render Chart.js charts
+        setTimeout(() => renderAICharts(d), 100);
+        // Load agent performance
+        renderAgentPerformance();
       } catch(e) {
         el.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171">Error loading Command Center: ' + e.message + '</div>';
+      }
+    }
+
+    function renderAICharts(d) {
+      const chartTextColor = '#94a3b8';
+      const gridColor = '#334155';
+
+      // Daily Sessions Chart
+      const dailyLabels = (d.daily_sessions||[]).map(x => (x.date||'').slice(5));
+      const dailyData = (d.daily_sessions||[]).map(x => x.count || 0);
+      const dailyCtx = document.getElementById('dailySessionsChart');
+      if (dailyCtx && window.Chart) {
+        new Chart(dailyCtx, {
+          type: 'line',
+          data: {
+            labels: dailyLabels.length ? dailyLabels : ['—'],
+            datasets: [{
+              label: 'Sessions',
+              data: dailyData.length ? dailyData : [0],
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59,130,246,0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: '#3b82f6',
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: gridColor } },
+              x: { ticks: { color: chartTextColor }, grid: { color: gridColor } }
+            }
+          }
+        });
+      }
+
+      // Resolution Status (Doughnut Chart)
+      const resCtx = document.getElementById('resolutionChart');
+      if (resCtx && window.Chart) {
+        new Chart(resCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['AI Resolved', 'Escalated'],
+            datasets: [{
+              data: [d.resolved_without_human || 0, d.escalated || 0],
+              backgroundColor: ['#4ade80', '#f87171'],
+              borderColor: '#0f172a',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: chartTextColor } }
+            }
+          }
+        });
+      }
+
+      // Tool Usage Chart
+      const toolLabels = Object.keys(d.tool_usage || {});
+      const toolData = Object.values(d.tool_usage || {});
+      const toolCtx = document.getElementById('toolsChart');
+      if (toolCtx && window.Chart) {
+        new Chart(toolCtx, {
+          type: 'bar',
+          data: {
+            labels: toolLabels.length ? toolLabels : ['—'],
+            datasets: [{
+              label: 'Uses',
+              data: toolData.length ? toolData : [0],
+              backgroundColor: '#8b5cf6',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: gridColor } },
+              y: { ticks: { color: chartTextColor }, grid: { color: gridColor } }
+            }
+          }
+        });
+      }
+    }
+
+    async function renderAgentPerformance() {
+      try {
+        const resp = await apiFetch('/api/ai/agent-performance');
+        const agents = resp.data || resp || [];
+        const tableHtml = agents.length ?
+          '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+          '<thead><tr style="border-bottom:1px solid #334155">' +
+          '<th style="padding:8px;text-align:left;color:#64748b;font-weight:500">Agent</th>' +
+          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Total</th>' +
+          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Open</th>' +
+          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Closed</th>' +
+          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Closure %</th>' +
+          '<th style="padding:8px;text-align:center;color:#64748b;font-weight:500">Avg Hours</th>' +
+          '</tr></thead><tbody>' +
+          agents.map(a => '<tr style="border-bottom:1px solid #1e293b">' +
+            '<td style="padding:8px"><strong>' + a.agent_name + '</strong><br><span style="font-size:11px;color:#64748b">' + a.email + '</span></td>' +
+            '<td style="padding:8px;text-align:center">' + a.total_tickets + '</td>' +
+            '<td style="padding:8px;text-align:center;color:#f87171">' + a.open_tickets + '</td>' +
+            '<td style="padding:8px;text-align:center;color:#4ade80">' + a.closed_tickets + '</td>' +
+            '<td style="padding:8px;text-align:center"><span style="background:#052e16;color:#4ade80;padding:2px 8px;border-radius:4px">' + a.closure_rate + '%</span></td>' +
+            '<td style="padding:8px;text-align:center">' + a.avg_resolution_hours + '</td>' +
+          '</tr>').join('') +
+          '</tbody></table>' :
+          '<div style="color:#64748b;padding:20px;text-align:center">No agents found</div>';
+        const el = document.getElementById('agentPerfTable');
+        if (el) el.innerHTML = tableHtml;
+      } catch (e) {
+        const el = document.getElementById('agentPerfTable');
+        if (el) el.innerHTML = '<div style="color:#f87171">Error loading agent performance</div>';
       }
     }
 

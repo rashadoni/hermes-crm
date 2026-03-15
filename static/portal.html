@@ -874,8 +874,53 @@
             else if (resp.data && resp.data.session_id) chatSessionId = resp.data.session_id;
             const aiText = resp.response || (resp.data && resp.data.response) || 'No response';
             const toolsUsed = resp.tools_used || (resp.data && resp.data.tools_used) || [];
+            const qualityIndicators = resp.quality_indicators || (resp.data && resp.data.quality_indicators) || {};
+
             addChatBubble('ai', aiText, toolsUsed);
             chatHistory.push({ role: 'assistant', content: aiText });
+
+            // Show quality indicators if low confidence
+            if (qualityIndicators.suggested_escalation) {
+                setTimeout(() => {
+                    const box = document.getElementById('chatMessages');
+                    const wrap = document.createElement('div');
+                    wrap.className = 'chat-bubble-wrap ai';
+                    const msg = document.createElement('div');
+                    msg.className = 'chat-msg ai';
+                    msg.innerHTML = '<p style="font-size:13px">Would you like to speak with a human agent? I can escalate your conversation.</p>' +
+                        '<div style="margin-top:8px;display:flex;gap:8px">' +
+                        '<button onclick="chatHistory.push({role:\'user\',content:\'Yes, please escalate this conversation\'});sendChatMsg.call({value:\'Yes, please escalate this conversation\'}.value=\'\')" style="background:#2563eb;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">Yes, escalate</button>' +
+                        '<button onclick="event.target.parentElement.parentElement.parentElement.remove()" style="background:#334155;color:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">Dismiss</button>' +
+                        '</div>';
+                    wrap.appendChild(msg);
+                    box.appendChild(wrap);
+                    box.scrollTop = box.scrollHeight;
+                }, 200);
+            }
+
+            // Show CSAT rating after 3+ messages
+            if (chatHistory.filter(h => h.role === 'user').length >= 3) {
+                setTimeout(() => {
+                    const box = document.getElementById('chatMessages');
+                    const wrap = document.createElement('div');
+                    wrap.className = 'chat-bubble-wrap ai';
+                    wrap.id = 'csatRating';
+                    const msg = document.createElement('div');
+                    msg.className = 'chat-msg ai';
+                    msg.innerHTML = '<p style="font-size:13px;margin-bottom:8px">Rate this conversation:</p>' +
+                        '<div style="display:flex;gap:6px">' +
+                        ['1', '2', '3', '4', '5'].map(r => '<button onclick="rateChatSession(' + r + ')" style="width:32px;height:32px;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;cursor:pointer;font-weight:600;transition:all 0.2s" onmouseover="this.style.background=\'#334155\';this.style.color=\'#f59e0b\'" onmouseout="this.style.background=\'#1e293b\';this.style.color=\'#94a3b8\'">' + r + '</button>').join('') +
+                        '</div>';
+                    wrap.appendChild(msg);
+                    box.appendChild(wrap);
+                    box.scrollTop = box.scrollHeight;
+                }, 200);
+            }
+
+            // Poll for escalation updates if escalated
+            if (toolsUsed && toolsUsed.includes('escalate_to_human')) {
+                pollEscalationUpdates();
+            }
         } catch (e) {
             hideTyping();
             const errLang = localStorage.getItem('portalLang') || 'az';
@@ -886,6 +931,40 @@
         }
         btn.disabled = false;
         input.focus();
+    }
+
+    async function rateChatSession(rating) {
+        const csatEl = document.getElementById('csatRating');
+        if (csatEl) csatEl.remove();
+
+        try {
+            await api('POST', '/api/portal/chat/rate', {
+                session_id: chatSessionId,
+                rating: rating
+            });
+            addChatBubble('ai', '✅ Thank you for your feedback!');
+        } catch (e) {
+            console.error('Rating error:', e);
+        }
+    }
+
+    let escalationPollInterval = null;
+    async function pollEscalationUpdates() {
+        if (escalationPollInterval) return;
+        escalationPollInterval = setInterval(async () => {
+            try {
+                const resp = await api('GET', '/api/portal/chat/escalation-updates?session_id=' + chatSessionId, null);
+                if (resp.has_updates && resp.comments && resp.comments.length > 0) {
+                    resp.comments.forEach(comment => {
+                        addChatBubble('ai', '<strong>' + comment.author + ':</strong> ' + comment.content);
+                    });
+                    clearInterval(escalationPollInterval);
+                    escalationPollInterval = null;
+                }
+            } catch (e) {
+                console.error('Escalation poll error:', e);
+            }
+        }, 5000);
     }
     </script>
 </body>

@@ -18,6 +18,7 @@ import base64
 import hashlib
 import jwt
 import httpx
+import math
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
@@ -9021,7 +9022,7 @@ AI_TOOLS = [
 ]
 
 
-def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user_id: int) -> str:
+def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user_id: int, session_id: int = 0) -> str:
     """Execute a tool and return the result as a string."""
     try:
         with get_db() as conn:
@@ -9094,14 +9095,36 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
             elif tool_name == "escalate_to_human":
                 reason = tool_input.get("reason", "User requested human support")
                 summary = tool_input.get("summary", "")
+
+                # Fetch full chat transcript for the session
+                transcript = ""
+                if session_id:
+                    try:
+                        msgs = conn.execute(
+                            "SELECT role, content, created_at FROM ai_chat_messages WHERE session_id=? ORDER BY created_at",
+                            [session_id]
+                        ).fetchall()
+                        transcript_parts = ["=== Full Chat Transcript ===\n"]
+                        for msg in msgs:
+                            role, content, created_at = msg
+                            role_label = "User" if role == "user" else "AI Agent"
+                            transcript_parts.append(f"\n[{created_at}] {role_label}:\n{content}\n")
+                        transcript = "".join(transcript_parts)
+                    except Exception as e:
+                        logger.warning("Failed to fetch transcript: %s", e)
+                        transcript = f"[Could not retrieve full transcript: {str(e)}]"
+
                 # Create an escalation ticket
                 agent_row = conn.execute("""
                     SELECT u.id FROM users u WHERE u.role IN ('admin','manager') AND u.is_active=1 ORDER BY u.id ASC LIMIT 1
                 """).fetchone()
                 assigned = agent_row[0] if agent_row else None
+
+                full_description = f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}\n\n{transcript}"
+
                 conn.execute(
                     "INSERT INTO tickets (subject, description, status, priority, company_id, assigned_to, tags) VALUES (?,?,?,?,?,?,?)",
-                    [f"[AI Escalation] {reason}", f"[Escalated from AI Agent for portal user #{portal_user_id}]\n\nReason: {reason}\n\nConversation Summary:\n{summary}", "new", "high", company_id, assigned, '["ai-escalation"]']
+                    [f"[AI Escalation] {reason}", full_description, "new", "high", company_id, assigned, '["ai-escalation"]']
                 )
                 new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
                 tnum = f"TK-{new_id:04d}"
@@ -9120,6 +9143,67 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
     except Exception as e:
         logger.error("Tool execution error (%s): %s", tool_name, e)
         return json.dumps({"error": str(e)})
+
+
+def _compute_tf_idf_score(query: str, document: str) -> float:
+    """Compute a simple TF-IDF-like relevance score between query and document.
+
+    TF = term frequency in document
+    IDF approximated by 1 / (1 + doc frequency across corpus)
+    """
+    query_words = set(re.findall(r'\b\w+\b', query.lower()))
+    doc_words = re.findall(r'\b\w+\b', document.lower())
+    doc_word_counts = {}
+    for w in doc_words:
+        doc_word_counts[w] = doc_word_counts.get(w, 0) + 1
+
+    # TF: count of matching words in document
+    score = 0.0
+    for q_word in query_words:
+        if q_word in doc_word_counts:
+            tf = doc_word_counts[q_word] / (len(doc_words) + 1)
+            score += tf * math.log(1 + len(query_words) / (1 + len([w for w in query_words if w in doc_word_counts])))
+
+    return score
+
+
+def _get_relevant_kb_articles(query: str, conn, limit: int = 3) -> list:
+    """Retrieve top relevant KB articles using TF-IDF similarity search.
+
+    Returns list of dicts with keys: id, title, content, category, relevance_score
+    """
+    try:
+        articles = conn.execute(
+            "SELECT id, title, content, category FROM kb_articles WHERE status='published'"
+        ).fetchall()
+
+        if not articles:
+            return []
+
+        # Score each article
+        scored = []
+        for a in articles:
+            article_id, title, content, category = a
+            # Search in title (higher weight) and content
+            title_score = _compute_tf_idf_score(query, title) * 2.0
+            content_score = _compute_tf_idf_score(query, content)
+            total_score = title_score + content_score
+
+            if total_score > 0:
+                scored.append({
+                    "id": article_id,
+                    "title": title,
+                    "content": content,
+                    "category": category,
+                    "score": total_score
+                })
+
+        # Sort by score descending and return top N
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        return scored[:limit]
+    except Exception as e:
+        logger.warning("KB search error: %s", e)
+        return []
 
 
 @app.post("/api/portal/chat")
@@ -9159,17 +9243,17 @@ async def portal_chat(request: Request):
         logger.warning("Chat session tracking error: %s", e)
         session_id = session_id or 0
 
-    # RAG: load KB articles
+    # RAG: TF-IDF similarity search for relevant KB articles
     kb_context = ""
+    kb_articles_used = []
     try:
         with get_db() as conn:
-            articles = conn.execute(
-                "SELECT title, content, category FROM kb_articles WHERE status='published' ORDER BY views DESC LIMIT 15"
-            ).fetchall()
-            if articles:
+            relevant_articles = _get_relevant_kb_articles(user_message, conn, limit=3)
+            if relevant_articles:
                 kb_parts = []
-                for a in articles:
-                    kb_parts.append(f"### {a[0]} (category: {a[2] if len(a) > 2 else 'general'})\n{a[1] if len(a) > 1 else ''}")
+                for a in relevant_articles:
+                    kb_parts.append(f"### {a['title']} (ID: {a['id']}, category: {a.get('category', 'general')})\n{a['content'][:500]}")
+                    kb_articles_used.append({"id": a["id"], "title": a["title"]})
                 kb_context = "\n\n".join(kb_parts)
     except Exception as e:
         logger.warning("Failed to load KB: %s", e)
@@ -9190,6 +9274,11 @@ RULES:
 - Before creating a ticket, confirm subject and description with user
 - If you cannot help or user asks for human — use escalate_to_human tool
 
+KNOWLEDGE BASE CITATION:
+- When you use information from the knowledge base articles below, cite the article title like: "According to **[Article Title]**, ..."
+- Include the article title in bold so the client can link to it
+- Always prioritize KB information when available — it's more relevant to your company
+
 FORMATTING (the client renders basic markdown):
 - Use **bold** for labels and important values (ticket numbers, statuses)
 - Use line breaks between sections for readability
@@ -9202,7 +9291,7 @@ FORMATTING (the client renders basic markdown):
 - Use bullet lists (- item) for multiple items
 - Do NOT use raw markdown tables — use simple labeled lines instead
 
-{f"KNOWLEDGE BASE:{chr(10)}{kb_context}" if kb_context else ""}
+{f"KNOWLEDGE BASE:{chr(10)}{kb_context}" if kb_context else "No relevant KB articles found."}
 
 Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 Company ID: {company_id}
@@ -9246,7 +9335,7 @@ Company ID: {company_id}
                         tool_input = block.input
                         tools_used.append(tool_name)
                         logger.info("AI Tool call: %s(%s)", tool_name, json.dumps(tool_input, ensure_ascii=False))
-                        result = _execute_tool(tool_name, tool_input, company_id, portal_user_id)
+                        result = _execute_tool(tool_name, tool_input, company_id, portal_user_id, session_id)
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
@@ -9269,6 +9358,47 @@ Company ID: {company_id}
         if not ai_text:
             ai_text = "I've completed the action. Is there anything else I can help with?"
 
+        # Detect quality score (check for low-confidence indicators)
+        quality_indicators = {
+            "low_confidence": False,
+            "has_uncertainty_phrases": False,
+            "suggested_escalation": False
+        }
+
+        uncertainty_phrases = [
+            "i'm not sure",
+            "i don't know",
+            "i cannot",
+            "i can't",
+            "unable to",
+            "not available",
+            "no information",
+            "don't have access",
+            "need clarification",
+            "unclear"
+        ]
+
+        ai_text_lower = ai_text.lower()
+        for phrase in uncertainty_phrases:
+            if phrase in ai_text_lower:
+                quality_indicators["has_uncertainty_phrases"] = True
+                break
+
+        # If we detected low confidence AND user has asked similar questions before, suggest escalation
+        if quality_indicators["has_uncertainty_phrases"]:
+            try:
+                with get_db() as conn:
+                    # Check if there are previous messages with similar topics
+                    prev_messages = conn.execute(
+                        "SELECT content FROM ai_chat_messages WHERE session_id=? AND role='user' LIMIT 5",
+                        [session_id]
+                    ).fetchall()
+                    if len(prev_messages) > 1:
+                        quality_indicators["suggested_escalation"] = True
+                        quality_indicators["low_confidence"] = True
+            except Exception:
+                pass
+
         # Log AI response and tools
         try:
             with get_db() as conn:
@@ -9280,7 +9410,7 @@ Company ID: {company_id}
         except Exception:
             pass
 
-        return _ok({"response": ai_text, "session_id": session_id, "tools_used": tools_used})
+        return _ok({"response": ai_text, "session_id": session_id, "tools_used": tools_used, "quality_indicators": quality_indicators, "kb_articles": kb_articles_used})
     except Exception as e:
         logger.error("AI chat error: %s", e)
         _err(f"AI service error: {str(e)}", 500)
@@ -9340,6 +9470,24 @@ async def ai_command_center(user=Depends(require_auth)):
                     "created_at": r[4], "user_name": r[5] or "Unknown", "user_email": r[6] or ""
                 })
 
+            # CSAT (Customer Satisfaction) — average rating from sessions with ratings
+            csat_result = conn.execute("SELECT AVG(satisfaction) FROM ai_chat_sessions WHERE satisfaction > 0").fetchone()
+            avg_csat = round(csat_result[0], 1) if csat_result and csat_result[0] else 0
+
+            # Average Resolution Time — time between created_at and updated_at for resolved sessions
+            resolution_time_result = conn.execute("""
+                SELECT AVG((julianday(updated_at) - julianday(created_at)) * 24 * 60)
+                FROM ai_chat_sessions
+                WHERE resolved_without_human = 1 AND tools_used NOT LIKE '%escalate%'
+            """).fetchone()
+            avg_resolution_time = round(resolution_time_result[0], 1) if resolution_time_result and resolution_time_result[0] else 0
+
+            # First Contact Resolution (FCR) — sessions resolved in 1-2 messages without escalation
+            fcr_count = conn.execute(
+                "SELECT COUNT(*) FROM ai_chat_sessions WHERE messages_count <= 2 AND tools_used NOT LIKE '%escalate%'"
+            ).fetchone()[0]
+            fcr_rate = round((fcr_count / total * 100) if total > 0 else 0, 1)
+
             return _ok({
                 "total_sessions": total,
                 "sessions_today": today,
@@ -9348,6 +9496,9 @@ async def ai_command_center(user=Depends(require_auth)):
                 "escalated": escalated,
                 "deflection_rate": deflection_rate,
                 "avg_messages_per_session": round(avg_msgs, 1),
+                "avg_csat": avg_csat,
+                "avg_resolution_time_minutes": avg_resolution_time,
+                "first_contact_resolution_rate": fcr_rate,
                 "tool_usage": tool_counts,
                 "daily_sessions": daily_data,
                 "recent_sessions": recent_sessions
@@ -9370,6 +9521,157 @@ async def ai_chat_session_detail(session_id: int, user=Depends(require_auth)):
             return _ok([{"role": r[0], "content": r[1], "tool": r[2], "time": r[3]} for r in msgs])
     except Exception as e:
         _err(str(e), 500)
+
+
+@app.post("/api/portal/chat/rate")
+async def rate_chat_session(request: Request):
+    """Rate a chat session (1-5 stars). Portal users can rate their AI conversations."""
+    user = _portal_require_auth(request)
+    data = await request.json()
+    session_id = data.get("session_id")
+    rating = data.get("rating")
+
+    if not session_id or not rating or rating < 1 or rating > 5:
+        return _err("Invalid session_id or rating (1-5)", 400)
+
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            conn.execute(
+                "UPDATE ai_chat_sessions SET satisfaction=? WHERE id=?",
+                [rating, session_id]
+            )
+        return _ok({"success": True, "rating": rating, "session_id": session_id})
+    except Exception as e:
+        logger.error("CSAT rating error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/ai/agent-performance")
+async def agent_performance(user=Depends(require_auth)):
+    """Get performance metrics for support agents (ticket assignments, resolution times, etc.)."""
+    try:
+        with get_db() as conn:
+            agents = conn.execute("""
+                SELECT DISTINCT assigned_to FROM tickets WHERE assigned_to IS NOT NULL
+            """).fetchall()
+
+            agent_data = []
+            for (agent_id,) in agents:
+                agent_info = conn.execute(
+                    "SELECT id, first_name, last_name, email FROM users WHERE id=?",
+                    [agent_id]
+                ).fetchone()
+                if not agent_info:
+                    continue
+
+                total_tickets = conn.execute(
+                    "SELECT COUNT(*) FROM tickets WHERE assigned_to=?",
+                    [agent_id]
+                ).fetchone()[0]
+
+                open_tickets = conn.execute(
+                    "SELECT COUNT(*) FROM tickets WHERE assigned_to=? AND status NOT IN ('closed','resolved')",
+                    [agent_id]
+                ).fetchone()[0]
+
+                closed_tickets = conn.execute(
+                    "SELECT COUNT(*) FROM tickets WHERE assigned_to=? AND status IN ('closed','resolved')",
+                    [agent_id]
+                ).fetchone()[0]
+
+                # Average resolution time (in hours)
+                avg_time = conn.execute("""
+                    SELECT AVG((julianday(updated_at) - julianday(created_at)) * 24)
+                    FROM tickets WHERE assigned_to=? AND status IN ('closed','resolved')
+                """, [agent_id]).fetchone()[0]
+
+                agent_data.append({
+                    "agent_id": agent_id,
+                    "agent_name": f"{agent_info[1]} {agent_info[2]}",
+                    "email": agent_info[3],
+                    "total_tickets": total_tickets,
+                    "open_tickets": open_tickets,
+                    "closed_tickets": closed_tickets,
+                    "avg_resolution_hours": round(avg_time, 1) if avg_time else 0,
+                    "closure_rate": round((closed_tickets / total_tickets * 100) if total_tickets > 0 else 0, 1)
+                })
+
+            return _ok(agent_data)
+    except Exception as e:
+        logger.error("Agent performance error: %s", e)
+        return _err(str(e), 500)
+
+
+@app.get("/api/portal/chat/escalation-updates")
+async def get_escalation_updates(request: Request):
+    """Check for new updates/comments on an escalated chat's ticket."""
+    user = _portal_require_auth(request)
+    session_id = request.query_params.get("session_id")
+
+    if not session_id:
+        return _err("session_id required", 400)
+
+    try:
+        company_id = user.get("company_id")
+        portal_user_id = user.get("portal_user_id")
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+
+            # Find the escalation ticket for this session
+            # Look for an escalation ticket created around the same time as the session end
+            session = conn.execute(
+                "SELECT created_at, updated_at FROM ai_chat_sessions WHERE id=?",
+                [session_id]
+            ).fetchone()
+
+            if not session:
+                return _err("Session not found", 404)
+
+            # Find escalation ticket (tagged with ai-escalation) created after session
+            ticket = conn.execute("""
+                SELECT id, subject, description, status FROM tickets
+                WHERE company_id=? AND tags LIKE '%ai-escalation%' AND created_at >= ?
+                ORDER BY created_at DESC LIMIT 1
+            """, [company_id, session[0]]).fetchone()
+
+            if not ticket:
+                return _ok({"has_updates": False, "ticket_id": None})
+
+            ticket_id = ticket[0]
+
+            # Get comments/activity on the ticket
+            comments = conn.execute("""
+                SELECT id, author_id, content, created_at FROM activity
+                WHERE entity_type='ticket' AND entity_id=? AND activity_type='comment'
+                ORDER BY created_at DESC LIMIT 10
+            """, [ticket_id]).fetchall()
+
+            comment_list = []
+            for comment in comments:
+                comment_author = conn.execute(
+                    "SELECT first_name, last_name FROM users WHERE id=?",
+                    [comment[1]]
+                ).fetchone()
+                author_name = f"{comment_author[0]} {comment_author[1]}" if comment_author else "Agent"
+                comment_list.append({
+                    "id": comment[0],
+                    "author": author_name,
+                    "content": comment[2],
+                    "created_at": comment[3]
+                })
+
+            return _ok({
+                "has_updates": len(comment_list) > 0,
+                "ticket_id": ticket_id,
+                "ticket_number": f"TK-{ticket_id:04d}",
+                "ticket_status": ticket[3],
+                "comments": comment_list
+            })
+    except Exception as e:
+        logger.error("Escalation updates error: %s", e)
+        return _err(str(e), 500)
 
 
 # Serve portal SPA

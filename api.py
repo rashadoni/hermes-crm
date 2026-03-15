@@ -1779,7 +1779,7 @@ async def predict_all_leads_early(user=Depends(require_admin)):
                         company_name = ld.get("company_name", "")
                         if company_name:
                             deals = conn.execute(
-                                "SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)",
+                                "SELECT * FROM deals WHERE company_id IN (SELECT id FROM companies WHERE name=?)",
                                 [company_name]
                             ).fetchall()
                             deals_list = [dict(d) for d in deals]
@@ -9101,8 +9101,8 @@ async def _ai_score_lead(lead_data, deals_history):
 
 Данные лида:
 - Имя: {lead_data.get('contact_name', '')}
-- Компания: {lead_data.get('company', '')}
-- Должность: {lead_data.get('title', '')}
+- Компания: {lead_data.get('company_name', '')}
+- Приоритет: {lead_data.get('priority', '')}
 - Источник: {lead_data.get('source', '')}
 - Статус: {lead_data.get('status', '')}
 - Email: {lead_data.get('email', '')}
@@ -9146,7 +9146,7 @@ async def predict_lead_score(lead_id: int, user=Depends(require_auth)):
                 company_name = lead_data.get("company_name", "")
                 if company_name:
                     deals = conn.execute(
-                        "SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)",
+                        "SELECT * FROM deals WHERE company_id IN (SELECT id FROM companies WHERE name=?)",
                         [company_name]
                     ).fetchall()
                     deals_history = [dict(d) for d in deals]
@@ -9179,9 +9179,10 @@ async def predict_lead_score(lead_id: int, user=Depends(require_auth)):
             final_score = int(rule_score["total_score"] * 0.7 + ai_prediction_score * 0.3)
             final_grade = "A" if final_score >= 80 else "B" if final_score >= 60 else "C" if final_score >= 40 else "D" if final_score >= 20 else "F"
 
-            # 7. Save to lead_scores table
+            # 7. Save to lead_scores table (delete old first)
+            conn.execute("DELETE FROM lead_scores WHERE lead_id=?", [lead_id])
             conn.execute("""
-                INSERT OR REPLACE INTO lead_scores
+                INSERT INTO lead_scores
                 (lead_id, total_score, score_grade, demographic_score, behavioral_score, engagement_score,
                  ai_prediction_score, ai_prediction_reason, conversion_probability, predicted_deal_value,
                  scoring_factors, scored_at)

@@ -13224,18 +13224,23 @@ Rules:
         latency_ms = round((_time.time() - t_start) * 1000, 1)
 
         result = {}
-        if "{" in text:
-            json_str = text[text.index("{"):text.rindex("}") + 1]
-            result = json.loads(json_str)
+        try:
+            if "{" in text:
+                json_str = text[text.index("{"):text.rindex("}") + 1]
+                result = json.loads(json_str)
+        except Exception as je:
+            logger.warning("Auto-tasks JSON parse error: %s, raw: %s", je, text[:300])
+            result = {"tasks": [], "summary": text[:500]}
 
         created_tasks = []
         if auto_create and result.get("tasks"):
-            with get_db() as conn:
-                for task in result["tasks"][:5]:
-                    cur = conn.execute(
-                        """INSERT INTO tasks (title, description, status, priority, due_date, category,
-                               lead_id, contact_id, assigned_to, created_by)
-                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            try:
+                with get_db() as conn:
+                    for task in result["tasks"][:5]:
+                        cur = conn.execute(
+                            """INSERT INTO tasks (title, description, status, priority, due_date, category,
+                                   lead_id, contact_id, assigned_to, created_by)
+                               VALUES (?,?,?,?,?,?,?,?,?,?)""",
                         [
                             task.get("title", "AI Task"),
                             task.get("description", ""),
@@ -13249,7 +13254,9 @@ Rules:
                             user["user_id"],
                         ]
                     )
-                    created_tasks.append({"id": cur.lastrowid, "title": task.get("title")})
+                        created_tasks.append({"id": cur.lastrowid, "title": task.get("title")})
+            except Exception as te:
+                logger.warning("Auto-tasks create error: %s", te)
 
         # Log
         try:

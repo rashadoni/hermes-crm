@@ -238,6 +238,81 @@ def log_audit(user_id, action, entity_type=None, entity_id=None, details="", ip=
         logger.warning("Failed to write audit log: action=%s", action)
 
 
+# ─── Email & SMS Sending ──────────────────────────────────────
+
+async def send_email(to: str, subject: str, body_html: str):
+    """
+    Send HTML email via SMTP.
+    Reads settings from env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+    Defaults: SMTP_HOST=localhost, SMTP_PORT=587, SMTP_FROM=noreply@hermescrm.xyz
+    Uses STARTTLS for remote hosts, direct connection for localhost (Postfix).
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_host = os.getenv("SMTP_HOST", "localhost")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+    smtp_from = os.getenv("SMTP_FROM", "noreply@hermescrm.xyz")
+
+    try:
+        # Create message
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_from
+        msg["To"] = to
+        msg.attach(MIMEText(body_html, "html"))
+
+        # Connect and send
+        if smtp_host == "localhost":
+            # Local Postfix: no auth, no TLS
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.sendmail(smtp_from, [to], msg.as_string())
+        else:
+            # Remote SMTP: use STARTTLS
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                if smtp_user and smtp_pass:
+                    server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_from, [to], msg.as_string())
+
+        logger.info(f"Email sent to {to} with subject: {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to}: {e}")
+        return False
+
+
+async def send_sms(to: str, message: str):
+    """
+    Send SMS via Twilio.
+    Reads settings from env vars: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM_NUMBER
+    """
+    try:
+        from twilio.rest import Client
+
+        account_sid = os.getenv("TWILIO_SID", "")
+        auth_token = os.getenv("TWILIO_TOKEN", "")
+        from_number = os.getenv("TWILIO_FROM_NUMBER", "")
+
+        if not all([account_sid, auth_token, from_number]):
+            logger.warning("Twilio credentials not configured")
+            return False
+
+        client = Client(account_sid, auth_token)
+        msg = client.messages.create(body=message, from_=from_number, to=to)
+        logger.info(f"SMS sent to {to} (SID: {msg.sid})")
+        return True
+    except ImportError:
+        logger.error("twilio package not installed")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to send SMS to {to}: {e}")
+        return False
+
+
 # ─── Startup ──────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
@@ -4319,12 +4394,102 @@ async def process_journeys(user=Depends(require_auth)):
     return _ok({"processed": processed})
 
 
+async def _handle_send_email(conn, enrollment, config):
+    """Send email during journey execution."""
+    try:
+        entity_id = enrollment.get("contact_id") or enrollment.get("lead_id")
+        table = "contacts" if enrollment.get("contact_id") else "leads"
+
+        entity = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (entity_id,)).fetchone()
+        if not entity:
+            logger.warning(f"Entity {entity_id} not found for email send")
+            return
+
+        entity_dict = dict(entity)
+        email = entity_dict.get("email")
+        if not email:
+            logger.warning(f"No email address for {table} {entity_id}")
+            return
+
+        subject = config.get("email_subject", "Message from Hermes CRM")
+        body = config.get("email_body", "Hello!")
+
+        # Simple template substitution (name, company, etc)
+        if "{name}" in body:
+            name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
+            body = body.replace("{name}", name)
+        if "{company}" in body and "company_name" in entity_dict:
+            body = body.replace("{company}", entity_dict.get("company_name", ""))
+
+        body_html = f"<html><body><p>{body}</p></body></html>"
+        success = await send_email(email, subject, body_html)
+
+        if success:
+            conn.execute(
+                "INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                (enrollment["id"], enrollment["current_step_id"], "email_sent", json.dumps({"to": email}))
+            )
+        else:
+            conn.execute(
+                "INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                (enrollment["id"], enrollment["current_step_id"], "email_failed", json.dumps({"to": email}))
+            )
+    except Exception as e:
+        logger.error(f"Error sending journey email: {e}")
+
+
+async def _handle_send_sms(conn, enrollment, config):
+    """Send SMS during journey execution."""
+    try:
+        entity_id = enrollment.get("contact_id") or enrollment.get("lead_id")
+        table = "contacts" if enrollment.get("contact_id") else "leads"
+
+        entity = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (entity_id,)).fetchone()
+        if not entity:
+            logger.warning(f"Entity {entity_id} not found for SMS send")
+            return
+
+        entity_dict = dict(entity)
+        phone = entity_dict.get("phone")
+        if not phone:
+            logger.warning(f"No phone number for {table} {entity_id}")
+            return
+
+        message = config.get("sms_message", "Hello from Hermes CRM!")
+
+        # Simple template substitution
+        if "{name}" in message:
+            name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
+            message = message.replace("{name}", name)
+
+        success = await send_sms(phone, message)
+
+        if success:
+            conn.execute(
+                "INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                (enrollment["id"], enrollment["current_step_id"], "sms_sent", json.dumps({"to": phone}))
+            )
+        else:
+            conn.execute(
+                "INSERT INTO journey_logs (enrollment_id, step_id, action, details) VALUES (?,?,?,?)",
+                (enrollment["id"], enrollment["current_step_id"], "sms_failed", json.dumps({"to": phone}))
+            )
+    except Exception as e:
+        logger.error(f"Error sending journey SMS: {e}")
+
+
 def _process_journey_step(conn, enrollment):
     """Execute a single journey step for an enrollment"""
     step_type = enrollment["step_type"]
     config = json.loads(enrollment.get("config") or "{}")
 
     if step_type == "send_email":
+        # Send email to contact/lead
+        asyncio.run(_handle_send_email(conn, enrollment, config))
+        _advance_journey(conn, enrollment)
+    elif step_type == "send_sms":
+        # Send SMS to contact/lead
+        asyncio.run(_handle_send_sms(conn, enrollment, config))
         _advance_journey(conn, enrollment)
     elif step_type == "wait":
         _advance_journey(conn, enrollment)
@@ -8742,6 +8907,57 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
         return _ok({"id": msg_id, "status": "sent", "channel_type": channel_type})
     except Exception as e:
         logger.error("send_channel_message: %s", e)
+        return _err(str(e), 500)
+
+
+# ─── Email & SMS Test Endpoints ────────────────────────────────
+
+@app.post("/api/channels/test-email")
+async def test_email(request: Request, user=Depends(require_auth)):
+    """Send test email. Body: {to: "email", subject: "optional", body: "optional"}"""
+    try:
+        data = await request.json()
+        to_email = data.get("to", "").strip()
+        subject = data.get("subject", "Test Email from Hermes CRM").strip()
+        body_text = data.get("body", "This is a test email from Hermes CRM.").strip()
+
+        if not to_email or not _validate_email(to_email):
+            return _err("Valid email address required", 400)
+
+        # Send HTML email
+        body_html = f"<html><body><h2>Test Email</h2><p>{body_text}</p><hr><p>Sent from Hermes CRM</p></body></html>"
+        success = await send_email(to_email, subject, body_html)
+
+        if success:
+            log_audit(user["user_id"], "test_email", "email", 0, details=f"To: {to_email}", ip=_get_ip(request))
+            return _ok({"success": True, "message": f"Test email sent to {to_email}"})
+        else:
+            return _err("Failed to send email. Check server logs.", 500)
+    except Exception as e:
+        logger.error("test_email: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/channels/test-sms")
+async def test_sms(request: Request, user=Depends(require_auth)):
+    """Send test SMS. Body: {to: "+994...", message: "optional"}"""
+    try:
+        data = await request.json()
+        to_number = data.get("to", "").strip()
+        message = data.get("message", "Test SMS from Hermes CRM").strip()
+
+        if not to_number or not to_number.startswith("+"):
+            return _err("Valid phone number with + prefix required", 400)
+
+        success = await send_sms(to_number, message)
+
+        if success:
+            log_audit(user["user_id"], "test_sms", "sms", 0, details=f"To: {to_number}", ip=_get_ip(request))
+            return _ok({"success": True, "message": f"Test SMS sent to {to_number}"})
+        else:
+            return _err("Failed to send SMS. Check server logs and Twilio credentials.", 500)
+    except Exception as e:
+        logger.error("test_sms: %s", e)
         return _err(str(e), 500)
 
 

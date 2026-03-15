@@ -8408,26 +8408,32 @@ async def portal_me(request: Request):
 @app.get("/api/portal/tickets")
 async def portal_tickets(request: Request):
     """Get tickets for the portal user's company."""
-    user = _portal_require_auth(request)
-    company_id = user.get("company_id")
-    contact_id = user.get("contact_id")
-    with get_db() as conn:
-        where = []
-        params = []
-        if company_id:
-            where.append("t.company_id=?")
-            params.append(company_id)
-        if contact_id:
-            where.append("t.contact_id=?")
-            params.append(contact_id)
-        wc = "WHERE (" + " OR ".join(where) + ")" if where else ""
-        rows = conn.execute(
-            f"""SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.category,
-                       t.created_at, t.resolved_at
-                FROM tickets t {wc} ORDER BY t.created_at DESC LIMIT 100""", params
-        ).fetchall()
-        cols = ["id", "ticket_number", "subject", "status", "priority", "category", "created_at", "resolved_at"]
-        return _ok([dict(zip(cols, r)) for r in rows])
+    try:
+        user = _portal_require_auth(request)
+        company_id = user.get("company_id")
+        contact_id = user.get("contact_id")
+        with get_db() as conn:
+            where = []
+            params = []
+            if company_id:
+                where.append("t.company_id=?")
+                params.append(company_id)
+            if contact_id:
+                where.append("t.contact_id=?")
+                params.append(contact_id)
+            wc = "WHERE (" + " OR ".join(where) + ")" if where else ""
+            rows = conn.execute(
+                f"""SELECT t.id, t.ticket_number, t.subject, t.status, t.priority, t.category,
+                           t.created_at, t.resolved_at
+                    FROM tickets t {wc} ORDER BY t.created_at DESC LIMIT 100""", params
+            ).fetchall()
+            cols = ["id", "ticket_number", "subject", "status", "priority", "category", "created_at", "resolved_at"]
+            return _ok([dict(zip(cols, r)) for r in rows])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Portal tickets error: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @app.post("/api/portal/tickets")
@@ -8500,35 +8506,47 @@ async def portal_add_comment(ticket_id: int, request: Request):
 @app.get("/api/portal/contracts")
 async def portal_contracts(request: Request):
     """Get contracts for the portal user's company."""
-    user = _portal_require_auth(request)
-    company_id = user.get("company_id")
-    if not company_id:
-        return _ok([])
-    with get_db() as conn:
-        rows = conn.execute(
-            """SELECT id, title, status, amount, start_date, end_date, created_at
-               FROM contracts WHERE company_id=? ORDER BY created_at DESC""",
-            [company_id]
-        ).fetchall()
-        cols = ["id", "title", "status", "amount", "start_date", "end_date", "created_at"]
-        return _ok([dict(zip(cols, r)) for r in rows])
+    try:
+        user = _portal_require_auth(request)
+        company_id = user.get("company_id")
+        if not company_id:
+            return _ok([])
+        with get_db() as conn:
+            rows = conn.execute(
+                """SELECT id, title, status, amount, start_date, end_date, created_at
+                   FROM contracts WHERE company_id=? ORDER BY created_at DESC""",
+                [company_id]
+            ).fetchall()
+            cols = ["id", "title", "status", "amount", "start_date", "end_date", "created_at"]
+            return _ok([dict(zip(cols, r)) for r in rows])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Portal contracts error: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @app.get("/api/portal/documents")
 async def portal_documents(request: Request):
     """Get offers/documents for the portal user's company."""
-    user = _portal_require_auth(request)
-    company_id = user.get("company_id")
-    if not company_id:
-        return _ok([])
-    with get_db() as conn:
-        rows = conn.execute(
-            """SELECT id, offer_number, offer_type, status, currency, total_amount, valid_until, created_at
-               FROM offers WHERE company_id=? ORDER BY created_at DESC""",
-            [company_id]
-        ).fetchall()
-        cols = ["id", "offer_number", "offer_type", "status", "currency", "total_amount", "valid_until", "created_at"]
-        return _ok([dict(zip(cols, r)) for r in rows])
+    try:
+        user = _portal_require_auth(request)
+        company_id = user.get("company_id")
+        if not company_id:
+            return _ok([])
+        with get_db() as conn:
+            rows = conn.execute(
+                """SELECT id, offer_number, offer_type, status, currency, total_amount, valid_until, created_at
+                   FROM offers WHERE company_id=? ORDER BY created_at DESC""",
+                [company_id]
+            ).fetchall()
+            cols = ["id", "offer_number", "offer_type", "status", "currency", "total_amount", "valid_until", "created_at"]
+            return _ok([dict(zip(cols, r)) for r in rows])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Portal documents error: %s", e, exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 # Admin: manage portal users

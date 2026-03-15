@@ -18498,7 +18498,7 @@ async function onLeadDrop(e, newStatus) {
         else if(stepType==='send_sms'){config.message=document.getElementById('editSms')?.value||'';}
         else if(stepType==='wait'){const v=parseInt(document.getElementById('editWaitVal')?.value||1);const u=document.getElementById('editWaitUnit')?.value;if(u==='minutes')config.duration_minutes=v;else config.wait_days=v;}
         try{
-            await api.put('/api/journeys/steps/'+stepId,{config:JSON.stringify(config)});
+            await api.put('/api/journeys/steps/'+stepId,{config:config});
             document.getElementById('editStepModal')?.remove();
             document.getElementById('journeyDetailModal')?.remove();
             openJourneyDetail(journeyId);

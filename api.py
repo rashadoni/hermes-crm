@@ -8949,16 +8949,30 @@ async def test_sms(request: Request, user=Depends(require_auth)):
         if not to_number or not to_number.startswith("+"):
             return _err("Valid phone number with + prefix required", 400)
 
-        success = await send_sms(to_number, message)
+        # Debug: check env vars
+        sid = os.getenv("TWILIO_SID", "")
+        token_val = os.getenv("TWILIO_TOKEN", "")
+        from_num = os.getenv("TWILIO_FROM_NUMBER", "")
+        if not all([sid, token_val, from_num]):
+            return _err(f"Twilio not configured. SID={bool(sid)}, TOKEN={bool(token_val)}, FROM={bool(from_num)}", 500)
 
-        if success:
-            log_audit(user["user_id"], "test_sms", "sms", 0, details=f"To: {to_number}", ip=_get_ip(request))
-            return _ok({"success": True, "message": f"Test SMS sent to {to_number}"})
-        else:
-            return _err("Failed to send SMS. Check server logs and Twilio credentials.", 500)
+        try:
+            from twilio.rest import Client
+        except ImportError:
+            return _err("twilio package not installed on server", 500)
+
+        try:
+            client = Client(sid, token_val)
+            msg = client.messages.create(body=message, from_=from_num, to=to_number)
+            logger.info(f"SMS sent to {to_number} (SID: {msg.sid})")
+        except Exception as twilio_err:
+            return _err(f"Twilio API error: {str(twilio_err)}", 500)
+
+        log_audit(user.get("user_id", user.get("id")), "test_sms", "sms", 0, details=f"To: {to_number}", ip=_get_ip(request))
+        return _ok({"success": True, "message": f"Test SMS sent to {to_number}"})
     except Exception as e:
         logger.error("test_sms: %s", e)
-        return _err(str(e), 500)
+        return _err(f"test_sms error: {str(e)}", 500)
 
 
 # ─── Telegram Webhook ─────────────────────────────────────────────

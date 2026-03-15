@@ -13108,6 +13108,175 @@ Rules:
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/auto-tasks")
+async def ai_auto_tasks(request: Request, user=Depends(require_auth)):
+    """AI analyzes a lead/contact and suggests tasks to create. Optionally auto-creates them."""
+    import time as _time
+    data = await request.json()
+    entity_type = data.get("entity_type", "lead")
+    entity_id = data.get("entity_id")
+    auto_create = data.get("auto_create", False)
+    language = data.get("language", "ru")
+
+    if not entity_id:
+        return _err("entity_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI not configured", 503)
+
+    # Gather context
+    entity_name = ""
+    entity_info = ""
+    existing_tasks = []
+    try:
+        with get_db() as conn:
+            if entity_type == "lead":
+                row = conn.execute("SELECT * FROM leads WHERE id=?", [entity_id]).fetchone()
+                if not row:
+                    return _err("Lead not found", 404)
+                row = dict(row)
+                entity_name = row.get("contact_name") or row.get("company_name", "")
+                entity_info = f"Lead: {entity_name}, Company: {row.get('company_name','')}, Status: {row.get('status','')}, Priority: {row.get('priority','')}, Source: {row.get('source','')}, Email: {row.get('email','')}, Phone: {row.get('phone','')}"
+                try:
+                    existing_tasks = [dict(t) for t in conn.execute("SELECT title, status, priority, due_date FROM tasks WHERE lead_id=? ORDER BY created_at DESC LIMIT 10", [entity_id]).fetchall()]
+                except Exception:
+                    pass
+            else:
+                row = conn.execute("SELECT c.*, co.name as company_name FROM contacts c LEFT JOIN companies co ON c.company_id=co.id WHERE c.id=?", [entity_id]).fetchone()
+                if not row:
+                    return _err("Contact not found", 404)
+                row = dict(row)
+                entity_name = row.get("full_name") or row.get("name", "")
+                entity_info = f"Contact: {entity_name}, Company: {row.get('company_name','')}, Position: {row.get('position','')}, Email: {row.get('email','')}, Phone: {row.get('phone','')}"
+                try:
+                    existing_tasks = [dict(t) for t in conn.execute("SELECT title, status, priority, due_date FROM tasks WHERE contact_id=? ORDER BY created_at DESC LIMIT 10", [entity_id]).fetchall()]
+                except Exception:
+                    pass
+
+            # Get recent activities and messages
+            ctx_parts = []
+            try:
+                msgs = conn.execute(f"SELECT channel_type, direction, content, created_at FROM channel_messages WHERE {'lead_id' if entity_type=='lead' else 'contact_id'}=? ORDER BY created_at DESC LIMIT 10", [entity_id]).fetchall()
+                for m in msgs:
+                    ctx_parts.append(f"[{m['direction']}|{m['channel_type']}|{m['created_at'][:16]}]: {(m['content'] or '')[:150]}")
+            except Exception:
+                pass
+            try:
+                acts = conn.execute("SELECT * FROM activities WHERE entity_type=? AND entity_id=? ORDER BY COALESCE(timestamp,created_at) DESC LIMIT 10", [entity_type, entity_id]).fetchall()
+                for a in [dict(x) for x in acts]:
+                    ctx_parts.append(f"[activity:{a.get('activity_type','')}|{str(a.get('timestamp',''))[:16]}]: {a.get('subject','')} {a.get('content','')[:100]}")
+            except Exception:
+                pass
+    except Exception as e:
+        return _err(str(e), 500)
+
+    lang_map = {"ru": "Russian", "az": "Azerbaijani", "en": "English"}
+    lang_name = lang_map.get(language, "Russian")
+    today = __import__('datetime').date.today().isoformat()
+
+    existing_str = "\n".join([f"- [{t['status']}] {t['title']} (due: {t.get('due_date','—')})" for t in existing_tasks]) if existing_tasks else "None"
+
+    prompt = f"""You are a CRM task planning AI. Based on the entity data and communication history, suggest 3-5 actionable tasks for the sales team.
+
+Entity: {entity_info}
+Today: {today}
+
+Recent communications:
+{chr(10).join(ctx_parts) if ctx_parts else "No recent communications."}
+
+Existing tasks:
+{existing_str}
+
+Respond STRICTLY in JSON format in {lang_name}. Each task must have realistic due dates:
+{{
+  "tasks": [
+    {{
+      "title": "Short task title",
+      "description": "Detailed description of what to do",
+      "priority": "high",
+      "category": "follow_up",
+      "due_date": "2026-03-20",
+      "reasoning": "Why this task is important"
+    }}
+  ],
+  "summary": "Brief explanation of the overall task strategy"
+}}
+
+Rules:
+- priority: low, medium, high, urgent
+- category: call, meeting, email, follow_up, deadline, general
+- due_date: YYYY-MM-DD format, realistic dates starting from {today}
+- Do NOT duplicate existing tasks
+- Tasks should be specific and actionable, not generic
+- Consider the lead status, priority, and communication history"""
+
+    try:
+        import anthropic
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        result = {}
+        if "{" in text:
+            json_str = text[text.index("{"):text.rindex("}") + 1]
+            result = json.loads(json_str)
+
+        created_tasks = []
+        if auto_create and result.get("tasks"):
+            with get_db() as conn:
+                for task in result["tasks"][:5]:
+                    cur = conn.execute(
+                        """INSERT INTO tasks (title, description, status, priority, due_date, category,
+                               lead_id, contact_id, assigned_to, created_by)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                        [
+                            task.get("title", "AI Task"),
+                            task.get("description", ""),
+                            "todo",
+                            task.get("priority", "medium"),
+                            task.get("due_date"),
+                            task.get("category", "general"),
+                            entity_id if entity_type == "lead" else None,
+                            entity_id if entity_type == "contact" else None,
+                            user["user_id"],
+                            user["user_id"],
+                        ]
+                    )
+                    created_tasks.append({"id": cur.lastrowid, "title": task.get("title")})
+
+        # Log
+        try:
+            with get_db() as conn:
+                _ensure_ai_tables(conn)
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("""INSERT INTO ai_interaction_logs (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens, cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)""",
+                    [0, f"[auto-tasks:{entity_type}#{entity_id}]", text[:500], latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "entity_name": entity_name,
+            "suggestions": result,
+            "created_tasks": created_tasks,
+            "auto_created": auto_create,
+            "latency_ms": latency_ms,
+            "tokens": {"input": getattr(response.usage, 'input_tokens', 0), "output": getattr(response.usage, 'output_tokens', 0)}
+        })
+    except Exception as e:
+        return _err(str(e), 500)
+
+
 @app.get("/api/ai/agent-performance")
 async def agent_performance(user=Depends(require_auth)):
     """Get performance metrics for support agents (ticket assignments, resolution times, etc.)."""

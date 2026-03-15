@@ -5277,6 +5277,7 @@ async function openLeadDetail(leadId) {
         <button class="px-3 py-2 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400" onclick="switchLeadTab('details',this)">${_i._g('ld_tab_details')}</button>
         <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300" onclick="switchLeadTab('activity',this)">${_i._g('ld_tab_activity')}</button>
         <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-purple-400 hover:text-purple-300" onclick="switchLeadTab('sentiment',this)">🧠 Sentiment</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-amber-400 hover:text-amber-300" onclick="switchLeadTab('autoTasks',this)">⚡ Tasks</button>
         ${lead.status!=='converted'?`<button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-green-400 hover:text-green-300" onclick="switchLeadTab('convert',this)">${_i._g('ld_tab_convert')}</button>`:''}
       </div>
 
@@ -5331,6 +5332,16 @@ async function openLeadDetail(leadId) {
             🧠 Анализировать тональность
           </button>
           <p class="text-xs text-slate-500 mt-2">AI проанализирует все коммуникации с этим лидом</p>
+        </div>
+      </div>
+
+      <!-- Tab: Auto Tasks -->
+      <div id="ldTabAutoTasks" class="ld-tab" style="display:none">
+        <div class="text-center py-4" id="autoTasksContent">
+          <button class="btn btn-primary" onclick="runAutoTasks('lead',${lead.id},false)" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+            ⚡ Сгенерировать задачи
+          </button>
+          <p class="text-xs text-slate-500 mt-2">AI проанализирует лид и предложит задачи</p>
         </div>
       </div>
 
@@ -5438,6 +5449,61 @@ async function runSentimentAnalysis(entityType, entityId) {
     container.innerHTML = html;
   } catch(e) {
     container.innerHTML = '<div class="text-center text-red-400 py-4">⚠️ ' + esc(e.message || 'Error') + '<br><button class="btn btn-sm btn-secondary mt-3" onclick="runSentimentAnalysis(\'' + entityType + '\',' + entityId + ')">' + _t('Retry','Повторить','Yenidən') + '</button></div>';
+  }
+}
+
+async function runAutoTasks(entityType, entityId, autoCreate) {
+  const container = document.getElementById('autoTasksContent');
+  if (!container) return;
+  const L = currentLang || 'ru';
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  container.innerHTML = '<div class="text-center py-6"><div class="inline-block w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div><p class="text-sm text-slate-400 mt-3">' + _t('AI is generating tasks...', 'AI генерирует задачи...', 'AI tapşırıqlar yaradır...') + '</p></div>';
+  try {
+    const res = await api.post('/api/ai/auto-tasks', { entity_type: entityType, entity_id: entityId, auto_create: autoCreate, language: L });
+    const d = res.data || res;
+    const tasks = (d.suggestions && d.suggestions.tasks) || [];
+    const summary = (d.suggestions && d.suggestions.summary) || '';
+    const created = d.created_tasks || [];
+    const priColors = {urgent:'#ef4444',high:'#f59e0b',medium:'#3b82f6',low:'#64748b'};
+    const catIcons = {call:'📞',meeting:'🤝',email:'📧',follow_up:'🔄',deadline:'⏰',general:'📋'};
+    let html = '';
+    if (summary) {
+      html += '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:#fcd34d">💡 ' + esc(summary) + '</div>';
+    }
+    if (created.length) {
+      html += '<div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:#4ade80">✅ ' + _t('Created ' + created.length + ' tasks!', 'Создано ' + created.length + ' задач!', created.length + ' tapşırıq yaradıldı!') + '</div>';
+    }
+    if (tasks.length === 0) {
+      html += '<div class="text-center text-slate-500 py-4">' + _t('No tasks suggested', 'Нет предложений', 'Təklif yoxdur') + '</div>';
+    } else {
+      tasks.forEach(function(task, i) {
+        const pc = priColors[task.priority] || '#3b82f6';
+        const ci = catIcons[task.category] || '📋';
+        html += '<div style="background:#0f172a;border:1px solid rgba(71,85,105,0.3);border-radius:12px;padding:14px;margin-bottom:8px;border-left:3px solid ' + pc + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">';
+        html += '<div style="font-size:13px;font-weight:700;color:#e2e8f0">' + ci + ' ' + esc(task.title) + '</div>';
+        html += '<div style="display:flex;gap:4px">';
+        html += '<span style="background:' + pc + '25;color:' + pc + ';padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase">' + (task.priority||'medium') + '</span>';
+        html += '<span style="background:rgba(99,102,241,0.15);color:#818cf8;padding:2px 8px;border-radius:6px;font-size:10px">' + (task.category||'general') + '</span>';
+        html += '</div></div>';
+        html += '<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">' + esc(task.description||'') + '</div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+        html += '<span style="font-size:11px;color:#64748b">📅 ' + (task.due_date||'—') + '</span>';
+        if (task.reasoning) html += '<span style="font-size:10px;color:#475569;font-style:italic;max-width:60%;text-align:right">' + esc(task.reasoning) + '</span>';
+        html += '</div></div>';
+      });
+    }
+    // Action buttons
+    html += '<div style="display:flex;gap:8px;margin-top:14px;justify-content:center">';
+    if (!autoCreate && tasks.length) {
+      html += '<button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg,#22c55e,#16a34a);font-size:12px" onclick="runAutoTasks(\'' + entityType + '\',' + entityId + ',true)">✅ ' + _t('Create All Tasks', 'Создать все задачи', 'Hamısını yarat') + '</button>';
+    }
+    html += '<button class="btn btn-sm btn-secondary" style="font-size:12px" onclick="runAutoTasks(\'' + entityType + '\',' + entityId + ',false)">↻ ' + _t('Regenerate', 'Пересоздать', 'Yenidən') + '</button>';
+    html += '</div>';
+    html += '<div style="text-align:center;margin-top:8px;font-size:10px;color:#475569">' + _t('Generated in', 'Сгенерировано за', 'Yaradılma müddəti') + ' ' + (d.latency_ms||0) + 'ms</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="text-center text-red-400 py-4">⚠️ ' + esc(e.message||'Error') + '<br><button class="btn btn-sm btn-secondary mt-3" onclick="runAutoTasks(\'' + entityType + '\',' + entityId + ',false)">' + _t('Retry','Повторить','Yenidən') + '</button></div>';
   }
 }
 

@@ -13225,11 +13225,20 @@ Rules:
 
         result = {}
         try:
-            if "{" in text:
-                json_str = text[text.index("{"):text.rindex("}") + 1]
+            import re as _re
+            # Strip markdown code blocks robustly
+            clean = text
+            # Try regex first: ```json ... ``` or ``` ... ```
+            md_match = _re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', clean)
+            if md_match:
+                clean = md_match.group(1)
+            # Extract outermost JSON object
+            if "{" in clean:
+                json_str = clean[clean.index("{"):clean.rindex("}") + 1]
                 result = json.loads(json_str)
+            logger.info("Auto-tasks parsed OK: %d tasks", len(result.get("tasks", [])))
         except Exception as je:
-            logger.warning("Auto-tasks JSON parse error: %s, raw: %s", je, text[:300])
+            logger.warning("Auto-tasks JSON parse error: %s, raw: %s", je, text[:500])
             result = {"tasks": [], "summary": text[:500]}
 
         created_tasks = []

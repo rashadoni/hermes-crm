@@ -6986,7 +6986,7 @@ async def get_campaign(campaign_id: int, user=Depends(require_auth)):
 @app.put("/api/campaigns/{campaign_id}")
 async def update_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
     data = await request.json()
-    allowed = {"name", "description", "type", "status", "template_id", "target_type", "target_filter", "scheduled_at"}
+    allowed = {"name", "description", "type", "status", "template_id", "target_type", "target_filter", "scheduled_at", "cost"}
     updates = {k: v for k, v in data.items() if k in allowed}
     if "target_filter" in updates and isinstance(updates["target_filter"], dict):
         updates["target_filter"] = __import__("json").dumps(updates["target_filter"])
@@ -7715,6 +7715,24 @@ async def campaign_roi(campaign_id: int, user=Depends(require_auth)):
             "budget": budget,
             "roi_percent": round(roi_pct, 1)
         })
+
+
+@app.get("/api/campaigns/{campaign_id}/deals")
+async def get_campaign_deals(campaign_id: int, user=Depends(require_auth)):
+    """List deals linked to a campaign."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT d.id, d.title, d.stage, d.value_amount, d.value_currency, d.company_id,
+                      co.name as company_name
+               FROM campaign_deals cd
+               JOIN deals d ON cd.deal_id = d.id
+               LEFT JOIN companies co ON d.company_id = co.id
+               WHERE cd.campaign_id=?
+               ORDER BY d.created_at DESC""", [campaign_id]
+        ).fetchall()
+        deals = [{"id":r[0],"title":r[1],"stage":r[2],"value_amount":float(r[3] or 0),
+                  "currency":r[4],"company_id":r[5],"company_name":r[6]} for r in rows]
+        return _ok(deals)
 
 
 @app.post("/api/campaigns/{campaign_id}/deals")

@@ -4275,47 +4275,50 @@ async def enroll_in_journey(journey_id: int, request: Request, user=Depends(requ
     if not contact_id and not lead_id:
         return _err("contact_id or lead_id is required", 400)
 
-    with get_db() as conn:
-        journey = conn.execute("SELECT status FROM journeys WHERE id=?", (journey_id,)).fetchone()
-        if not journey:
-            return _err("Journey not found", 404)
-        if journey[0] != "active":
-            return _err("Journey must be active", 400)
+    try:
+        with get_db() as conn:
+            journey = conn.execute("SELECT status FROM journeys WHERE id=?", (journey_id,)).fetchone()
+            if not journey:
+                return _err("Journey not found", 404)
+            if journey[0] != "active":
+                return _err("Journey must be active", 400)
 
-        # Check not already enrolled
-        existing = conn.execute("""
-            SELECT id FROM journey_enrollments
-            WHERE journey_id=? AND status='active' AND (contact_id=? OR lead_id=?)
-        """, (journey_id, contact_id, lead_id)).fetchone()
+            # Check not already enrolled
+            existing = conn.execute("""
+                SELECT id FROM journey_enrollments
+                WHERE journey_id=? AND status='active' AND (contact_id=? OR lead_id=?)
+            """, (journey_id, contact_id, lead_id)).fetchone()
 
-        if existing:
-            return _err("Already enrolled in this journey", 400)
+            if existing:
+                return _err("Already enrolled in this journey", 400)
 
-        # Get first step
-        first_step = conn.execute("""
-            SELECT id FROM journey_steps WHERE journey_id=? ORDER BY step_order LIMIT 1
-        """, (journey_id,)).fetchone()
+            # Get first step
+            first_step = conn.execute("""
+                SELECT id FROM journey_steps WHERE journey_id=? ORDER BY step_order LIMIT 1
+            """, (journey_id,)).fetchone()
 
-        if not first_step:
-            return _err("Journey has no steps", 400)
+            if not first_step:
+                return _err("Journey has no steps", 400)
 
-        # Calculate next_action_at based on first step type
-        first_step_id = first_step[0]
-        step_config = conn.execute("SELECT config FROM journey_steps WHERE id=?", (first_step_id,)).fetchone()
-        config = json.loads(step_config[0] or "{}")
-        wait_days = config.get("wait_days", 0)
+            # Calculate next_action_at based on first step type
+            first_step_id = first_step[0]
+            step_config = conn.execute("SELECT config FROM journey_steps WHERE id=?", (first_step_id,)).fetchone()
+            config = json.loads(step_config[0] if step_config and step_config[0] else "{}")
+            wait_days = config.get("wait_days", 0)
 
-        conn.execute("""
-            INSERT INTO journey_enrollments
-            (journey_id, contact_id, lead_id, current_step_id, status, next_action_at)
-            VALUES (?, ?, ?, ?, 'active', datetime('now', '+' || ? || ' days'))
-        """, (journey_id, contact_id, lead_id, first_step_id, wait_days))
+            conn.execute("""
+                INSERT INTO journey_enrollments
+                (journey_id, contact_id, lead_id, current_step_id, status, next_action_at)
+                VALUES (?, ?, ?, ?, 'active', datetime('now'))
+            """, (journey_id, contact_id, lead_id, first_step_id))
 
-        enrollment_id = conn.lastrowid
-        conn.execute("UPDATE journeys SET entry_count=entry_count+1, active_count=active_count+1 WHERE id=?", (journey_id,))
-        conn.commit()
+            enrollment_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn.execute("UPDATE journeys SET entry_count=entry_count+1, active_count=active_count+1 WHERE id=?", (journey_id,))
 
-    return _ok({"id": enrollment_id, "status": "active"})
+        return _ok({"id": enrollment_id, "status": "active"})
+    except Exception as e:
+        logger.error("enroll_in_journey: %s", e)
+        return {"success": False, "error": f"Enroll error: {str(e)}"}
 
 
 @app.get("/api/journeys/{journey_id}/enrollments")

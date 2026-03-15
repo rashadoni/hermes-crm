@@ -6751,7 +6751,7 @@ async def add_ticket_comment(ticket_id: int, request: Request, user=Depends(requ
         with get_db() as conn2:
             tkt2 = conn2.execute("SELECT company_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
             usr2 = conn2.execute("SELECT full_name FROM users WHERE id=?", [user["user_id"]]).fetchone()
-            if tkt2 and tkt2[0] and not is_internal:
+            if tkt2 and tkt2[0] and not data.get("is_internal"):
                 workflow_ticket_comment_added(conn2, ticket_id, tkt2[0], usr2[0] if usr2 else "Support", is_from_portal=False)
     except Exception as e:
         logger.warning("Workflow comment notify failed: %s", e)

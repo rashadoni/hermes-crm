@@ -8975,6 +8975,35 @@ def _ensure_ai_tables(conn):
             is_read INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS ai_agent_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            config_name TEXT DEFAULT 'default',
+            is_active INTEGER DEFAULT 0,
+            model TEXT DEFAULT 'claude-haiku-4-5-20251001',
+            max_tokens INTEGER DEFAULT 1024,
+            temperature REAL DEFAULT 1.0,
+            system_prompt_template TEXT DEFAULT '',
+            tools_enabled TEXT DEFAULT '[]',
+            kb_enabled INTEGER DEFAULT 1,
+            kb_max_articles INTEGER DEFAULT 3,
+            kb_min_score REAL DEFAULT 0.001,
+            max_tool_iterations INTEGER DEFAULT 3,
+            max_history_messages INTEGER DEFAULT 10,
+            version INTEGER DEFAULT 1,
+            notes TEXT DEFAULT '',
+            created_by TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS ai_agent_config_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            config_id INTEGER,
+            version INTEGER,
+            snapshot_json TEXT DEFAULT '{}',
+            changed_by TEXT DEFAULT '',
+            change_note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
     """)
 
 
@@ -9052,6 +9081,76 @@ AI_TOOLS = [
         }
     }
 ]
+
+# Default system prompt template (used when no custom template configured)
+DEFAULT_SYSTEM_PROMPT_TEMPLATE = """You are Hermes AI Assistant — a helpful, professional support agent for the Hermes CRM client portal.
+
+CAPABILITIES (use tools when appropriate):
+- get_tickets: Look up user's support tickets, check status
+- create_ticket: Create a new support ticket (always confirm details with user first!)
+- get_contracts: Check contract information
+- get_documents: List shared documents
+- escalate_to_human: Transfer to a human agent when needed
+
+RULES:
+- Be friendly, professional, and concise (max 200 words)
+- Answer in the SAME LANGUAGE the user writes in (Russian, Azerbaijani, or English)
+- Use tools to get REAL data — never make up ticket numbers or statuses
+- Before creating a ticket, confirm subject and description with user
+- If you cannot help or user asks for human — use escalate_to_human tool
+- IMPORTANT: If you cannot find the answer in the knowledge base AND the question requires technical support or action, PROACTIVELY suggest creating a ticket. Say something like: "I don't have enough information to resolve this. Would you like me to create a support ticket so our team can help you?"
+- If user agrees to create a ticket — use create_ticket tool immediately
+- If user asks for a human/manager/agent — use escalate_to_human tool with full conversation context
+
+KNOWLEDGE BASE CITATION:
+- When you use information from the knowledge base articles below, cite the article title like: "According to **[Article Title]**, ..."
+- Include the article title in bold so the client can link to it
+- Always prioritize KB information when available — it's more relevant to your company
+
+FORMATTING (the client renders basic markdown):
+- Use **bold** for labels and important values (ticket numbers, statuses)
+- Use line breaks between sections for readability
+- When showing ticket/contract info, structure it clearly with labels on separate lines
+- Keep paragraphs short (2-3 sentences max)
+- Use bullet lists (- item) for multiple items
+- Do NOT use raw markdown tables — use simple labeled lines instead
+
+{kb_context}
+
+Current date: {current_date}
+Company ID: {company_id}"""
+
+
+def _get_active_agent_config():
+    """Get the active agent config from DB, or return defaults."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            row = conn.execute("SELECT * FROM ai_agent_configs WHERE is_active=1 ORDER BY id DESC LIMIT 1").fetchone()
+            if row:
+                d = dict(row)
+                d["tools_enabled"] = json.loads(d.get("tools_enabled") or "[]")
+                return d
+    except Exception:
+        pass
+    # Return defaults
+    return {
+        "id": 0,
+        "config_name": "default",
+        "is_active": True,
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 1024,
+        "temperature": 1.0,
+        "system_prompt_template": "",
+        "tools_enabled": ["get_tickets", "create_ticket", "get_contracts", "get_documents", "escalate_to_human"],
+        "kb_enabled": 1,
+        "kb_max_articles": 3,
+        "kb_min_score": 0.001,
+        "max_tool_iterations": 3,
+        "max_history_messages": 10,
+        "version": 0,
+        "notes": ""
+    }
 
 
 def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user_id: int, session_id: int = 0) -> str:
@@ -9398,13 +9497,17 @@ async def portal_chat(request: Request):
         logger.warning("Chat session tracking error: %s", e)
         session_id = session_id or 0
 
+    # ── Load active agent config ──
+    agent_cfg = _get_active_agent_config()
+
     # ── Step 1: RAG KB Search (with trace) ──
     kb_context = ""
     kb_articles_used = []
     t_kb = _time.time()
     try:
         with get_db() as conn:
-            relevant_articles = _get_relevant_kb_articles(user_message, conn, limit=3)
+            kb_limit = agent_cfg.get("kb_max_articles", 3)
+            relevant_articles = _get_relevant_kb_articles(user_message, conn, limit=kb_limit) if agent_cfg.get("kb_enabled", 1) else []
             if relevant_articles:
                 kb_parts = []
                 for a in relevant_articles:
@@ -9422,56 +9525,37 @@ async def portal_chat(request: Request):
         "duration_ms": kb_ms
     })
 
-    system_prompt = f"""You are Hermes AI Assistant — a helpful, professional support agent for the Hermes CRM client portal.
+    # Build system prompt from config template or default
+    _custom_template = agent_cfg.get("system_prompt_template", "").strip()
+    if _custom_template:
+        # Custom template — use placeholders {kb_context}, {current_date}, {company_id}
+        _kb_block = f"KNOWLEDGE BASE:\n{kb_context}" if kb_context else "No relevant KB articles found."
+        system_prompt = _custom_template.replace("{kb_context}", _kb_block).replace(
+            "{current_date}", datetime.now().strftime('%Y-%m-%d %H:%M')).replace(
+            "{company_id}", str(company_id))
+    else:
+        # Default template
+        _kb_block = f"KNOWLEDGE BASE:\n{kb_context}" if kb_context else "No relevant KB articles found."
+        system_prompt = DEFAULT_SYSTEM_PROMPT_TEMPLATE.replace("{kb_context}", _kb_block).replace(
+            "{current_date}", datetime.now().strftime('%Y-%m-%d %H:%M')).replace(
+            "{company_id}", str(company_id))
 
-CAPABILITIES (use tools when appropriate):
-- get_tickets: Look up user's support tickets, check status
-- create_ticket: Create a new support ticket (always confirm details with user first!)
-- get_contracts: Check contract information
-- get_documents: List shared documents
-- escalate_to_human: Transfer to a human agent when needed
-
-RULES:
-- Be friendly, professional, and concise (max 200 words)
-- Answer in the SAME LANGUAGE the user writes in (Russian, Azerbaijani, or English)
-- Use tools to get REAL data — never make up ticket numbers or statuses
-- Before creating a ticket, confirm subject and description with user
-- If you cannot help or user asks for human — use escalate_to_human tool
-- IMPORTANT: If you cannot find the answer in the knowledge base AND the question requires technical support or action, PROACTIVELY suggest creating a ticket. Say something like: "I don't have enough information to resolve this. Would you like me to create a support ticket so our team can help you?"
-- If user agrees to create a ticket — use create_ticket tool immediately
-- If user asks for a human/manager/agent — use escalate_to_human tool with full conversation context
-
-KNOWLEDGE BASE CITATION:
-- When you use information from the knowledge base articles below, cite the article title like: "According to **[Article Title]**, ..."
-- Include the article title in bold so the client can link to it
-- Always prioritize KB information when available — it's more relevant to your company
-
-FORMATTING (the client renders basic markdown):
-- Use **bold** for labels and important values (ticket numbers, statuses)
-- Use line breaks between sections for readability
-- When showing ticket/contract info, structure it clearly with labels on separate lines:
-  **Ticket:** TK-0018
-  **Subject:** Printer not working
-  **Priority:** High
-  **Status:** New
-- Keep paragraphs short (2-3 sentences max)
-- Use bullet lists (- item) for multiple items
-- Do NOT use raw markdown tables — use simple labeled lines instead
-
-{f"KNOWLEDGE BASE:{chr(10)}{kb_context}" if kb_context else "No relevant KB articles found."}
-
-Current date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-Company ID: {company_id}
-"""
-
-    # Build messages
+    # Build messages (use config for history limit)
+    _history_limit = agent_cfg.get("max_history_messages", 10)
     messages = []
-    for h in history[-10:]:
+    for h in history[-_history_limit:]:
         role = h.get("role", "user")
         content = h.get("content", "")
         if role in ("user", "assistant") and content:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": user_message})
+
+    # Filter tools based on config
+    _enabled_tools = agent_cfg.get("tools_enabled", [])
+    if _enabled_tools and isinstance(_enabled_tools, list) and len(_enabled_tools) > 0:
+        active_tools = [t for t in AI_TOOLS if t["name"] in _enabled_tools]
+    else:
+        active_tools = AI_TOOLS
 
     try:
         import anthropic
@@ -9480,18 +9564,20 @@ Company ID: {company_id}
         total_prompt_tokens = 0
         total_completion_tokens = 0
         final_stop_reason = ""
-        model_used = "claude-haiku-4-5-20251001"
+        model_used = agent_cfg.get("model", "claude-haiku-4-5-20251001")
+        _max_tokens = agent_cfg.get("max_tokens", 1024)
+        _max_iterations = agent_cfg.get("max_tool_iterations", 3)
 
         # ── Step 2-4: Tool use loop with trace ──
         tool_iterations = 0
-        for _iteration in range(3):
+        for _iteration in range(_max_iterations):
             t_llm = _time.time()
             response = client.messages.create(
                 model=model_used,
-                max_tokens=1024,
+                max_tokens=_max_tokens,
                 system=system_prompt,
                 messages=messages,
-                tools=AI_TOOLS
+                tools=active_tools
             )
             llm_ms = round((_time.time() - t_llm) * 1000, 1)
             total_prompt_tokens += getattr(response.usage, 'input_tokens', 0)
@@ -9927,6 +10013,256 @@ async def ai_alerts_mark_all_read(user=Depends(require_auth)):
             _ensure_ai_tables(conn)
             conn.execute("UPDATE ai_alerts SET is_read=1 WHERE is_read=0")
             return _ok({"success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+# ── Phase 6: Agent Builder & Tool Registry ──
+
+ALL_AVAILABLE_TOOLS = ["get_tickets", "create_ticket", "get_contracts", "get_documents", "escalate_to_human"]
+ALL_AVAILABLE_MODELS = [
+    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5 (fast, cheap)", "cost_input": 0.80, "cost_output": 4.0},
+    {"id": "claude-sonnet-4-5-20250514", "label": "Claude Sonnet 4.5 (balanced)", "cost_input": 3.0, "cost_output": 15.0},
+    {"id": "claude-opus-4-0-20250514", "label": "Claude Opus 4 (powerful)", "cost_input": 15.0, "cost_output": 75.0}
+]
+
+
+@app.get("/api/ai/agent-configs")
+async def ai_agent_configs_list(user=Depends(require_auth)):
+    """List all agent configurations."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            rows = conn.execute("SELECT * FROM ai_agent_configs ORDER BY is_active DESC, updated_at DESC").fetchall()
+            configs = []
+            for r in rows:
+                d = dict(r)
+                d["tools_enabled"] = json.loads(d.get("tools_enabled") or "[]")
+                configs.append(d)
+            return _ok({
+                "configs": configs,
+                "available_tools": ALL_AVAILABLE_TOOLS,
+                "available_models": ALL_AVAILABLE_MODELS
+            })
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.get("/api/ai/agent-configs/{config_id}")
+async def ai_agent_config_get(config_id: int, user=Depends(require_auth)):
+    """Get a single agent config with version history."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            row = conn.execute("SELECT * FROM ai_agent_configs WHERE id=?", [config_id]).fetchone()
+            if not row:
+                _err("Config not found", 404)
+            d = dict(row)
+            d["tools_enabled"] = json.loads(d.get("tools_enabled") or "[]")
+            versions = conn.execute(
+                "SELECT id, version, changed_by, change_note, created_at FROM ai_agent_config_versions WHERE config_id=? ORDER BY version DESC LIMIT 20",
+                [config_id]
+            ).fetchall()
+            d["versions"] = [dict(v) for v in versions]
+            return _ok(d)
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.post("/api/ai/agent-configs")
+async def ai_agent_config_create(request: Request, user=Depends(require_auth)):
+    """Create a new agent configuration."""
+    try:
+        data = await request.json()
+        config_name = data.get("config_name", "New Config").strip()[:100]
+        model = data.get("model", "claude-haiku-4-5-20251001")
+        max_tokens = min(int(data.get("max_tokens", 1024)), 4096)
+        temperature = max(0, min(float(data.get("temperature", 1.0)), 2.0))
+        system_prompt_template = data.get("system_prompt_template", "").strip()[:10000]
+        tools_enabled = data.get("tools_enabled", ALL_AVAILABLE_TOOLS)
+        kb_enabled = 1 if data.get("kb_enabled", True) else 0
+        kb_max_articles = min(int(data.get("kb_max_articles", 3)), 10)
+        kb_min_score = max(0, min(float(data.get("kb_min_score", 0.001)), 1.0))
+        max_tool_iterations = min(int(data.get("max_tool_iterations", 3)), 10)
+        max_history_messages = min(int(data.get("max_history_messages", 10)), 50)
+        notes = data.get("notes", "").strip()[:500]
+        user_email = user.get("email", "") if isinstance(user, dict) else ""
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            cur = conn.execute("""
+                INSERT INTO ai_agent_configs
+                (config_name, is_active, model, max_tokens, temperature, system_prompt_template,
+                 tools_enabled, kb_enabled, kb_max_articles, kb_min_score, max_tool_iterations,
+                 max_history_messages, version, notes, created_by)
+                VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, [config_name, model, max_tokens, temperature, system_prompt_template,
+                  json.dumps(tools_enabled), kb_enabled, kb_max_articles, kb_min_score,
+                  max_tool_iterations, max_history_messages, notes, user_email])
+            new_id = cur.lastrowid
+            # Save initial version snapshot
+            snapshot = {
+                "model": model, "max_tokens": max_tokens, "temperature": temperature,
+                "system_prompt_template": system_prompt_template, "tools_enabled": tools_enabled,
+                "kb_enabled": kb_enabled, "kb_max_articles": kb_max_articles,
+                "kb_min_score": kb_min_score, "max_tool_iterations": max_tool_iterations,
+                "max_history_messages": max_history_messages
+            }
+            conn.execute("""
+                INSERT INTO ai_agent_config_versions (config_id, version, snapshot_json, changed_by, change_note)
+                VALUES (?, 1, ?, ?, ?)
+            """, [new_id, json.dumps(snapshot), user_email, "Initial creation"])
+            return _ok({"id": new_id, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/agent-configs/{config_id}")
+async def ai_agent_config_update(config_id: int, request: Request, user=Depends(require_auth)):
+    """Update an agent configuration (creates a new version)."""
+    try:
+        data = await request.json()
+        user_email = user.get("email", "") if isinstance(user, dict) else ""
+
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            existing = conn.execute("SELECT * FROM ai_agent_configs WHERE id=?", [config_id]).fetchone()
+            if not existing:
+                _err("Config not found", 404)
+
+            config_name = data.get("config_name", existing["config_name"]).strip()[:100]
+            model = data.get("model", existing["model"])
+            max_tokens = min(int(data.get("max_tokens", existing["max_tokens"])), 4096)
+            temperature = max(0, min(float(data.get("temperature", existing["temperature"])), 2.0))
+            system_prompt_template = data.get("system_prompt_template", existing["system_prompt_template"]).strip()[:10000]
+            tools_enabled = data.get("tools_enabled", json.loads(existing["tools_enabled"] or "[]"))
+            kb_enabled = 1 if data.get("kb_enabled", existing["kb_enabled"]) else 0
+            kb_max_articles = min(int(data.get("kb_max_articles", existing["kb_max_articles"])), 10)
+            kb_min_score = max(0, min(float(data.get("kb_min_score", existing["kb_min_score"])), 1.0))
+            max_tool_iterations = min(int(data.get("max_tool_iterations", existing["max_tool_iterations"])), 10)
+            max_history_messages = min(int(data.get("max_history_messages", existing["max_history_messages"])), 50)
+            notes = data.get("notes", existing["notes"]).strip()[:500]
+            new_version = existing["version"] + 1
+
+            conn.execute("""
+                UPDATE ai_agent_configs SET
+                config_name=?, model=?, max_tokens=?, temperature=?, system_prompt_template=?,
+                tools_enabled=?, kb_enabled=?, kb_max_articles=?, kb_min_score=?,
+                max_tool_iterations=?, max_history_messages=?, version=?, notes=?,
+                updated_at=datetime('now')
+                WHERE id=?
+            """, [config_name, model, max_tokens, temperature, system_prompt_template,
+                  json.dumps(tools_enabled), kb_enabled, kb_max_articles, kb_min_score,
+                  max_tool_iterations, max_history_messages, new_version, notes, config_id])
+
+            # Save version snapshot
+            snapshot = {
+                "model": model, "max_tokens": max_tokens, "temperature": temperature,
+                "system_prompt_template": system_prompt_template, "tools_enabled": tools_enabled,
+                "kb_enabled": kb_enabled, "kb_max_articles": kb_max_articles,
+                "kb_min_score": kb_min_score, "max_tool_iterations": max_tool_iterations,
+                "max_history_messages": max_history_messages
+            }
+            change_note = data.get("change_note", "Updated config").strip()[:200]
+            conn.execute("""
+                INSERT INTO ai_agent_config_versions (config_id, version, snapshot_json, changed_by, change_note)
+                VALUES (?, ?, ?, ?, ?)
+            """, [config_id, new_version, json.dumps(snapshot), user_email, change_note])
+            return _ok({"id": config_id, "version": new_version, "success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/agent-configs/{config_id}/activate")
+async def ai_agent_config_activate(config_id: int, user=Depends(require_auth)):
+    """Set a config as active (deactivates all others)."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            row = conn.execute("SELECT id FROM ai_agent_configs WHERE id=?", [config_id]).fetchone()
+            if not row:
+                _err("Config not found", 404)
+            conn.execute("UPDATE ai_agent_configs SET is_active=0")
+            conn.execute("UPDATE ai_agent_configs SET is_active=1 WHERE id=?", [config_id])
+            return _ok({"success": True, "active_config_id": config_id})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.delete("/api/ai/agent-configs/{config_id}")
+async def ai_agent_config_delete(config_id: int, user=Depends(require_auth)):
+    """Delete an agent config (cannot delete active config)."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            row = conn.execute("SELECT is_active FROM ai_agent_configs WHERE id=?", [config_id]).fetchone()
+            if not row:
+                _err("Config not found", 404)
+            if row["is_active"]:
+                _err("Cannot delete the active configuration. Activate another config first.", 400)
+            conn.execute("DELETE FROM ai_agent_config_versions WHERE config_id=?", [config_id])
+            conn.execute("DELETE FROM ai_agent_configs WHERE id=?", [config_id])
+            return _ok({"success": True})
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.get("/api/ai/agent-configs/{config_id}/versions/{version_id}")
+async def ai_agent_config_version_detail(config_id: int, version_id: int, user=Depends(require_auth)):
+    """Get a specific version snapshot."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            row = conn.execute(
+                "SELECT * FROM ai_agent_config_versions WHERE config_id=? AND id=?",
+                [config_id, version_id]
+            ).fetchone()
+            if not row:
+                _err("Version not found", 404)
+            d = dict(row)
+            d["snapshot"] = json.loads(d.get("snapshot_json") or "{}")
+            return _ok(d)
+    except Exception as e:
+        _err(str(e), 500)
+
+
+@app.put("/api/ai/agent-configs/{config_id}/rollback/{version_id}")
+async def ai_agent_config_rollback(config_id: int, version_id: int, request: Request, user=Depends(require_auth)):
+    """Rollback a config to a specific version snapshot."""
+    try:
+        user_email = user.get("email", "") if isinstance(user, dict) else ""
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            ver_row = conn.execute(
+                "SELECT snapshot_json, version FROM ai_agent_config_versions WHERE config_id=? AND id=?",
+                [config_id, version_id]
+            ).fetchone()
+            if not ver_row:
+                _err("Version not found", 404)
+            snap = json.loads(ver_row["snapshot_json"])
+            existing = conn.execute("SELECT version FROM ai_agent_configs WHERE id=?", [config_id]).fetchone()
+            if not existing:
+                _err("Config not found", 404)
+            new_version = existing["version"] + 1
+            conn.execute("""
+                UPDATE ai_agent_configs SET
+                model=?, max_tokens=?, temperature=?, system_prompt_template=?,
+                tools_enabled=?, kb_enabled=?, kb_max_articles=?, kb_min_score=?,
+                max_tool_iterations=?, max_history_messages=?, version=?,
+                updated_at=datetime('now')
+                WHERE id=?
+            """, [snap.get("model", "claude-haiku-4-5-20251001"), snap.get("max_tokens", 1024),
+                  snap.get("temperature", 1.0), snap.get("system_prompt_template", ""),
+                  json.dumps(snap.get("tools_enabled", [])), snap.get("kb_enabled", 1),
+                  snap.get("kb_max_articles", 3), snap.get("kb_min_score", 0.001),
+                  snap.get("max_tool_iterations", 3), snap.get("max_history_messages", 10),
+                  new_version, config_id])
+            conn.execute("""
+                INSERT INTO ai_agent_config_versions (config_id, version, snapshot_json, changed_by, change_note)
+                VALUES (?, ?, ?, ?, ?)
+            """, [config_id, new_version, ver_row["snapshot_json"], user_email,
+                  f"Rollback to version {ver_row['version']}"])
+            return _ok({"success": True, "new_version": new_version})
     except Exception as e:
         _err(str(e), 500)
 

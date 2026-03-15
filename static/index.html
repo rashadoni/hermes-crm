@@ -16600,8 +16600,8 @@ async function onLeadDrop(e, newStatus) {
         const deflectBarColor = deflect >= 80 ? '#22c55e' : deflect >= 50 ? '#eab308' : '#ef4444';
 
         el.innerHTML = '<div style="padding:28px 32px;max-width:1440px;margin:0 auto">' +
-          // Header
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">' +
+          // Header with tabs
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
             '<div style="display:flex;align-items:center;gap:16px">' +
               '<div style="width:48px;height:48px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 16px rgba(99,102,241,0.3)">\u{1f916}</div>' +
               '<div><h2 style="font-size:24px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.3px">AI Command Center</h2>' +
@@ -16610,6 +16610,12 @@ async function onLeadDrop(e, newStatus) {
               '<span style="width:8px;height:8px;background:#22c55e;border-radius:50%;animation:pulse-dot 2s infinite"></span>' +
               '<span style="font-size:12px;color:#94a3b8;font-weight:500">' + _t('Agent Online','\u0410\u0433\u0435\u043d\u0442 \u043e\u043d\u043b\u0430\u0439\u043d','Agent onlayn') + '</span></div>' +
           '</div>' +
+          // Tab navigation
+          '<div style="display:flex;gap:4px;margin-bottom:24px;background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:4px">' +
+            '<button id="tabDashboard" onclick="switchCommandTab(\'dashboard\')" style="flex:1;padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,0.3)">' + _t('\u{1f4ca} Dashboard','\u{1f4ca} Дашборд','\u{1f4ca} Da\u015fboard') + '</button>' +
+            '<button id="tabAgentBuilder" onclick="switchCommandTab(\'builder\')" style="flex:1;padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:transparent;color:#64748b">' + _t('\u{1f527} Agent Builder','\u{1f527} Конструктор агента','\u{1f527} Agent Quraşdırıcı') + '</button>' +
+          '</div>' +
+          '<div id="ccDashboardContent">' +
 
           // Top metrics row - 4 big cards
           '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">' +
@@ -16697,6 +16703,10 @@ async function onLeadDrop(e, newStatus) {
                 '<th style="padding:12px 10px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">' + _t('Date','\u0414\u0430\u0442\u0430','Tarix') + '</th>' +
                 '<th style="padding:12px 10px;text-align:center;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Trace</th></tr></thead>' +
               '<tbody>' + sessionsHtml + '</tbody></table></div></div>' +
+          '</div>' + // close ccDashboardContent
+          '<div id="ccBuilderContent" style="display:none">' +
+            '<div id="agentBuilderRoot" style="color:#94a3b8;text-align:center;padding:40px">Loading Agent Builder...</div>' +
+          '</div>' +
           '</div>';
 
         setTimeout(() => renderAICharts(d), 100);
@@ -16972,6 +16982,281 @@ async function onLeadDrop(e, newStatus) {
       } catch(e) {
         alert('Error loading trace: ' + e.message);
       }
+    }
+
+    // ── Phase 6: Agent Builder UI ──
+    let _builderLoaded = false;
+    function switchCommandTab(tab) {
+      const dashEl = document.getElementById('ccDashboardContent');
+      const buildEl = document.getElementById('ccBuilderContent');
+      const tabD = document.getElementById('tabDashboard');
+      const tabB = document.getElementById('tabAgentBuilder');
+      if (!dashEl || !buildEl) return;
+      const activeStyle = 'flex:1;padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,0.3)';
+      const inactiveStyle = 'flex:1;padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:transparent;color:#64748b';
+      if (tab === 'builder') {
+        dashEl.style.display = 'none';
+        buildEl.style.display = 'block';
+        tabD.setAttribute('style', inactiveStyle);
+        tabB.setAttribute('style', activeStyle);
+        if (!_builderLoaded) { _builderLoaded = true; loadAgentBuilder(); }
+      } else {
+        dashEl.style.display = 'block';
+        buildEl.style.display = 'none';
+        tabD.setAttribute('style', activeStyle);
+        tabB.setAttribute('style', inactiveStyle);
+      }
+    }
+
+    let _builderConfigs = [];
+    let _builderTools = [];
+    let _builderModels = [];
+    let _editingConfigId = null;
+
+    async function loadAgentBuilder() {
+      const root = document.getElementById('agentBuilderRoot');
+      if (!root) return;
+      root.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b"><div style="display:inline-block;width:24px;height:24px;border:2px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div></div>';
+      try {
+        const resp = await apiFetch('/api/ai/agent-configs');
+        const data = resp.data || resp;
+        _builderConfigs = data.configs || [];
+        _builderTools = data.available_tools || [];
+        _builderModels = data.available_models || [];
+        renderAgentBuilder();
+      } catch(e) {
+        root.innerHTML = '<div style="color:#f87171;padding:20px">Error: ' + e.message + '</div>';
+      }
+    }
+
+    function renderAgentBuilder() {
+      const root = document.getElementById('agentBuilderRoot');
+      if (!root) return;
+
+      const activeConfig = _builderConfigs.find(c => c.is_active);
+      const toolIcons = {get_tickets:'\u{1f4cb}', create_ticket:'\u{1f4dd}', get_contracts:'\u{1f4c4}', get_documents:'\u{1f4c2}', escalate_to_human:'\u{1f6a8}'};
+
+      // Config list cards
+      let configCards = _builderConfigs.map(c => {
+        const isActive = c.is_active;
+        const modelLabel = (_builderModels.find(m => m.id === c.model) || {}).label || c.model;
+        const enabledTools = c.tools_enabled || [];
+        const toolBadges = enabledTools.map(t => '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(99,102,241,0.1);color:#a5b4fc;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:500">' + (toolIcons[t]||'') + ' ' + t + '</span>').join(' ');
+
+        return '<div style="background:#0f172a;border:1px solid ' + (isActive ? 'rgba(34,197,94,0.4)' : '#1e293b') + ';border-radius:14px;padding:20px;position:relative;transition:border-color 0.2s">' +
+          (isActive ? '<div style="position:absolute;top:12px;right:12px;background:rgba(34,197,94,0.15);color:#86efac;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">\u2705 Active</div>' : '') +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+            '<div style="font-size:16px;font-weight:700;color:#e2e8f0">' + esc(c.config_name) + '</div>' +
+            '<span style="background:#1e293b;color:#64748b;padding:2px 8px;border-radius:6px;font-size:10px">v' + c.version + '</span>' +
+          '</div>' +
+          '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">\u{1f916} ' + modelLabel + ' &middot; Max ' + c.max_tokens + ' tokens &middot; ' + enabledTools.length + '/' + _builderTools.length + ' tools</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px">' + toolBadges + '</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button onclick="openConfigEditor(' + c.id + ')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u270f\ufe0f Edit</button>' +
+            (!isActive ? '<button onclick="activateConfig(' + c.id + ')" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.2);color:#86efac;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u26a1 Activate</button>' : '') +
+            (!isActive ? '<button onclick="deleteConfig(' + c.id + ')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);color:#fca5a5;padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600">\u{1f5d1}\ufe0f Delete</button>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      if (!_builderConfigs.length) {
+        configCards = '<div style="text-align:center;padding:40px;color:#64748b;background:#0f172a;border:1px dashed #334155;border-radius:14px">' +
+          '<div style="font-size:28px;margin-bottom:8px">\u{1f527}</div>' +
+          '<div style="font-size:14px;font-weight:600;color:#94a3b8;margin-bottom:4px">No configurations yet</div>' +
+          '<div style="font-size:12px">Create your first agent config to customize the AI behavior</div></div>';
+      }
+
+      root.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
+          '<h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0;display:flex;align-items:center;gap:8px">\u{1f527} Agent Configurations</h3>' +
+          '<button onclick="openConfigEditor(0)" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:8px 18px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3)">+ New Config</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;margin-bottom:24px">' + configCards + '</div>' +
+        '<div id="configEditorPanel"></div>';
+    }
+
+    async function activateConfig(configId) {
+      try {
+        await apiFetch('/api/ai/agent-configs/' + configId + '/activate', {method:'PUT'});
+        _builderLoaded = false;
+        loadAgentBuilder();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function deleteConfig(configId) {
+      if (!confirm('Delete this configuration?')) return;
+      try {
+        await apiFetch('/api/ai/agent-configs/' + configId, {method:'DELETE'});
+        _builderLoaded = false;
+        loadAgentBuilder();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function openConfigEditor(configId) {
+      _editingConfigId = configId;
+      const panel = document.getElementById('configEditorPanel');
+      if (!panel) return;
+
+      let cfg = {
+        config_name: 'New Config',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        temperature: 1.0,
+        system_prompt_template: '',
+        tools_enabled: _builderTools.slice(),
+        kb_enabled: 1,
+        kb_max_articles: 3,
+        kb_min_score: 0.001,
+        max_tool_iterations: 3,
+        max_history_messages: 10,
+        notes: '',
+        versions: []
+      };
+
+      if (configId > 0) {
+        try {
+          const resp = await apiFetch('/api/ai/agent-configs/' + configId);
+          const data = resp.data || resp;
+          cfg = { ...cfg, ...data };
+        } catch(e) { alert('Error loading config: ' + e.message); return; }
+      }
+
+      const toolIcons = {get_tickets:'\u{1f4cb}', create_ticket:'\u{1f4dd}', get_contracts:'\u{1f4c4}', get_documents:'\u{1f4c2}', escalate_to_human:'\u{1f6a8}'};
+      const enabledSet = new Set(cfg.tools_enabled || []);
+
+      const modelOptions = _builderModels.map(m =>
+        '<option value="' + m.id + '"' + (m.id === cfg.model ? ' selected' : '') + '>' + m.label + ' ($' + m.cost_input + '/$' + m.cost_output + ' per M tokens)</option>'
+      ).join('');
+
+      const toolToggles = _builderTools.map(t =>
+        '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:' + (enabledSet.has(t) ? 'rgba(99,102,241,0.08)' : 'transparent') + ';border:1px solid ' + (enabledSet.has(t) ? 'rgba(99,102,241,0.2)' : '#1e293b') + ';border-radius:10px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'rgba(99,102,241,0.3)\'" onmouseout="this.style.borderColor=\'' + (enabledSet.has(t) ? 'rgba(99,102,241,0.2)' : '#1e293b') + '\'">' +
+          '<input type="checkbox" class="cfgTool" value="' + t + '"' + (enabledSet.has(t) ? ' checked' : '') + ' style="accent-color:#6366f1;width:16px;height:16px">' +
+          '<span style="font-size:18px">' + (toolIcons[t]||'\u{1f6e0}\ufe0f') + '</span>' +
+          '<div><div style="font-size:13px;font-weight:600;color:#e2e8f0">' + t + '</div></div></label>'
+      ).join('');
+
+      // Version history
+      let versionHtml = '';
+      if (cfg.versions && cfg.versions.length > 0) {
+        versionHtml = '<div style="margin-top:20px"><h4 style="font-size:14px;font-weight:600;color:#94a3b8;margin:0 0 12px">\u{1f4c7} Version History</h4>' +
+          '<div style="max-height:200px;overflow-y:auto;border:1px solid #1e293b;border-radius:10px">' +
+          cfg.versions.map(v =>
+            '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #1e293b;font-size:12px">' +
+              '<div><span style="color:#a5b4fc;font-weight:600">v' + v.version + '</span> <span style="color:#64748b">&middot; ' + (v.change_note||'') + '</span></div>' +
+              '<div style="display:flex;align-items:center;gap:8px"><span style="color:#475569">' + (v.created_at||'').replace('T',' ').slice(0,16) + '</span>' +
+              (configId > 0 ? '<button onclick="rollbackConfig(' + configId + ',' + v.id + ')" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:#fcd34d;padding:3px 8px;border-radius:6px;font-size:10px;cursor:pointer;font-weight:600">\u21a9\ufe0f</button>' : '') +
+              '</div></div>'
+          ).join('') +
+          '</div></div>';
+      }
+
+      panel.innerHTML =
+        '<div style="background:#0f172a;border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:28px;margin-top:16px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
+            '<h3 style="font-size:17px;font-weight:700;color:#e2e8f0;margin:0">' + (configId > 0 ? '\u270f\ufe0f Edit Config' : '\u2728 New Config') + '</h3>' +
+            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px">\u2715</button>' +
+          '</div>' +
+
+          // Name + Model row
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Config Name</label>' +
+            '<input id="cfgName" value="' + esc(cfg.config_name) + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f916} Model</label>' +
+            '<select id="cfgModel" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box">' + modelOptions + '</select></div>' +
+          '</div>' +
+
+          // Sliders row
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px">' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Max Tokens</label>' +
+            '<input id="cfgMaxTokens" type="number" value="' + cfg.max_tokens + '" min="100" max="4096" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Temperature</label>' +
+            '<input id="cfgTemp" type="number" value="' + cfg.temperature + '" min="0" max="2" step="0.1" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Tool Iterations</label>' +
+            '<input id="cfgIterations" type="number" value="' + cfg.max_tool_iterations + '" min="1" max="10" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">History Messages</label>' +
+            '<input id="cfgHistory" type="number" value="' + cfg.max_history_messages + '" min="1" max="50" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+          '</div>' +
+
+          // KB Settings row
+          '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:16px;margin-bottom:20px;align-items:end">' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4da} Knowledge Base</label>' +
+            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="cfgKbEnabled" type="checkbox"' + (cfg.kb_enabled ? ' checked' : '') + ' style="accent-color:#6366f1;width:18px;height:18px"><span style="color:#e2e8f0;font-size:13px">Enabled</span></label></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Max KB Articles</label>' +
+            '<input id="cfgKbMax" type="number" value="' + cfg.kb_max_articles + '" min="1" max="10" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">Min KB Score</label>' +
+            '<input id="cfgKbMin" type="number" value="' + cfg.kb_min_score + '" min="0" max="1" step="0.001" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" /></div>' +
+          '</div>' +
+
+          // Tools
+          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:8px">\u{1f6e0}\ufe0f Tool Registry</label>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' + toolToggles + '</div></div>' +
+
+          // System Prompt
+          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4dd} System Prompt Template <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave empty for default; use {kb_context}, {current_date}, {company_id} placeholders)</span></label>' +
+          '<textarea id="cfgPrompt" rows="8" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 14px;color:#e2e8f0;font-size:12px;font-family:monospace;resize:vertical;box-sizing:border-box;line-height:1.5">' + esc(cfg.system_prompt_template||'') + '</textarea></div>' +
+
+          // Notes
+          '<div style="margin-bottom:20px"><label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px">\u{1f4ac} Notes</label>' +
+          '<input id="cfgNotes" value="' + esc(cfg.notes||'') + '" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box" placeholder="What changed..." /></div>' +
+
+          // Actions
+          '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+            '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;padding:10px 22px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Cancel</button>' +
+            '<button onclick="saveConfig(' + configId + ')" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 28px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600;box-shadow:0 2px 8px rgba(99,102,241,0.3)">' + (configId > 0 ? '\u{1f4be} Save Changes' : '\u2728 Create Config') + '</button>' +
+          '</div>' +
+
+          versionHtml +
+        '</div>';
+
+      // Scroll to editor
+      panel.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+
+    async function saveConfig(configId) {
+      const name = document.getElementById('cfgName').value.trim();
+      const model = document.getElementById('cfgModel').value;
+      const maxTokens = parseInt(document.getElementById('cfgMaxTokens').value) || 1024;
+      const temperature = parseFloat(document.getElementById('cfgTemp').value) || 1.0;
+      const iterations = parseInt(document.getElementById('cfgIterations').value) || 3;
+      const history = parseInt(document.getElementById('cfgHistory').value) || 10;
+      const kbEnabled = document.getElementById('cfgKbEnabled').checked;
+      const kbMax = parseInt(document.getElementById('cfgKbMax').value) || 3;
+      const kbMin = parseFloat(document.getElementById('cfgKbMin').value) || 0.001;
+      const prompt = document.getElementById('cfgPrompt').value;
+      const notes = document.getElementById('cfgNotes').value.trim();
+      const toolEls = document.querySelectorAll('.cfgTool:checked');
+      const tools = Array.from(toolEls).map(e => e.value);
+
+      if (!name) { alert('Config name is required'); return; }
+
+      const body = {
+        config_name: name, model, max_tokens: maxTokens, temperature,
+        max_tool_iterations: iterations, max_history_messages: history,
+        kb_enabled: kbEnabled, kb_max_articles: kbMax, kb_min_score: kbMin,
+        system_prompt_template: prompt, tools_enabled: tools, notes,
+        change_note: notes || 'Updated config'
+      };
+
+      try {
+        if (configId > 0) {
+          await apiFetch('/api/ai/agent-configs/' + configId, {method:'PUT', body:JSON.stringify(body)});
+        } else {
+          await apiFetch('/api/ai/agent-configs', {method:'POST', body:JSON.stringify(body)});
+        }
+        document.getElementById('configEditorPanel').innerHTML = '';
+        _builderLoaded = false;
+        loadAgentBuilder();
+      } catch(e) { alert('Error saving: ' + e.message); }
+    }
+
+    async function rollbackConfig(configId, versionId) {
+      if (!confirm('Rollback to this version?')) return;
+      try {
+        await apiFetch('/api/ai/agent-configs/' + configId + '/rollback/' + versionId, {method:'PUT'});
+        _builderLoaded = false;
+        loadAgentBuilder();
+        openConfigEditor(configId);
+      } catch(e) { alert('Error: ' + e.message); }
     }
 
 </script>

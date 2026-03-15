@@ -7309,34 +7309,48 @@ async def convert_currency(
 async def sync_cbar_rates(user=Depends(require_admin)):
     """Sync exchange rates from Central Bank of Azerbaijan (cbar.az)."""
     from datetime import datetime
+    import ssl, urllib.request
     today = datetime.now().strftime("%d.%m.%Y")
     url = f"https://www.cbar.az/currencies/{today}.xml"
+    xml_text = None
+    # Try httpx first, then fallback to urllib
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15, verify=False) as client:
             resp = await client.get(url)
             resp.raise_for_status()
-        root = ET.fromstring(resp.text)
+            xml_text = resp.text
+    except Exception as e1:
+        logger.warning("httpx CBAR fetch failed: %s, trying urllib", e1)
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(url, headers={"User-Agent": "HermesCRM/1.0"})
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                xml_text = r.read().decode("utf-8")
+        except Exception as e2:
+            logger.error("urllib CBAR fetch also failed: %s", e2)
+            _err(f"Failed to fetch CBAR rates: {str(e1)} / {str(e2)}", 502)
+    if not xml_text:
+        _err("No data received from CBAR", 502)
+    try:
+        root = ET.fromstring(xml_text)
         updated = []
         with get_db() as conn:
-            # Parse CBAR XML: <ValType Type="Xarici valyutalar"><Valute Code="USD"><Nominal>1</Nominal><Name>...</Name><Value>1.7000</Value></Valute>
             for valtype in root.findall('.//ValType'):
                 for valute in valtype.findall('Valute'):
                     code = valute.get('Code')
                     nominal_el = valute.find('Nominal')
                     value_el = valute.find('Value')
-                    name_el = valute.find('Name')
                     if code and value_el is not None and nominal_el is not None:
                         nominal = float(nominal_el.text)
                         value = float(value_el.text)
-                        rate = value / nominal  # rate per 1 unit of foreign currency in AZN
-                        # Update existing currency or skip
+                        rate = value / nominal
                         existing = conn.execute("SELECT id FROM currencies WHERE code=? AND org_id=(SELECT org_id FROM users WHERE id=?)", [code, user["id"]]).fetchone()
                         if existing:
                             conn.execute("UPDATE currencies SET exchange_rate=? WHERE id=?", [round(rate, 6), existing[0]])
                             updated.append({"code": code, "rate": round(rate, 6), "action": "updated"})
         return _ok({"synced": len(updated), "date": today, "currencies": updated})
-    except httpx.HTTPError as e:
-        _err(f"Failed to fetch CBAR rates: {str(e)}", 502)
     except ET.ParseError as e:
         _err(f"Failed to parse CBAR XML: {str(e)}", 502)
 

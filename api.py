@@ -13432,7 +13432,8 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks):
             "latency_ms": latency_ms,
         })
     except Exception as e:
-        return _err(str(e), 500)
+        logger.error("generate-text error: %s", e, exc_info=True)
+        return _err(str(e), 400)
 
 
 @app.get("/api/ai/agent-performance")

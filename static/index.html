@@ -18090,7 +18090,7 @@ async function onLeadDrop(e, newStatus) {
                 h += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">`;
                 h += `<td style="padding:10px"><span style="background:${gc}33;color:${gc};padding:4px 12px;border-radius:6px;font-weight:700">${p.score_grade||'-'}</span></td>`;
                 h += `<td style="padding:10px;color:#e2e8f0;font-weight:600">${p.total_score||0}</td>`;
-                h += `<td style="padding:10px;color:#e2e8f0">${_esc((p.first_name||'')+ ' '+(p.last_name||''))}</td>`;
+                h += `<td style="padding:10px;color:#e2e8f0">${_esc(p.contact_name||'—')}</td>`;
                 h += `<td style="padding:10px;color:#94a3b8">${_esc(p.company||'—')}</td>`;
                 h += `<td style="padding:10px;color:#94a3b8">${_esc(p.source||'—')}</td>`;
                 h += `<td style="padding:10px"><span style="color:#22c55e;font-weight:600">${Math.round((p.conversion_probability||0)*100)}%</span></td>`;

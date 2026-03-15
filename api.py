@@ -1698,7 +1698,7 @@ async def get_top_prospects_early(user=Depends(require_auth), limit: int = 10):
     try:
         with get_db() as conn:
             rows = conn.execute("""
-                SELECT l.id as lead_id, l.first_name, l.last_name, l.company, l.email, l.phone,
+                SELECT l.id as lead_id, l.contact_name, l.company_name as company, l.email, l.phone,
                        l.source, l.status, ls.total_score, ls.score_grade, ls.demographic_score,
                        ls.behavioral_score, ls.engagement_score, ls.conversion_probability,
                        ls.ai_prediction_reason, ls.scoring_factors, ls.scored_at
@@ -1772,7 +1772,7 @@ async def predict_all_leads_early(user=Depends(require_admin)):
             scored = 0
             for lead in leads:
                 ld = dict(lead)
-                deals = conn.execute("SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)", [ld.get("company","")]).fetchall()
+                deals = conn.execute("SELECT * FROM deals WHERE company_id IN (SELECT id FROM accounts WHERE name=?)", [ld.get("company_name","")]).fetchall()
                 deals_list = [dict(d) for d in deals]
                 activities = conn.execute("SELECT * FROM activities WHERE entity_type='lead' AND entity_id=?", [ld["id"]]).fetchall()
                 score_result = _calculate_predictive_score(ld, deals_list, [dict(a) for a in activities])
@@ -8569,7 +8569,7 @@ async def get_channel_messages(user=Depends(require_auth), contact_id: int = Non
                 SELECT cm.id, cm.channel_type, cm.channel_message_id, cm.direction, cm.contact_id, cm.lead_id,
                        cm.sender_name, cm.sender_identifier, cm.content, cm.message_type, cm.media_url, cm.status,
                        cm.metadata, cm.created_at,
-                       c.full_name as contact_name, l.first_name || ' ' || l.last_name as lead_name
+                       c.full_name as contact_name, l.contact_name as lead_name
                 FROM channel_messages cm
                 LEFT JOIN contacts c ON cm.contact_id = c.id
                 LEFT JOIN leads l ON cm.lead_id = l.id
@@ -8624,7 +8624,7 @@ async def get_conversations(user=Depends(require_auth), limit: int = 50, offset:
                     cm.contact_id,
                     cm.lead_id,
                     cm.sender_identifier,
-                    COALESCE(c.full_name, l.first_name || ' ' || l.last_name, cm.sender_name, cm.sender_identifier) as display_name,
+                    COALESCE(c.full_name, l.contact_name, cm.sender_name, cm.sender_identifier) as display_name,
                     cm.content as last_message,
                     cm.created_at as last_message_at,
                     COUNT(CASE WHEN cm.status = 'received' AND cm.direction = 'inbound' THEN 1 END) as unread_count
@@ -9014,7 +9014,7 @@ def _calculate_predictive_score(lead_data, deals_history, activities):
     score = {"demographic": 0, "behavioral": 0, "engagement": 0, "factors": []}
 
     # Demographic scoring (based on lead data)
-    if lead_data.get("company"):
+    if lead_data.get("company_name") or lead_data.get("company"):
         score["demographic"] += 15
         score["factors"].append({"factor": "Has company", "points": 15})
     if lead_data.get("email") and "@" in str(lead_data.get("email", "")):
@@ -9077,7 +9077,7 @@ async def _ai_score_lead(lead_data, deals_history):
         prompt = f"""Ты — аналитик продаж. Оцени вероятность конверсии этого лида в сделку.
 
 Данные лида:
-- Имя: {lead_data.get('first_name', '')} {lead_data.get('last_name', '')}
+- Имя: {lead_data.get('contact_name', '')}
 - Компания: {lead_data.get('company', '')}
 - Должность: {lead_data.get('title', '')}
 - Источник: {lead_data.get('source', '')}

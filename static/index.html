@@ -18022,7 +18022,7 @@ async function onLeadDrop(e, newStatus) {
             if (id) await api.put('/api/channels/configs/'+id, data);
             else await api.post('/api/channels/configs', data);
             document.getElementById('channelConfigModal')?.remove();
-            showPage('channel-configs');
+            location.hash='#/channel-configs';
             showToast('Канал сохранён!', 'success');
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
@@ -18031,7 +18031,7 @@ async function onLeadDrop(e, newStatus) {
         if (!confirm('Удалить канал?')) return;
         try {
             await api.remove('/api/channels/configs/'+id);
-            showPage('channel-configs');
+            location.hash='#/channel-configs';
             showToast('Канал удалён', 'success');
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
@@ -18110,7 +18110,7 @@ async function onLeadDrop(e, newStatus) {
         try {
             const res = await api.post('/api/leads/predict-all', {});
             showToast(`✅ Оценено ${res.data?.scored||0} лидов!`, 'success');
-            showPage('lead-scoring');
+            location.hash='#/lead-scoring';
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
@@ -18118,7 +18118,7 @@ async function onLeadDrop(e, newStatus) {
         try {
             await api.post('/api/leads/'+leadId+'/predict-score', {});
             showToast('✅ Лид переоценён!', 'success');
-            showPage('lead-scoring');
+            location.hash='#/lead-scoring';
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
@@ -18216,18 +18216,18 @@ async function onLeadDrop(e, newStatus) {
             if (id) await api.put('/api/journeys/'+id, data);
             else await api.post('/api/journeys', data);
             document.getElementById('journeyModal')?.remove();
-            showPage('journeys');
+            location.hash='#/journeys';
             showToast('Путь сохранён!', 'success');
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
     async function activateJourney(id) {
-        try { await api.post('/api/journeys/'+id+'/activate', {}); showPage('journeys'); showToast('Путь активирован!', 'success'); }
+        try { await api.post('/api/journeys/'+id+'/activate', {}); location.hash='#/journeys'; showToast('Путь активирован!', 'success'); }
         catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
     async function pauseJourney(id) {
-        try { await api.post('/api/journeys/'+id+'/pause', {}); showPage('journeys'); showToast('Путь на паузе', 'info'); }
+        try { await api.post('/api/journeys/'+id+'/pause', {}); location.hash='#/journeys'; showToast('Путь на паузе', 'info'); }
         catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 

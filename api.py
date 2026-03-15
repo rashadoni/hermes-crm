@@ -508,6 +508,9 @@ async def startup_event():
                     sent_count INTEGER DEFAULT 0,
                     open_count INTEGER DEFAULT 0,
                     click_count INTEGER DEFAULT 0,
+                    cost REAL DEFAULT 0,
+                    lead_count INTEGER DEFAULT 0,
+                    conversion_count INTEGER DEFAULT 0,
                     created_by INTEGER,
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now'))
@@ -4929,6 +4932,36 @@ def _ensure_cost_model_tables(conn):
         conn.execute("SELECT cost_code FROM companies LIMIT 1")
     except Exception:
         conn.execute("ALTER TABLE companies ADD COLUMN cost_code TEXT DEFAULT ''")
+    # --- Campaign migrations ---
+    try:
+        conn.execute("SELECT cost FROM campaigns LIMIT 1")
+    except Exception:
+        conn.execute("ALTER TABLE campaigns ADD COLUMN cost REAL DEFAULT 0")
+    try:
+        conn.execute("SELECT lead_count FROM campaigns LIMIT 1")
+    except Exception:
+        conn.execute("ALTER TABLE campaigns ADD COLUMN lead_count INTEGER DEFAULT 0")
+    try:
+        conn.execute("SELECT conversion_count FROM campaigns LIMIT 1")
+    except Exception:
+        conn.execute("ALTER TABLE campaigns ADD COLUMN conversion_count INTEGER DEFAULT 0")
+    # Set cost values for seed campaigns if cost=0
+    conn.execute("UPDATE campaigns SET cost=500 WHERE name='Весенняя рассылка 2026' AND (cost IS NULL OR cost=0)")
+    conn.execute("UPDATE campaigns SET cost=200 WHERE name='Акция для новых клиентов' AND (cost IS NULL OR cost=0)")
+    conn.execute("UPDATE campaigns SET cost=150 WHERE name='Приглашение на вебинар' AND (cost IS NULL OR cost=0)")
+    conn.execute("UPDATE campaigns SET cost=300 WHERE name LIKE 'Летняя акция%' AND (cost IS NULL OR cost=0)")
+    # Link deals to campaigns if not linked yet
+    try:
+        existing_links = conn.execute("SELECT COUNT(*) FROM campaign_deals").fetchone()[0]
+        if existing_links == 0:
+            # Link available deals to the first campaign (Весенняя рассылка)
+            spring_camp = conn.execute("SELECT id FROM campaigns WHERE name='Весенняя рассылка 2026'").fetchone()
+            if spring_camp:
+                deal_ids = [r[0] for r in conn.execute("SELECT id FROM deals LIMIT 3").fetchall()]
+                for did in deal_ids:
+                    conn.execute("INSERT OR IGNORE INTO campaign_deals (campaign_id, deal_id) VALUES (?,?)", [spring_camp[0], did])
+    except Exception:
+        pass
     # Seed pricing_parameters if empty
     row = conn.execute("SELECT id FROM pricing_parameters WHERE id=1").fetchone()
     if not row:
@@ -6817,6 +6850,7 @@ async def campaign_stats(user=Depends(require_auth)):
 async def list_campaigns(
     status: Optional[str] = None,
     type: Optional[str] = None,
+    with_metrics: Optional[int] = None,
     limit: int = Query(100, ge=1, le=500),
     user=Depends(require_auth),
 ):
@@ -6840,7 +6874,24 @@ async def list_campaigns(
             "SELECT c.*, u.full_name as creator_name, t.name as template_name FROM campaigns c LEFT JOIN users u ON c.created_by=u.id LEFT JOIN email_templates t ON c.template_id=t.id LIMIT 0"
         ).description]
         total = conn.execute(f"SELECT COUNT(*) FROM campaigns c {wc}", params).fetchone()[0]
-        return _ok([dict(zip(cols, r)) for r in rows], total=total)
+        result = [dict(zip(cols, r)) for r in rows]
+        if with_metrics:
+            for camp in result:
+                cid = camp["id"]
+                metrics = conn.execute("""
+                    SELECT COUNT(cd.deal_id) as deal_count,
+                           COALESCE(SUM(CASE WHEN d.stage='WON' THEN d.value_amount ELSE 0 END), 0) as revenue,
+                           COALESCE(SUM(d.value_amount), 0) as pipeline
+                    FROM campaign_deals cd
+                    LEFT JOIN deals d ON cd.deal_id = d.id
+                    WHERE cd.campaign_id=?
+                """, [cid]).fetchone()
+                camp["revenue"] = float(metrics[1]) if metrics else 0
+                camp["pipeline"] = float(metrics[2]) if metrics else 0
+                camp["lead_count"] = camp.get("lead_count", 0) or 0
+                camp["conversion_count"] = metrics[0] if metrics else 0
+                camp["cost"] = float(camp.get("cost", 0) or 0)
+        return _ok(result, total=total)
 
 
 @app.post("/api/campaigns")
@@ -7592,7 +7643,7 @@ async def campaign_roi(campaign_id: int, user=Depends(require_auth)):
         campaign = conn.execute("SELECT * FROM campaigns WHERE id=?", [campaign_id]).fetchone()
         if not campaign:
             _err("Campaign not found", 404)
-        budget = float(campaign["total_recipients"] or 0) * 0  # placeholder if no budget field
+        budget = float(campaign["cost"] or 0) if "cost" in campaign.keys() else 0
         # Get linked deals
         rows = conn.execute(
             """SELECT d.id, d.title, d.stage, d.value_amount, d.currency

@@ -5608,13 +5608,14 @@ async function sendAiEmail(entityType, entityId) {
   const t = _getEditedAiText();
   if (!t.subject) return;
   try {
-    await api.post('/api/channel-messages', {
-      lead_id: entityId,
-      channel: 'email',
-      direction: 'outbound',
+    const payload = {
+      channel_type: 'email',
       content: t.body,
       subject: t.subject
-    });
+    };
+    if (entityType === 'lead') payload.lead_id = entityId;
+    else payload.contact_id = entityId;
+    await api.post('/api/channels/messages/send', payload);
     showToast('Email отправлен!','success');
   } catch(e) {
     showToast(esc(e.message||'Error'),'error');

@@ -3972,15 +3972,18 @@ async def create_journey(request: Request, user=Depends(require_auth)):
     if not trigger_type:
         return _err("Trigger type is required", 400)
 
-    with get_db() as conn:
-        conn.execute("""
-            INSERT INTO journeys (name, description, status, trigger_type, trigger_conditions, created_by)
-            VALUES (?, ?, 'draft', ?, ?, ?)
-        """, (name, description, trigger_type, json.dumps(trigger_conditions), user.get("user_id", user.get("id"))))
-        journey_id = conn.lastrowid
-        conn.commit()
+    try:
+        with get_db() as conn:
+            conn.execute("""
+                INSERT INTO journeys (name, description, status, trigger_type, trigger_conditions, created_by)
+                VALUES (?, ?, 'draft', ?, ?, ?)
+            """, (name, description, trigger_type, json.dumps(trigger_conditions), user.get("user_id", user.get("id"))))
+            journey_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
-    return _ok({"id": journey_id, "name": name, "status": "draft"})
+        return _ok({"id": journey_id, "name": name, "status": "draft"})
+    except Exception as e:
+        logger.error("Create journey error: %s", e)
+        return _err(str(e), 500)
 
 
 @app.get("/api/journeys/{journey_id}")

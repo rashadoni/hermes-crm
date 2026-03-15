@@ -5990,7 +5990,7 @@ async function confirmDeactivate(id) {
     window._leadsFilter = 'inactive';
     renderCompanyList(document.getElementById('app'), 'client');
   } catch(e) {
-    showToast(e.message || 'Error', 'error');
+    showToast(e.message||_t('Error','Ошибка','Xəta'),'error');
   }
 }
 
@@ -6020,7 +6020,7 @@ async function confirmReactivate(id) {
     window._leadsFilter = 'converted';
     renderCompanyList(document.getElementById('app'), 'client');
   } catch(e) {
-    showToast(e.message || 'Error', 'error');
+    showToast(e.message||_t('Error','Ошибка','Xəta'),'error');
   }
 }
 
@@ -13059,7 +13059,7 @@ async function saveUserProfile() {
     updateUserMenuVisibility();
     showToast(_i._g('um_profile_saved'), 'success');
   } catch(e) {
-    showToast(e.message || 'Error', 'error');
+    showToast(e.message||_t('Error','Ошибка','Xəta'),'error');
   }
 }
 
@@ -13477,7 +13477,7 @@ async function rateArticle(id, helpful) {
 }
 
 async function deleteArticle(id) {
-  if (!confirm('Delete?')) return;
+  if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
   await api.remove('/api/kb/articles/' + id);
   closeModal(); renderKnowledgeBase(document.getElementById('app'));
 }
@@ -13541,7 +13541,7 @@ function showCreateSLAModal() {
 
 async function saveNewSLA() {
   const name = document.getElementById('slaName')?.value?.trim();
-  if (!name) { showToast('Name required','error'); return; }
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
   try {
     await api.post('/api/sla-policies', {
       name, priority: document.getElementById('slaPriority')?.value||'medium',
@@ -13579,7 +13579,7 @@ async function updateSLA(id) {
       first_response_hours: parseFloat(document.getElementById('slaFR')?.value)||4,
       resolution_hours: parseFloat(document.getElementById('slaRes')?.value)||24,
     });
-    closeModal(); showToast('Updated','success');
+    closeModal(); showToast(_t('Updated','Обновлено','Yeniləndi'),'success');
     renderSLAPolicies(document.getElementById('app'));
   } catch(e) { showToast(e.message,'error'); }
 }
@@ -14362,7 +14362,7 @@ function addWfAction() {
 async function saveWorkflow(e, ruleId) {
   e.preventDefault();
   const name = document.getElementById('wfName').value.trim();
-  if (!name) { showToast('Name required','error'); return; }
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
   const condField = document.getElementById('wfCondField').value.trim();
   const condValue = document.getElementById('wfCondValue').value.trim();
   const conditions = condField ? {[condField]: condValue} : {};
@@ -14381,15 +14381,15 @@ async function saveWorkflow(e, ruleId) {
   try {
     if (ruleId) await api.put('/api/workflow-rules/'+ruleId, payload);
     else await api.post('/api/workflow-rules', payload);
-    showToast(ruleId?'Updated':'Created','success');
+    showToast(ruleId?_t('Updated','Обновлено','Yeniləndi'):_t('Created','Создано','Yaradıldı'),'success');
     navigate('workflows');
-  } catch(err) { showToast(err.message||'Error','error'); }
+  } catch(err) { showToast(err.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function deleteWorkflow(ruleId) {
-  if (!confirm('Delete?')) return;
-  try { await api.delete('/api/workflow-rules/'+ruleId); showToast('Deleted','success'); navigate('workflows'); }
-  catch(e) { showToast(e.message||'Error','error'); }
+  if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
+  try { await api.delete('/api/workflow-rules/'+ruleId); showToast(_t('Deleted','Удалено','Silindi'),'success'); navigate('workflows'); }
+  catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── Dashboard Settings ───────────────────────────────────────
@@ -14439,7 +14439,7 @@ async function renderDashboardSettings(container) {
                   </div>
                   <div class="flex flex-wrap gap-1 mt-2">
                     ${(l.layout||[]).slice(0,4).map(w => '<span class="text-xs bg-indigo-500/15 text-indigo-400 px-2 py-1 rounded">'+esc(w.widget||w)+'</span>').join('')}
-                    ${(l.layout||[]).length > 4 ? '<span class="text-xs text-slate-500">+' + ((l.layout||[]).length - 4) + ' more</span>' : ''}
+                    ${(l.layout||[]).length > 4 ? '<span class="text-xs text-slate-500">+' + ((l.layout||[]).length - 4) + ' ' + _t('more','ещё','daha') + '</span>' : ''}
                   </div>
                 </div>
                 <div class="flex gap-2">
@@ -14471,20 +14471,20 @@ async function createDashLayout() {
   const defaultWidgets = [{widget:'stat_cards',w:12,h:2,x:0,y:0},{widget:'deal_pipeline',w:12,h:4,x:0,y:2},{widget:'revenue_chart',w:6,h:3,x:0,y:6},{widget:'task_summary',w:6,h:3,x:6,y:6}];
   try {
     await api.post('/api/dashboard-layouts', { name, layout: defaultWidgets, is_default: true });
-    showToast('Created','success');
+    showToast(_t('Created','Создано','Yaradıldı'),'success');
     navigate('dashboard-settings');
-  } catch(e) { showToast(e.message||'Error','error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function setDefaultLayout(layoutId) {
-  try { await api.put('/api/dashboard-layouts/'+layoutId, {is_default:true}); showToast('Set as default','success'); navigate('dashboard-settings'); }
-  catch(e) { showToast(e.message||'Error','error'); }
+  try { await api.put('/api/dashboard-layouts/'+layoutId, {is_default:true}); showToast(_t('Set as default','По умолчанию','Defolt təyin edildi'),'success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function deleteDashLayout(layoutId) {
-  if (!confirm('Delete?')) return;
-  try { await api.delete('/api/dashboard-layouts/'+layoutId); showToast('Deleted','success'); navigate('dashboard-settings'); }
-  catch(e) { showToast(e.message||'Error','error'); }
+  if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
+  try { await api.delete('/api/dashboard-layouts/'+layoutId); showToast(_t('Deleted','Удалено','Silindi'),'success'); navigate('dashboard-settings'); }
+  catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 
@@ -14553,7 +14553,7 @@ async function renderCurrenciesPage(container) {
                   <div class="flex items-center gap-4">
                     <div class="text-right">
                       <div class="font-mono text-white">${c.is_base ? '1.0000' : parseFloat(c.exchange_rate).toFixed(4)}</div>
-                      <div class="text-xs text-slate-500">${c.is_base ? 'BASE' : 'rate'}</div>
+                      <div class="text-xs text-slate-500">${c.is_base ? _t('BASE','БАЗОВАЯ','BAZ') : _t('rate','курс','kurs')}</div>
                     </div>
                     <div class="flex gap-1">
                       ${!c.is_base ? '<button class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-lg hover:bg-indigo-500/10 transition" onclick="showCurrencyEditForm(' + c.id + ', \'' + esc(c.code) + '\', \'' + esc(c.name) + '\', \'' + esc(c.symbol) + '\', ' + c.exchange_rate + ', ' + c.is_active + ')">' + _t('Edit','Ред.','Red.') + '</button>' : ''}
@@ -14601,7 +14601,7 @@ async function doConvert() {
     const r = await api.get('/api/currencies/convert?amount='+amount+'&from_code='+from+'&to_code='+to);
     const data = r.data || r;
     document.getElementById('convResult').textContent = parseFloat(amount).toLocaleString() + ' ' + from + ' = ' + data.result.toLocaleString() + ' ' + to;
-  } catch(e) { document.getElementById('convResult').textContent = 'Error'; }
+  } catch(e) { document.getElementById('convResult').textContent = _t('Error','Ошибка','Xəta'); }
 }
 
 async function showCurrencyForm() {
@@ -14637,9 +14637,9 @@ async function saveCurrency(e) {
       exchange_rate: parseFloat(document.getElementById('curRate').value) || 1
     });
     document.getElementById('curModal')?.remove();
-    showToast('Created','success');
+    showToast(_t('Created','Создано','Yaradıldı'),'success');
     navigate('currencies');
-  } catch(e) { showToast(e.message||'Error','error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function showCurrencyEditForm(id, code, name, symbol, rate, isActive) {
@@ -14675,15 +14675,15 @@ async function updateCurrency(e, id) {
       is_active: document.getElementById('curEditActive').checked
     });
     document.getElementById('curModal')?.remove();
-    showToast('Updated','success');
+    showToast(_t('Updated','Обновлено','Yeniləndi'),'success');
     navigate('currencies');
-  } catch(e) { showToast(e.message||'Error','error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function deleteCurrency(id) {
-  if (!confirm('Delete?')) return;
-  try { await api.delete('/api/currencies/' + id); showToast('Deleted','success'); navigate('currencies'); }
-  catch(e) { showToast(e.message||'Error','error'); }
+  if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
+  try { await api.delete('/api/currencies/' + id); showToast(_t('Deleted','Удалено','Silindi'),'success'); navigate('currencies'); }
+  catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── Email Integration ────────────────────────────────────────
@@ -14801,7 +14801,7 @@ async function renderEmailLogPage(container) {
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-2">
-                    <span class="font-semibold text-white">${esc(log.subject||'(no subject)')}</span>
+                    <span class="font-semibold text-white">${esc(log.subject||_t('(no subject)','(без темы)','(mövzusuz)'))}</span>
                     <span class="text-xs ${statusColor(log.status)} px-2 py-1 rounded-full font-medium">${log.status}</span>
                   </div>
                   <div class="text-sm text-slate-400 mb-2">
@@ -14814,7 +14814,7 @@ async function renderEmailLogPage(container) {
                   </div>
                 </div>
                 <div class="text-right text-xs text-slate-500">
-                  <div>${esc(log.sender_email||'system')}</div>
+                  <div>${esc(log.sender_email||_t('system','система','sistem'))}</div>
                 </div>
               </div>
             </div>
@@ -15025,7 +15025,7 @@ function addNurtureStep() {
 async function saveNurtureSeq(e, seqId) {
   e.preventDefault();
   const name = document.getElementById('nurName').value.trim();
-  if (!name) { showToast('Name required','error'); return; }
+  if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
   // Collect steps
   const steps = [];
   document.querySelectorAll('[id^="nurtureStep"]').forEach(el => {
@@ -15051,9 +15051,9 @@ async function saveNurtureSeq(e, seqId) {
   try {
     if (seqId) await api.put('/api/nurture-sequences/'+seqId, payload);
     else await api.post('/api/nurture-sequences', payload);
-    showToast(seqId?'Updated':'Created','success');
+    showToast(seqId?_t('Updated','Обновлено','Yeniləndi'):_t('Created','Создано','Yaradıldı'),'success');
     navigate('nurturing');
-  } catch(err) { showToast(err.message||'Error','error'); }
+  } catch(err) { showToast(err.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function showNurtureDetail(seqId) {
@@ -15063,7 +15063,7 @@ async function showNurtureDetail(seqId) {
 async function deleteNurtureSeq(seqId) {
   const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
   if (!confirm(_t('Delete?','Удалить?','Silmək?'))) return;
-  try { await api.delete('/api/nurture-sequences/'+seqId); showToast('Deleted','success'); navigate('nurturing'); } catch(e) { showToast(e.message||'Error','error'); }
+  try { await api.delete('/api/nurture-sequences/'+seqId); showToast(_t('Deleted','Удалено','Silindi'),'success'); navigate('nurturing'); } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── Custom Fields ────────────────────────────────────────────
@@ -15076,6 +15076,8 @@ async function renderCustomFieldsPage(container) {
   const customFieldsIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
 
   const entities = ['contacts', 'deals', 'leads', 'companies', 'tasks'];
+  const entityLabels = {contacts:_t('Contacts','Контакты','Kontaktlar'), deals:_t('Deals','Сделки','Sövdələşmələr'), leads:_t('Leads','Лиды','Lidlər'), companies:_t('Companies','Компании','Şirkətlər'), tasks:_t('Tasks','Задачи','Tapşırıqlar')};
+  const fieldTypeLabels = {text:_t('Text','Текст','Mətn'), number:_t('Number','Число','Rəqəm'), date:_t('Date','Дата','Tarix'), select:_t('Select','Список','Seçim'), checkbox:_t('Checkbox','Флажок','İşarə'), textarea:_t('Textarea','Текстовое поле','Mətn sahəsi')};
   const grouped = {};
   for(const e of entities) grouped[e] = fields.filter(f => f.entity_type === e);
 
@@ -15101,7 +15103,7 @@ async function renderCustomFieldsPage(container) {
         ${entities.map((e,i) => {
           const count = grouped[e].length;
           const colors = ['from-blue-500/20 to-blue-600/5 border-blue-500/20 text-blue-400', 'from-purple-500/20 to-purple-600/5 border-purple-500/20 text-purple-400', 'from-pink-500/20 to-pink-600/5 border-pink-500/20 text-pink-400', 'from-green-500/20 to-green-600/5 border-green-500/20 text-green-400', 'from-orange-500/20 to-orange-600/5 border-orange-500/20 text-orange-400'];
-          return '<div class="bg-gradient-to-br ' + colors[i] + ' border rounded-xl p-4"><div class="text-2xl font-bold">' + count + '</div><div class="text-xs text-slate-400 mt-1">' + e + '</div></div>';
+          return '<div class="bg-gradient-to-br ' + colors[i] + ' border rounded-xl p-4"><div class="text-2xl font-bold">' + count + '</div><div class="text-xs text-slate-400 mt-1">' + (entityLabels[e]||e) + '</div></div>';
         }).join('')}
       </div>
 
@@ -15119,14 +15121,14 @@ async function renderCustomFieldsPage(container) {
             <div>
               <h3 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                ${_t(e, e, e)}
+                ${entityLabels[e]||e}
               </h3>
               <div class="space-y-2">
                 ${grouped[e].map(f => `
                   <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all flex items-center justify-between">
                     <div class="flex-1">
                       <div class="font-semibold text-white">${esc(f.field_label)}</div>
-                      <div class="text-sm text-slate-500">${esc(f.field_name)} · ${f.field_type}</div>
+                      <div class="text-sm text-slate-500">${esc(f.field_name)} · ${fieldTypeLabels[f.field_type]||f.field_type}</div>
                     </div>
                     <div class="flex gap-1">
                       <button class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-lg hover:bg-indigo-500/10 transition" onclick="showCustomFieldForm(${f.id})">${_t('Edit','Ред.','Red.')}</button>
@@ -15179,7 +15181,7 @@ async function showCustomFieldForm(fieldId) {
           </div>
         </div>
         <div>
-          <label class="text-xs text-slate-500">${t('cf_field_name')} * (latin, no spaces)</label>
+          <label class="text-xs text-slate-500">${t('cf_field_name')} * (${_t('latin, no spaces','латиница, без пробелов','latın, boşluqsuz')})</label>
           <input type="text" name="cf_field_name" value="${esc(f.field_name)}" required class="w-full text-sm" pattern="[a-z0-9_]+" ${fieldId?'readonly':''}>
         </div>
         <div class="grid grid-cols-3 gap-2">
@@ -15229,7 +15231,7 @@ async function saveCustomField(e, fieldId) {
     if (fieldId) await api.put('/api/custom-fields/' + fieldId, payload);
     else await api.post('/api/custom-fields', payload);
     document.getElementById('cfModal')?.remove();
-    showToast(fieldId ? 'Updated' : 'Created', 'success');
+    showToast(fieldId?_t('Updated','Обновлено','Yeniləndi'):_t('Created','Создано','Yaradıldı'),'success');
     navigate('custom-fields');
   } catch(err) { showToast(err.message || 'Error', 'error'); }
 }
@@ -15241,7 +15243,7 @@ async function deleteCustomField(fieldId) {
     await api.delete('/api/custom-fields/' + fieldId);
     showToast('Deleted', 'success');
     navigate('custom-fields');
-  } catch(e) { showToast(e.message || 'Error', 'error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // Helper: render custom fields in any entity form
@@ -15444,7 +15446,7 @@ async function linkDealToCampaign(campaignId) {
     await api.post('/api/campaigns/' + campaignId + '/deals', { deal_id: parseInt(sel.value) });
     showToast('Deal linked', 'success');
     showCampaignRoiDetail(campaignId);
-  } catch(e) { showToast(e.message || 'Error', 'error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 async function unlinkDealFromCampaign(campaignId, dealId) {
@@ -15452,7 +15454,7 @@ async function unlinkDealFromCampaign(campaignId, dealId) {
     await api.delete('/api/campaigns/' + campaignId + '/deals/' + dealId);
     showToast('Unlinked', 'success');
     showCampaignRoiDetail(campaignId);
-  } catch(e) { showToast(e.message || 'Error', 'error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── Contact Segments ─────────────────────────────────────────
@@ -15573,11 +15575,11 @@ async function showSegmentForm(segId) {
               <select name="seg_source" class="w-full text-sm">
                 <option value="">— ${_t('Any','Любой','Hər hansı')} —</option>
                 <option value="EMAIL" ${c.source==='EMAIL'?'selected':''}>Email</option>
-                <option value="PHONE" ${c.source==='PHONE'?'selected':''}>Phone</option>
-                <option value="WEB" ${c.source==='WEB'?'selected':''}>Web</option>
-                <option value="REFERRAL" ${c.source==='REFERRAL'?'selected':''}>Referral</option>
+                <option value="PHONE" ${c.source==='PHONE'?'selected':''}>${_t('Phone','Телефон','Telefon')}</option>
+                <option value="WEB" ${c.source==='WEB'?'selected':''}>${_t('Web','Веб','Veb')}</option>
+                <option value="REFERRAL" ${c.source==='REFERRAL'?'selected':''}>${_t('Referral','Реферал','Referral')}</option>
                 <option value="LINKEDIN" ${c.source==='LINKEDIN'?'selected':''}>LinkedIn</option>
-                <option value="OTHER" ${c.source==='OTHER'?'selected':''}>Other</option>
+                <option value="OTHER" ${c.source==='OTHER'?'selected':''}>${_t('Other','Другое','Digər')}</option>
               </select>
             </div>
             <div>
@@ -15650,7 +15652,7 @@ async function saveSegment(e, segId) {
     } else {
       await api.post('/api/contact-segments', payload);
     }
-    showToast(segId ? 'Segment updated' : 'Segment created', 'success');
+    showToast(segId?_t('Segment updated','Сегмент обновлён','Seqment yeniləndi'):_t('Segment created','Сегмент создан','Seqment yaradıldı'),'success');
     navigate('segments');
   } catch(err) { showToast(err.message || 'Error', 'error'); }
 }
@@ -15710,7 +15712,7 @@ async function deleteSegment(segId) {
     await api.delete('/api/contact-segments/' + segId);
     showToast('Deleted', 'success');
     navigate('segments');
-  } catch(e) { showToast(e.message || 'Error', 'error'); }
+  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── SMTP Settings Page ─────────────────────────────────────────
@@ -15834,12 +15836,12 @@ function smtpPreset(provider) {
     hint.style.display = 'none';
   }
   
-  showToast(provider.charAt(0).toUpperCase() + provider.slice(1) + ' preset applied', 'success');
+  showToast(_t('Preset applied','Пресет применён','Preset tətbiq edildi'), 'success');
 }
 
 async function saveSmtpSettings() {
   var host = document.getElementById('smtpHost').value.trim();
-  if (!host) { showToast(t('smtp_host') + ' required', 'error'); return; }
+  if (!host) { showToast(t('smtp_host') + ' ' + _t('required','обязательно','tələb olunur'), 'error'); return; }
   try {
     await api.put('/api/smtp-settings', {
       smtp_host: host,
@@ -15856,7 +15858,7 @@ async function saveSmtpSettings() {
 
 async function testSmtpEmail() {
   var testEmail = document.getElementById('smtpTestEmail').value.trim();
-  if (!testEmail) { showToast(t('smtp_test_email') + ' required', 'error'); return; }
+  if (!testEmail) { showToast(t('smtp_test_email') + ' ' + _t('required','обязательно','tələb olunur'), 'error'); return; }
   var resultEl = document.getElementById('smtpTestResult');
   resultEl.style.display = 'block';
   resultEl.style.background = '#1e293b';

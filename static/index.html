@@ -15600,55 +15600,101 @@ async function showSegmentForm(segId) {
           <label class="text-xs text-slate-500">${t('seg_description')}</label>
           <textarea name="seg_desc" rows="2" class="w-full">${esc(seg.description||'')}</textarea>
         </div>
-        <div class="bg-slate-800/50 border border-slate-700/40 rounded-xl p-5">
-          <h3 class="text-sm font-semibold mb-4 flex items-center gap-2">
-            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-            ${t('seg_conditions')}
-          </h3>
-          <div class="grid grid-cols-2 gap-4" style="font-size:13px">
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_company')}</label>
-              <input type="text" name="seg_company_name" value="${esc(c.company_name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
+        <div class="rounded-2xl overflow-hidden border border-slate-700/30 shadow-lg">
+          <!-- Gradient header for Conditions -->
+          <div class="bg-gradient-to-r from-indigo-600/20 via-violet-600/15 to-purple-600/10 px-6 py-4 border-b border-slate-700/30">
+            <h3 class="text-base font-semibold flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+              </div>
+              <div>
+                <span class="text-white">${t('seg_conditions')}</span>
+                <p class="text-xs text-slate-400 font-normal mt-0.5">${_t('All conditions are combined with AND logic','Все условия объединяются логикой И','Bütün şərtlər VƏ məntiqi ilə birləşdirilir')}</p>
+              </div>
+            </h3>
+          </div>
+          <!-- Body -->
+          <div class="bg-slate-800/30 px-6 py-5 space-y-5">
+            <!-- Row 1: Company & Source -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                  ${t('seg_company')}
+                </label>
+                <input type="text" name="seg_company_name" value="${esc(c.company_name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                  ${t('seg_source')}
+                </label>
+                <select name="seg_source" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                  <option value="">— ${_t('Any','Любой','Hər hansı')} —</option>
+                  <option value="EMAIL" ${c.source==='EMAIL'?'selected':''}>Email</option>
+                  <option value="PHONE" ${c.source==='PHONE'?'selected':''}>${_t('Phone','Телефон','Telefon')}</option>
+                  <option value="WEB" ${c.source==='WEB'?'selected':''}>${_t('Web','Веб','Veb')}</option>
+                  <option value="REFERRAL" ${c.source==='REFERRAL'?'selected':''}>${_t('Referral','Реферал','Referral')}</option>
+                  <option value="LINKEDIN" ${c.source==='LINKEDIN'?'selected':''}>LinkedIn</option>
+                  <option value="OTHER" ${c.source==='OTHER'?'selected':''}>${_t('Other','Другое','Digər')}</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_source')}</label>
-              <select name="seg_source" class="w-full text-sm">
-                <option value="">— ${_t('Any','Любой','Hər hansı')} —</option>
-                <option value="EMAIL" ${c.source==='EMAIL'?'selected':''}>Email</option>
-                <option value="PHONE" ${c.source==='PHONE'?'selected':''}>${_t('Phone','Телефон','Telefon')}</option>
-                <option value="WEB" ${c.source==='WEB'?'selected':''}>${_t('Web','Веб','Veb')}</option>
-                <option value="REFERRAL" ${c.source==='REFERRAL'?'selected':''}>${_t('Referral','Реферал','Referral')}</option>
-                <option value="LINKEDIN" ${c.source==='LINKEDIN'?'selected':''}>LinkedIn</option>
-                <option value="OTHER" ${c.source==='OTHER'?'selected':''}>${_t('Other','Другое','Digər')}</option>
-              </select>
+            <!-- Row 2: Role & Tag -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                  ${t('seg_role')}
+                </label>
+                <input type="text" name="seg_role" value="${esc(c.role||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                  ${t('seg_tag')}
+                </label>
+                <input type="text" name="seg_tag" value="${esc(c.tag||'')}" placeholder="${_t('Tag name','Имя тега','Teq adı')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
             </div>
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_role')}</label>
-              <input type="text" name="seg_role" value="${esc(c.role||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
+            <!-- Divider -->
+            <div class="border-t border-slate-700/30"></div>
+            <!-- Row 3: Date range -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  ${t('seg_created_after')}
+                </label>
+                <input type="date" name="seg_created_after" value="${c.created_after||''}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  ${t('seg_created_before')}
+                </label>
+                <input type="date" name="seg_created_before" value="${c.created_before||''}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
             </div>
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_tag')}</label>
-              <input type="text" name="seg_tag" value="${esc(c.tag||'')}" placeholder="${_t('Tag name','Имя тега','Teq adı')}" class="w-full text-sm">
-            </div>
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_created_after')}</label>
-              <input type="date" name="seg_created_after" value="${c.created_after||''}" class="w-full text-sm">
-            </div>
-            <div>
-              <label class="text-xs text-slate-500">${t('seg_created_before')}</label>
-              <input type="date" name="seg_created_before" value="${c.created_before||''}" class="w-full text-sm">
-            </div>
-            <div>
-              <label class="text-xs text-slate-500">${_t('Name','Имя','Ad')}</label>
-              <input type="text" name="seg_contact_name" value="${esc(c.name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm">
-            </div>
-            <div class="flex items-end gap-4">
-              <label class="flex items-center gap-1 text-xs cursor-pointer">
-                <input type="checkbox" name="seg_has_email" ${c.has_email?'checked':''} class="accent-indigo-500"> ${t('seg_has_email')}
-              </label>
-              <label class="flex items-center gap-1 text-xs cursor-pointer">
-                <input type="checkbox" name="seg_has_phone" ${c.has_phone?'checked':''} class="accent-indigo-500"> ${t('seg_has_phone')}
-              </label>
+            <!-- Row 4: Name & Checkboxes -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  ${_t('Name','Имя','Ad')}
+                </label>
+                <input type="text" name="seg_contact_name" value="${esc(c.name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+              </div>
+              <div class="flex items-end gap-5 pb-1">
+                <label class="flex items-center gap-2 text-xs cursor-pointer group">
+                  <input type="checkbox" name="seg_has_email" ${c.has_email?'checked':''} class="w-4 h-4 accent-indigo-500 rounded">
+                  <span class="text-slate-400 group-hover:text-white transition">${t('seg_has_email')}</span>
+                </label>
+                <label class="flex items-center gap-2 text-xs cursor-pointer group">
+                  <input type="checkbox" name="seg_has_phone" ${c.has_phone?'checked':''} class="w-4 h-4 accent-indigo-500 rounded">
+                  <span class="text-slate-400 group-hover:text-white transition">${t('seg_has_phone')}</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>

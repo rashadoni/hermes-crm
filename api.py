@@ -12935,6 +12935,163 @@ async def rate_chat_session(request: Request):
         return _err(str(e), 500)
 
 
+@app.post("/api/ai/sentiment")
+async def ai_sentiment_analysis(request: Request, user=Depends(require_auth)):
+    """Analyze sentiment of communications with a lead or contact."""
+    import time as _time
+    data = await request.json()
+    entity_type = data.get("entity_type", "lead")   # lead or contact
+    entity_id = data.get("entity_id")
+    language = data.get("language", "ru")
+
+    if not entity_id:
+        return _err("entity_id required", 400)
+
+    api_key = _get_ai_api_key()
+    if not api_key:
+        return _err("AI not configured", 503)
+
+    try:
+        with get_db() as conn:
+            # Gather all communication data
+            entity_name = ""
+            entity_info = ""
+            if entity_type == "lead":
+                lead = conn.execute("SELECT * FROM leads WHERE id=?", [entity_id]).fetchone()
+                if not lead:
+                    return _err("Lead not found", 404)
+                lead = dict(lead)
+                entity_name = lead.get("contact_name") or lead.get("company_name", "")
+                entity_info = f"Lead: {entity_name}, Company: {lead.get('company_name','')}, Status: {lead.get('status','')}, Priority: {lead.get('priority','')}"
+            else:
+                contact = conn.execute("SELECT c.*, co.name as company_name FROM contacts c LEFT JOIN companies co ON c.company_id=co.id WHERE c.id=?", [entity_id]).fetchone()
+                if not contact:
+                    return _err("Contact not found", 404)
+                contact = dict(contact)
+                entity_name = contact.get("full_name") or contact.get("name", "")
+                entity_info = f"Contact: {entity_name}, Company: {contact.get('company_name','')}, Position: {contact.get('position','')}"
+
+            # Get channel messages
+            col = "lead_id" if entity_type == "lead" else "contact_id"
+            messages = conn.execute(
+                f"SELECT channel_type, direction, content, status, created_at FROM channel_messages WHERE {col}=? ORDER BY created_at DESC LIMIT 30",
+                [entity_id]
+            ).fetchall()
+            msg_text = "\n".join([
+                f"[{m['direction']}|{m['channel_type']}|{m['created_at'][:16]}]: {(m['content'] or '')[:200]}"
+                for m in messages
+            ]) if messages else ""
+
+            # Get activities
+            activities = conn.execute(
+                "SELECT type, description, created_at FROM activities WHERE entity_type=? AND entity_id=? ORDER BY created_at DESC LIMIT 20",
+                [entity_type, entity_id]
+            ).fetchall()
+            act_text = "\n".join([
+                f"[{a['type']}|{a['created_at'][:16]}]: {(a['description'] or '')[:150]}"
+                for a in activities
+            ]) if activities else ""
+
+            # Get ticket comments if contact
+            ticket_text = ""
+            if entity_type == "contact":
+                tickets = conn.execute(
+                    "SELECT t.id, t.subject, t.status FROM tickets t WHERE t.contact_id=? ORDER BY t.created_at DESC LIMIT 5",
+                    [entity_id]
+                ).fetchall()
+                for tk in tickets:
+                    comments = conn.execute(
+                        "SELECT content, created_at FROM ticket_comments WHERE ticket_id=? ORDER BY created_at LIMIT 5",
+                        [tk['id']]
+                    ).fetchall()
+                    if comments:
+                        ticket_text += f"\nTicket '{tk['subject']}' ({tk['status']}): " + " | ".join([c['content'][:100] for c in comments])
+
+    except Exception as e:
+        return _err(str(e), 500)
+
+    lang_map = {"ru": "Russian", "az": "Azerbaijani", "en": "English"}
+    lang_name = lang_map.get(language, "Russian")
+
+    prompt = f"""You are a CRM sentiment analysis expert. Analyze ALL communications with this entity and provide a comprehensive sentiment assessment.
+
+Entity info: {entity_info}
+
+Channel messages (most recent first):
+{msg_text or "No messages found."}
+
+Activities:
+{act_text or "No activities found."}
+
+{f"Support tickets: {ticket_text}" if ticket_text else ""}
+
+Respond STRICTLY in JSON format in {lang_name}:
+{{
+  "overall_sentiment": "positive|neutral|negative|mixed",
+  "score": 0.75,
+  "confidence": 0.85,
+  "trend": "improving|stable|declining",
+  "emotions": ["satisfied", "engaged"],
+  "risk_level": "low|medium|high",
+  "summary": "Brief 2-sentence summary of the relationship sentiment",
+  "key_signals": ["signal 1", "signal 2", "signal 3"],
+  "recommendation": "Actionable recommendation for the sales/support team"
+}}
+
+Rules:
+- score: 0.0 (very negative) to 1.0 (very positive)
+- confidence: how confident you are in this assessment (0.0-1.0)
+- emotions: list 2-4 detected emotions
+- key_signals: 3 specific signals from the data that support your analysis
+- If no communications found, say so and give neutral assessment with low confidence"""
+
+    try:
+        import anthropic
+        t_start = _time.time()
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        latency_ms = round((_time.time() - t_start) * 1000, 1)
+
+        # Parse JSON
+        result = {}
+        if "{" in text:
+            json_str = text[text.index("{"):text.rindex("}") + 1]
+            result = json.loads(json_str)
+
+        # Log interaction
+        try:
+            with get_db() as conn:
+                _ensure_ai_tables(conn)
+                p_tok = getattr(response.usage, 'input_tokens', 0)
+                c_tok = getattr(response.usage, 'output_tokens', 0)
+                cost = round(p_tok * 0.80 / 1_000_000 + c_tok * 4.0 / 1_000_000, 6)
+                conn.execute("""
+                    INSERT INTO ai_interaction_logs
+                    (session_id, user_message, ai_response, latency_ms, prompt_tokens, completion_tokens,
+                     cost_usd, model, is_copilot) VALUES (?,?,?,?,?,?,?,?,1)
+                """, [0, f"[sentiment:{entity_type}#{entity_id}]", text[:500],
+                      latency_ms, p_tok, c_tok, cost, "claude-haiku-4-5-20251001"])
+        except Exception:
+            pass
+
+        return _ok({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "entity_name": entity_name,
+            "analysis": result,
+            "latency_ms": latency_ms,
+            "tokens": {"input": getattr(response.usage, 'input_tokens', 0),
+                       "output": getattr(response.usage, 'output_tokens', 0)}
+        })
+    except Exception as e:
+        return _err(str(e), 500)
+
+
 @app.get("/api/ai/agent-performance")
 async def agent_performance(user=Depends(require_auth)):
     """Get performance metrics for support agents (ticket assignments, resolution times, etc.)."""

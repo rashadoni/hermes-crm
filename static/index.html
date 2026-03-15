@@ -5276,6 +5276,7 @@ async function openLeadDetail(leadId) {
       <div class="flex gap-1 mb-4 border-b border-slate-700" id="ldTabsBar">
         <button class="px-3 py-2 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400" onclick="switchLeadTab('details',this)">${_i._g('ld_tab_details')}</button>
         <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300" onclick="switchLeadTab('activity',this)">${_i._g('ld_tab_activity')}</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-purple-400 hover:text-purple-300" onclick="switchLeadTab('sentiment',this)">🧠 Sentiment</button>
         ${lead.status!=='converted'?`<button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-green-400 hover:text-green-300" onclick="switchLeadTab('convert',this)">${_i._g('ld_tab_convert')}</button>`:''}
       </div>
 
@@ -5323,6 +5324,16 @@ async function openLeadDetail(leadId) {
         `).join('')}</div>` : `<div class="text-center text-slate-500 py-6">${_i._g('ld_no_activity')}<br><span class="text-xs">${_i._g('ld_no_activity_hint')}</span></div>`}
       </div>
 
+      <!-- Tab: Sentiment -->
+      <div id="ldTabSentiment" class="ld-tab" style="display:none">
+        <div class="text-center py-4" id="sentimentContent">
+          <button class="btn btn-primary" onclick="runSentimentAnalysis('lead',${lead.id})" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)">
+            🧠 Анализировать тональность
+          </button>
+          <p class="text-xs text-slate-500 mt-2">AI проанализирует все коммуникации с этим лидом</p>
+        </div>
+      </div>
+
       <!-- Tab: Convert -->
       ${lead.status!=='converted'?`<div id="ldTabConvert" class="ld-tab" style="display:none">
         <div class="space-y-3">
@@ -5362,6 +5373,72 @@ function switchLeadTab(tab, btn) {
   document.querySelectorAll('#ldTabsBar button').forEach(b => { b.classList.remove('border-indigo-500','text-indigo-400','border-green-500','text-green-400'); b.classList.add('border-transparent','text-slate-400'); });
   btn.classList.remove('border-transparent','text-slate-400');
   btn.classList.add('border-indigo-500','text-indigo-400');
+}
+
+async function runSentimentAnalysis(entityType, entityId) {
+  const container = document.getElementById('sentimentContent');
+  if (!container) return;
+  const L = currentLang || 'ru';
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  container.innerHTML = '<div class="text-center py-6"><div class="inline-block w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-sm text-slate-400 mt-3">' + _t('AI is analyzing...', 'AI анализирует...', 'AI təhlil edir...') + '</p><p class="text-xs text-slate-600 mt-1">' + _t('Usually 5-15 seconds', 'Обычно 5-15 секунд', 'Adətən 5-15 saniyə') + '</p></div>';
+  try {
+    const res = await api.post('/api/ai/sentiment', { entity_type: entityType, entity_id: entityId, language: L });
+    const d = res.data || res;
+    const a = d.analysis || {};
+    const sentColors = {positive:'#22c55e',neutral:'#64748b',negative:'#ef4444',mixed:'#f59e0b'};
+    const sentEmojis = {positive:'😊',neutral:'😐',negative:'😟',mixed:'🤔'};
+    const riskColors = {low:'#22c55e',medium:'#f59e0b',high:'#ef4444'};
+    const trendIcons = {improving:'📈',stable:'➡️',declining:'📉'};
+    const sc = a.score || 0;
+    const pct = Math.round(sc * 100);
+    const col = sentColors[a.overall_sentiment] || '#64748b';
+    let html = '';
+    // Header with score gauge
+    html += '<div style="text-align:center;margin-bottom:16px">';
+    html += '<div style="display:inline-block;position:relative;width:100px;height:100px">';
+    html += '<svg viewBox="0 0 36 36" style="width:100px;height:100px;transform:rotate(-90deg)">';
+    html += '<circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" stroke-width="3"/>';
+    html += '<circle cx="18" cy="18" r="15.9" fill="none" stroke="' + col + '" stroke-width="3" stroke-dasharray="' + pct + ' ' + (100-pct) + '" stroke-linecap="round"/>';
+    html += '</svg>';
+    html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">';
+    html += '<div style="font-size:22px">' + (sentEmojis[a.overall_sentiment]||'') + '</div>';
+    html += '<div style="font-size:16px;font-weight:800;color:' + col + '">' + pct + '%</div>';
+    html += '</div></div>';
+    html += '<div style="font-size:14px;font-weight:700;color:' + col + ';margin-top:6px;text-transform:uppercase">' + (a.overall_sentiment||'unknown') + '</div>';
+    html += '</div>';
+    // Metrics row
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
+    html += '<div style="background:#0f172a;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase">Trend</div><div style="font-size:18px;margin-top:2px">' + (trendIcons[a.trend]||'➡️') + '</div><div style="font-size:11px;color:#94a3b8">' + (a.trend||'stable') + '</div></div>';
+    html += '<div style="background:#0f172a;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase">Risk</div><div style="font-size:18px;font-weight:800;color:' + (riskColors[a.risk_level]||'#64748b') + ';margin-top:2px">' + (a.risk_level||'—').toUpperCase() + '</div></div>';
+    html += '<div style="background:#0f172a;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase">Confidence</div><div style="font-size:18px;font-weight:800;color:#818cf8;margin-top:2px">' + Math.round((a.confidence||0)*100) + '%</div></div>';
+    html += '</div>';
+    // Emotions
+    if (a.emotions && a.emotions.length) {
+      html += '<div style="margin-bottom:12px"><div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600">' + _t('EMOTIONS','ЭМОЦИИ','EMOSİYALAR') + '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+      a.emotions.forEach(function(em) { html += '<span style="background:rgba(139,92,246,0.15);color:#c4b5fd;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600">' + em + '</span>'; });
+      html += '</div></div>';
+    }
+    // Summary
+    if (a.summary) {
+      html += '<div style="background:#0f172a;border-radius:10px;padding:12px;margin-bottom:10px"><div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">' + _t('SUMMARY','РЕЗЮМЕ','XÜLASƏ') + '</div><div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(a.summary) + '</div></div>';
+    }
+    // Key signals
+    if (a.key_signals && a.key_signals.length) {
+      html += '<div style="margin-bottom:10px"><div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">' + _t('KEY SIGNALS','КЛЮЧЕВЫЕ СИГНАЛЫ','ƏSAS SİQNALLAR') + '</div>';
+      a.key_signals.forEach(function(s) { html += '<div style="font-size:12px;color:#94a3b8;padding:2px 0">• ' + esc(s) + '</div>'; });
+      html += '</div>';
+    }
+    // Recommendation
+    if (a.recommendation) {
+      html += '<div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:12px"><div style="font-size:11px;color:#818cf8;font-weight:600;margin-bottom:4px">💡 ' + _t('RECOMMENDATION','РЕКОМЕНДАЦИЯ','TÖVSİYƏ') + '</div><div style="font-size:13px;color:#e2e8f0;line-height:1.5">' + esc(a.recommendation) + '</div></div>';
+    }
+    // Footer
+    html += '<div style="text-align:center;margin-top:12px"><span style="font-size:10px;color:#475569">' + _t('Analyzed in','Анализ за','Təhlil müddəti') + ' ' + (d.latency_ms||0) + 'ms · ' + (d.tokens?.input||0) + '/' + (d.tokens?.output||0) + ' tokens</span>';
+    html += ' <button class="btn btn-sm btn-secondary" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="runSentimentAnalysis(\'' + entityType + '\',' + entityId + ')">↻ ' + _t('Refresh','Обновить','Yenilə') + '</button></div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="text-center text-red-400 py-4">⚠️ ' + esc(e.message || 'Error') + '<br><button class="btn btn-sm btn-secondary mt-3" onclick="runSentimentAnalysis(\'' + entityType + '\',' + entityId + ')">' + _t('Retry','Повторить','Yenidən') + '</button></div>';
+  }
 }
 
 async function changeLeadStatus(leadId, newStatus) {

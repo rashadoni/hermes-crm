@@ -156,37 +156,76 @@
         }
 
         /* AI Chat Widget */
-        .chat-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; color: white; cursor: pointer; box-shadow: 0 4px 20px rgba(59,130,246,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
-        .chat-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(59,130,246,0.5); }
-        .chat-fab svg { width: 28px; height: 28px; }
+        .chat-fab { position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; color: white; cursor: pointer; box-shadow: 0 4px 24px rgba(59,130,246,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(.4,0,.2,1); }
+        .chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 32px rgba(59,130,246,0.55); }
+        .chat-fab svg { width: 28px; height: 28px; transition: opacity 0.2s; }
         .chat-fab .chat-fab-close { display: none; }
         .chat-fab.open .chat-fab-icon { display: none; }
         .chat-fab.open .chat-fab-close { display: block; }
-        .chat-window { position: fixed; bottom: 92px; right: 24px; width: 380px; max-height: 520px; background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); z-index: 999; display: none; flex-direction: column; overflow: hidden; }
+        .chat-fab.open { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+
+        .chat-window { position: fixed; bottom: 96px; right: 24px; width: 400px; height: 560px; background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; box-shadow: 0 12px 48px rgba(0,0,0,0.6); z-index: 999; display: none; flex-direction: column; overflow: hidden; animation: chatSlideUp 0.3s ease-out; }
         .chat-window.open { display: flex; }
-        .chat-header { padding: 16px; background: linear-gradient(135deg, #1e3a5f, #1e1b4b); border-bottom: 1px solid #1e293b; display: flex; align-items: center; gap: 12px; }
-        .chat-header-avatar { width: 36px; height: 36px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .chat-header-avatar svg { width: 20px; height: 20px; color: white; }
-        .chat-header-info h4 { font-size: 14px; font-weight: 600; color: #e2e8f0; margin: 0; }
-        .chat-header-info span { font-size: 11px; color: #22c55e; }
-        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; max-height: 340px; min-height: 200px; }
-        .chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; word-wrap: break-word; }
-        .chat-msg.ai { background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 4px; align-self: flex-start; }
-        .chat-msg.user { background: #3b82f6; color: white; border-bottom-right-radius: 4px; align-self: flex-end; }
-        .chat-msg.typing { background: #1e293b; color: #64748b; align-self: flex-start; }
-        .chat-msg.typing .dots { display: inline-flex; gap: 4px; }
-        .chat-msg.typing .dots span { width: 6px; height: 6px; background: #64748b; border-radius: 50%; animation: chatdot 1.4s infinite; }
+        @keyframes chatSlideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        .chat-header { padding: 16px 20px; background: linear-gradient(135deg, #1e3a5f 0%, #1e1b4b 100%); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+        .chat-header-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .chat-header-avatar svg { width: 22px; height: 22px; color: white; }
+        .chat-header-info { flex: 1; }
+        .chat-header-info h4 { font-size: 15px; font-weight: 600; color: #f1f5f9; margin: 0; }
+        .chat-header-status { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+        .chat-header-status .dot { width: 7px; height: 7px; background: #22c55e; border-radius: 50%; animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .chat-header-status span { font-size: 11px; color: #94a3b8; }
+
+        .chat-messages { flex: 1; padding: 16px 16px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .chat-messages::-webkit-scrollbar { width: 5px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        .chat-bubble-wrap { display: flex; flex-direction: column; gap: 2px; }
+        .chat-bubble-wrap.user { align-items: flex-end; }
+        .chat-bubble-wrap.ai { align-items: flex-start; }
+
+        .chat-msg { max-width: 88%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; }
+        .chat-msg.ai { background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 6px; }
+        .chat-msg.user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; border-bottom-right-radius: 6px; }
+        .chat-msg.ai strong, .chat-msg.ai b { color: #93c5fd; font-weight: 600; }
+        .chat-msg.ai em, .chat-msg.ai i { color: #a5b4fc; }
+        .chat-msg.ai ul, .chat-msg.ai ol { margin: 6px 0 6px 18px; padding: 0; }
+        .chat-msg.ai li { margin-bottom: 3px; }
+        .chat-msg.ai p { margin: 0 0 6px; }
+        .chat-msg.ai p:last-child { margin-bottom: 0; }
+        .chat-msg.ai code { background: #0f172a; padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #a5b4fc; }
+        .chat-msg.ai .ticket-card { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px 12px; margin: 8px 0 4px; }
+        .chat-msg.ai .ticket-card .tc-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+        .chat-msg.ai .ticket-card .tc-label { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .chat-msg.ai .ticket-card .tc-value { color: #e2e8f0; font-size: 13px; font-weight: 500; }
+
+        .chat-tool-badge { display: inline-flex; align-items: center; gap: 4px; background: #1e1b4b; color: #a5b4fc; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; align-self: flex-start; margin-top: 2px; }
+        .chat-tool-badge svg { width: 12px; height: 12px; }
+
+        .chat-time { font-size: 10px; color: #475569; margin-top: 2px; padding: 0 4px; }
+        .chat-time.right { text-align: right; }
+
+        .chat-msg.typing { background: #1e293b; color: #64748b; align-self: flex-start; border-bottom-left-radius: 6px; padding: 12px 18px; }
+        .chat-msg.typing .dots { display: inline-flex; gap: 5px; }
+        .chat-msg.typing .dots span { width: 7px; height: 7px; background: #64748b; border-radius: 50%; animation: chatdot 1.4s infinite; }
         .chat-msg.typing .dots span:nth-child(2) { animation-delay: 0.2s; }
         .chat-msg.typing .dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes chatdot { 0%,80%,100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
-        .chat-input-area { padding: 12px; border-top: 1px solid #1e293b; display: flex; gap: 8px; }
-        .chat-input-area input { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 13px; outline: none; }
-        .chat-input-area input:focus { border-color: #3b82f6; }
+        @keyframes chatdot { 0%,80%,100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.1); } }
+
+        .chat-input-area { padding: 12px 16px 16px; border-top: 1px solid #1e293b; display: flex; gap: 8px; flex-shrink: 0; background: #0b1121; }
+        .chat-input-area input { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 11px 16px; color: #e2e8f0; font-size: 13.5px; outline: none; transition: border-color 0.2s; }
+        .chat-input-area input:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.15); }
         .chat-input-area input::placeholder { color: #475569; }
-        .chat-send-btn { background: #3b82f6; border: none; border-radius: 8px; width: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
-        .chat-send-btn:hover { background: #2563eb; }
-        .chat-send-btn:disabled { background: #334155; cursor: not-allowed; }
+        .chat-send-btn { background: linear-gradient(135deg, #3b82f6, #6366f1); border: none; border-radius: 12px; width: 42px; height: 42px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+        .chat-send-btn:hover { transform: scale(1.05); box-shadow: 0 2px 12px rgba(99,102,241,0.4); }
+        .chat-send-btn:disabled { background: #334155; cursor: not-allowed; transform: none; box-shadow: none; }
         .chat-send-btn svg { width: 18px; height: 18px; color: white; }
+
+        .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; flex-shrink: 0; }
+        .chat-suggestion-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 6px 12px; border-radius: 20px; font-size: 11.5px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+        .chat-suggestion-btn:hover { background: #334155; color: #e2e8f0; border-color: #6366f1; }
     </style>
 </head>
 <body>
@@ -664,25 +703,43 @@
         <div class="chat-header">
             <div class="chat-header-avatar"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v9.5"/></svg></div>
             <div class="chat-header-info">
-                <h4>Hermes AI Assistant</h4>
-                <span>&#9679; Online</span>
+                <h4>Hermes AI</h4>
+                <div class="chat-header-status"><div class="dot"></div><span>Online</span></div>
             </div>
         </div>
-        <div class="chat-messages" id="chatMessages">
-        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-suggestions" id="chatSuggestions"></div>
         <div class="chat-input-area">
-            <input type="text" id="chatInput" placeholder="Type your message..." onkeydown="if(event.key==='Enter')sendChatMsg()">
+            <input type="text" id="chatInput" placeholder="" onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChatMsg()">
             <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMsg()">
                 <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
             </button>
         </div>
     </div>
     <script>
-    // AI Chat Widget
+    // ─── AI Chat Widget (v2 — polished) ─────────────────
     let chatHistory = [];
     let chatOpen = false;
     let chatInitialized = false;
     let chatSessionId = null;
+
+    // Simple markdown → HTML converter
+    function chatMd(text) {
+        if (!text) return '';
+        let h = text
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/^[-\u2013\u2022]\s+(.+)$/gm, '<li>$1</li>')
+            .replace(/^(\d+)\.\s+(.+)$/gm, '<li>$1. $2</li>')
+            .replace(/\n/g, '<br>');
+        // wrap consecutive <li> in <ul>
+        h = h.replace(/(<li>.*?<\/li>(<br>)?)+/g, function(m) {
+            return '<ul>' + m.replace(/<br>/g, '') + '</ul>';
+        });
+        return h;
+    }
 
     function toggleChat() {
         chatOpen = !chatOpen;
@@ -690,7 +747,10 @@
         document.getElementById('chatWindow').classList.toggle('open', chatOpen);
         if (chatOpen && !chatInitialized) {
             chatInitialized = true;
-            addChatMsg('ai', getGreeting());
+            const lang = localStorage.getItem('portalLang') || 'az';
+            document.getElementById('chatInput').placeholder = lang === 'ru' ? 'Напишите сообщение...' : lang === 'en' ? 'Type a message...' : 'Mesaj\u0131n\u0131z\u0131 yaz\u0131n...';
+            addChatBubble('ai', getGreeting());
+            showSuggestions();
         }
         if (chatOpen) {
             setTimeout(() => document.getElementById('chatInput').focus(), 100);
@@ -700,27 +760,85 @@
     function getGreeting() {
         const name = (currentUser && currentUser.full_name) ? currentUser.full_name.split(' ')[0] : '';
         const lang = localStorage.getItem('portalLang') || 'az';
-        if (lang === 'ru') return (name ? 'Привет, ' + name + '! ' : 'Привет! ') + 'Я Hermes AI Assistant. Чем могу помочь? Могу ответить на вопросы о тикетах, контрактах и услугах.';
-        if (lang === 'en') return (name ? 'Hi ' + name + '! ' : 'Hi! ') + "I'm Hermes AI Assistant. How can I help? I can answer questions about tickets, contracts, and services.";
-        return (name ? 'Salam, ' + name + '! ' : 'Salam! ') + "M\u0259n Hermes AI Assistant-am. N\u0259d\u0259 k\xf6m\u0259k ed\u0259 bil\u0259r\u0259m? Tiketl\u0259r, m\xfcqavil\u0259l\u0259r v\u0259 xidm\u0259tl\u0259r haqq\u0131nda suallar\u0131n\u0131za cavab ver\u0259 bil\u0259r\u0259m.";
+        if (lang === 'ru') return (name ? 'Привет, **' + name + '**! ' : 'Привет! ') + 'Я Hermes AI Assistant.\nЧем могу помочь? \u{1f4ac}';
+        if (lang === 'en') return (name ? 'Hi **' + name + '**! ' : 'Hi! ') + "I'm Hermes AI Assistant.\nHow can I help you? \u{1f4ac}";
+        return (name ? 'Salam, **' + name + '**! ' : 'Salam! ') + "M\u0259n Hermes AI Assistant-am.\nN\u0259d\u0259 k\xf6m\u0259k ed\u0259 bil\u0259r\u0259m? \u{1f4ac}";
     }
 
-    function addChatMsg(role, text) {
+    function showSuggestions() {
+        const lang = localStorage.getItem('portalLang') || 'az';
+        const suggestions = lang === 'ru' ? [
+            ['\u{1f4cb} Мои тикеты', 'Покажи мои открытые тикеты'],
+            ['\u{1f4dd} Создать тикет', 'Хочу создать новый тикет'],
+            ['\u{1f4c4} Контракты', 'Покажи мои контракты']
+        ] : lang === 'en' ? [
+            ['\u{1f4cb} My tickets', 'Show my open tickets'],
+            ['\u{1f4dd} New ticket', 'I want to create a new ticket'],
+            ['\u{1f4c4} Contracts', 'Show my contracts']
+        ] : [
+            ['\u{1f4cb} Tiketl\u0259rim', 'A\xe7\u0131q tiketl\u0259rimi g\xf6st\u0259r'],
+            ['\u{1f4dd} Yeni tiket', 'Yeni tiket yaratmaq ist\u0259yir\u0259m'],
+            ['\u{1f4c4} M\xfcqavil\u0259l\u0259r', 'M\xfcqavil\u0259l\u0259rimi g\xf6st\u0259r']
+        ];
+        const box = document.getElementById('chatSuggestions');
+        box.innerHTML = suggestions.map(([label, msg]) =>
+            '<button class="chat-suggestion-btn" onclick="useSuggestion(this, \'' + msg.replace(/'/g, "\\'") + '\')">' + label + '</button>'
+        ).join('');
+    }
+
+    function useSuggestion(btn, msg) {
+        document.getElementById('chatSuggestions').innerHTML = '';
+        document.getElementById('chatInput').value = msg;
+        sendChatMsg();
+    }
+
+    function getTimeStr() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addChatBubble(role, text, toolsUsed) {
         const box = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-msg ' + role;
-        div.textContent = text;
-        box.appendChild(div);
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + role;
+
+        if (toolsUsed && toolsUsed.length) {
+            const toolNames = { get_tickets: '\u{1f4cb} Tickets loaded', create_ticket: '\u2705 Ticket created', get_contracts: '\u{1f4c4} Contracts loaded', get_documents: '\u{1f4c2} Documents loaded', escalate_to_human: '\u{1f464} Escalated to agent' };
+            toolsUsed.forEach(t => {
+                const badge = document.createElement('div');
+                badge.className = 'chat-tool-badge';
+                badge.innerHTML = (toolNames[t] || t);
+                wrap.appendChild(badge);
+            });
+        }
+
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg ' + role;
+        if (role === 'ai') {
+            msg.innerHTML = chatMd(text);
+        } else {
+            msg.textContent = text;
+        }
+        wrap.appendChild(msg);
+
+        const time = document.createElement('div');
+        time.className = 'chat-time' + (role === 'user' ? ' right' : '');
+        time.textContent = getTimeStr();
+        wrap.appendChild(time);
+
+        box.appendChild(wrap);
         box.scrollTop = box.scrollHeight;
     }
 
     function showTyping() {
         const box = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-msg typing';
-        div.id = 'chatTyping';
-        div.innerHTML = '<div class="dots"><span></span><span></span><span></span></div>';
-        box.appendChild(div);
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ai';
+        wrap.id = 'chatTyping';
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg typing';
+        msg.innerHTML = '<div class="dots"><span></span><span></span><span></span></div>';
+        wrap.appendChild(msg);
+        box.appendChild(wrap);
         box.scrollTop = box.scrollHeight;
     }
 
@@ -735,7 +853,10 @@
         if (!msg) return;
         input.value = '';
 
-        addChatMsg('user', msg);
+        // Hide suggestions after first message
+        document.getElementById('chatSuggestions').innerHTML = '';
+
+        addChatBubble('user', msg);
         chatHistory.push({ role: 'user', content: msg });
 
         const btn = document.getElementById('chatSendBtn');
@@ -750,24 +871,18 @@
             });
             hideTyping();
             if (resp.session_id) chatSessionId = resp.session_id;
-            else if (resp.data?.session_id) chatSessionId = resp.data.session_id;
-            const aiText = resp.response || resp.data?.response || 'No response';
-            const toolsUsed = resp.tools_used || resp.data?.tools_used || [];
-            if (toolsUsed.length) {
-                const toolBadge = document.createElement('div');
-                toolBadge.style.cssText = 'font-size:10px;color:#8b5cf6;margin-bottom:4px;align-self:flex-start;';
-                toolBadge.textContent = '\u2699\ufe0f ' + toolsUsed.join(', ');
-                document.getElementById('chatMessages').appendChild(toolBadge);
-            }
-            addChatMsg('ai', aiText);
+            else if (resp.data && resp.data.session_id) chatSessionId = resp.data.session_id;
+            const aiText = resp.response || (resp.data && resp.data.response) || 'No response';
+            const toolsUsed = resp.tools_used || (resp.data && resp.data.tools_used) || [];
+            addChatBubble('ai', aiText, toolsUsed);
             chatHistory.push({ role: 'assistant', content: aiText });
         } catch (e) {
             hideTyping();
             const errLang = localStorage.getItem('portalLang') || 'az';
-            const errMsg = errLang === 'ru' ? 'Извините, произошла ошибка. Попробуйте ещё раз.' :
-                           errLang === 'en' ? 'Sorry, an error occurred. Please try again.' :
-                           'Ba\u011f\u0131\u015flay\u0131n, x\u0259ta ba\u015f verdi. Yenid\u0259n c\u0259hd edin.';
-            addChatMsg('ai', errMsg);
+            const errMsg = errLang === 'ru' ? '\u26a0\ufe0f \u041f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u0430 \u043e\u0448\u0438\u0431\u043a\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.' :
+                           errLang === 'en' ? '\u26a0\ufe0f An error occurred. Please try again.' :
+                           '\u26a0\ufe0f X\u0259ta ba\u015f verdi. Yenid\u0259n c\u0259hd edin.';
+            addChatBubble('ai', errMsg);
         }
         btn.disabled = false;
         input.focus();

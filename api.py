@@ -9189,7 +9189,18 @@ RULES:
 - Use tools to get REAL data — never make up ticket numbers or statuses
 - Before creating a ticket, confirm subject and description with user
 - If you cannot help or user asks for human — use escalate_to_human tool
-- Format tool results nicely for the user
+
+FORMATTING (the client renders basic markdown):
+- Use **bold** for labels and important values (ticket numbers, statuses)
+- Use line breaks between sections for readability
+- When showing ticket/contract info, structure it clearly with labels on separate lines:
+  **Ticket:** TK-0018
+  **Subject:** Printer not working
+  **Priority:** High
+  **Status:** New
+- Keep paragraphs short (2-3 sentences max)
+- Use bullet lists (- item) for multiple items
+- Do NOT use raw markdown tables — use simple labeled lines instead
 
 {f"KNOWLEDGE BASE:{chr(10)}{kb_context}" if kb_context else ""}
 

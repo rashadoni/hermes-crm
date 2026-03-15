@@ -17926,7 +17926,7 @@ async function onLeadDrop(e, newStatus) {
             <select id="omniNewTo" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px">${opts}</select>
             <label style="color:#94a3b8;font-size:12px">Канал</label>
             <select id="omniNewChannel" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px">
-                <option value="email">📧 Email</option><option value="sms">📱 SMS</option></select>
+                <option value="email">📧 Email</option><option value="sms">📱 SMS</option><option value="telegram">✈️ Telegram</option></select>
             <label style="color:#94a3b8;font-size:12px">Тема (только для email)</label>
             <input id="omniNewSubject" placeholder="Тема письма..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);margin-bottom:10px;font-size:13px;box-sizing:border-box">
             <label style="color:#94a3b8;font-size:12px">Сообщение</label>
@@ -17995,7 +17995,7 @@ async function onLeadDrop(e, newStatus) {
             // Send box
             h += `<div style="padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px">`;
             h += `<select id="omniSendChannel" style="padding:8px;border-radius:8px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1)">
-                <option value="email">📧 Email</option><option value="sms">📱 SMS</option></select>`;
+                <option value="email">📧 Email</option><option value="sms">📱 SMS</option><option value="telegram">✈️ Telegram</option></select>`;
             h += `<input id="omniSendMsg" placeholder="Сообщение..." style="flex:1;padding:8px 12px;border-radius:8px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1)" onkeypress="if(event.key==='Enter')sendOmniReply(${entityId})">`;
             h += `<button onclick="sendOmniReply(${entityId})" style="padding:8px 16px;border-radius:8px;background:#3b82f6;color:white;border:none;cursor:pointer;font-weight:600">📤</button>`;
             h += '</div>';

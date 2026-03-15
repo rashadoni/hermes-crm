@@ -313,6 +313,35 @@ async def send_sms(to: str, message: str):
         return False
 
 
+async def send_telegram(chat_id: str, text: str, bot_token: str = None) -> bool:
+    """Send Telegram message via Bot API. If bot_token not provided, reads from active config."""
+    try:
+        import httpx as _httpx
+        if not bot_token:
+            with get_db() as conn:
+                cfg = conn.execute(
+                    "SELECT bot_token FROM channel_configs WHERE channel_type='telegram' AND is_active=1 LIMIT 1"
+                ).fetchone()
+                if cfg:
+                    bot_token = cfg[0]
+        if not bot_token:
+            logger.warning("Telegram bot token not configured")
+            return False
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
+            result = resp.json()
+            if result.get("ok"):
+                logger.info(f"Telegram message sent to chat_id={chat_id}")
+                return True
+            else:
+                logger.error(f"Telegram API error: {result.get('description', 'unknown')}")
+                return False
+    except Exception as e:
+        logger.error(f"Failed to send Telegram to chat_id={chat_id}: {e}")
+        return False
+
+
 # ─── Startup ──────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
@@ -8938,8 +8967,25 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
             elif channel_type in ("email", "sms"):
                 delivery_status = "failed"
                 delivery_error = f"No {'email' if channel_type=='email' else 'phone'} for recipient"
+            elif channel_type == "telegram":
+                # Look up chat_id from channel_contact_mapping
+                entity_id = contact_id or lead_id
+                entity_col = "contact_id" if contact_id else "lead_id"
+                mapping = conn.execute(
+                    f"SELECT channel_identifier FROM channel_contact_mapping WHERE channel_type='telegram' AND {entity_col}=?",
+                    [entity_id]
+                ).fetchone()
+                if mapping and mapping[0]:
+                    chat_id = mapping[0]
+                    success = await send_telegram(chat_id, content)
+                    delivery_status = "sent" if success else "failed"
+                    if not success:
+                        delivery_error = "Telegram delivery failed"
+                else:
+                    delivery_status = "failed"
+                    delivery_error = "No Telegram chat_id linked for this contact/lead. Ask them to message the bot first."
             else:
-                delivery_status = "sent"  # telegram/whatsapp/portal - just save for now
+                delivery_status = "saved"  # whatsapp/portal - just save for now
 
             conn.execute("UPDATE channel_messages SET status=? WHERE id=?", [delivery_status, msg_id])
             conn.commit()
@@ -9093,10 +9139,69 @@ async def telegram_webhook(bot_token: str, request: Request):
             if not telegram_id or not text_content:
                 return _ok({"ok": True})
 
-            # Auto-link to contact by telegram_id in channel_contact_mapping
+            # Handle /start command with deep-link for auto-linking lead/contact
+            if text_content.startswith("/start"):
+                parts = text_content.split()
+                link_msg = "Добро пожаловать! Вы подключены к Hermes CRM."
+                if len(parts) > 1:
+                    payload = parts[1]  # e.g. "lead_38" or "contact_5"
+                    if payload.startswith("lead_"):
+                        try:
+                            lid = int(payload.replace("lead_", ""))
+                            lead = conn.execute("SELECT contact_name FROM leads WHERE id=?", [lid]).fetchone()
+                            if lead:
+                                # Upsert mapping
+                                existing = conn.execute(
+                                    "SELECT id FROM channel_contact_mapping WHERE channel_type='telegram' AND channel_identifier=?",
+                                    [str(chat_id)]
+                                ).fetchone()
+                                if existing:
+                                    conn.execute("UPDATE channel_contact_mapping SET lead_id=?, display_name=?, is_verified=1 WHERE id=?",
+                                                 [lid, sender_name, existing[0]])
+                                else:
+                                    conn.execute(
+                                        """INSERT INTO channel_contact_mapping (lead_id, channel_type, channel_identifier, display_name, is_verified)
+                                           VALUES (?, 'telegram', ?, ?, 1)""",
+                                        [lid, str(chat_id), sender_name]
+                                    )
+                                conn.commit()
+                                link_msg = f"Привет, {lead[0]}! Ваш Telegram привязан к Hermes CRM. Теперь вы будете получать сообщения здесь."
+                        except (ValueError, TypeError):
+                            pass
+                    elif payload.startswith("contact_"):
+                        try:
+                            cid = int(payload.replace("contact_", ""))
+                            contact = conn.execute("SELECT full_name FROM contacts WHERE id=?", [cid]).fetchone()
+                            if contact:
+                                existing = conn.execute(
+                                    "SELECT id FROM channel_contact_mapping WHERE channel_type='telegram' AND channel_identifier=?",
+                                    [str(chat_id)]
+                                ).fetchone()
+                                if existing:
+                                    conn.execute("UPDATE channel_contact_mapping SET contact_id=?, display_name=?, is_verified=1 WHERE id=?",
+                                                 [cid, sender_name, existing[0]])
+                                else:
+                                    conn.execute(
+                                        """INSERT INTO channel_contact_mapping (contact_id, channel_type, channel_identifier, display_name, is_verified)
+                                           VALUES (?, 'telegram', ?, ?, 1)""",
+                                        [cid, str(chat_id), sender_name]
+                                    )
+                                conn.commit()
+                                link_msg = f"Привет, {contact[0]}! Ваш Telegram привязан к Hermes CRM."
+                        except (ValueError, TypeError):
+                            pass
+                else:
+                    # /start without payload — try auto-link by sender name
+                    pass
+
+                # Send welcome reply
+                await send_telegram(str(chat_id), link_msg, bot_token)
+                return _ok({"ok": True})
+
+            # Auto-link to contact by chat_id in channel_contact_mapping
             mapping = conn.execute(
                 "SELECT contact_id, lead_id FROM channel_contact_mapping WHERE channel_type='telegram' AND channel_identifier=?",
-                [str(telegram_id)]
+                [str(chat_id)]
             ).fetchone()
 
             contact_id = None
@@ -9105,24 +9210,36 @@ async def telegram_webhook(bot_token: str, request: Request):
                 contact_id, lead_id = mapping
 
             # Save to channel_messages
-            cur = conn.execute(
-                """INSERT INTO channel_messages
-                   (channel_type, channel_message_id, direction, contact_id, lead_id, sender_name, sender_identifier, content, message_type, status)
-                   VALUES ('telegram', ?, 'inbound', ?, ?, ?, ?, ?, 'text', 'received')""",
-                [str(chat_id), contact_id, lead_id, sender_name, str(telegram_id), text_content]
-            )
+            if lead_id and not contact_id:
+                cur = conn.execute(
+                    """INSERT INTO channel_messages
+                       (channel_type, channel_message_id, direction, lead_id, sender_name, sender_identifier, content, message_type, status)
+                       VALUES ('telegram', ?, 'inbound', ?, ?, ?, ?, 'text', 'received')""",
+                    [str(chat_id), lead_id, sender_name, str(chat_id), text_content]
+                )
+            else:
+                cur = conn.execute(
+                    """INSERT INTO channel_messages
+                       (channel_type, channel_message_id, direction, contact_id, sender_name, sender_identifier, content, message_type, status)
+                       VALUES ('telegram', ?, 'inbound', ?, ?, ?, ?, 'text', 'received')""",
+                    [str(chat_id), contact_id, sender_name, str(chat_id), text_content]
+                )
             msg_id = cur.lastrowid
             conn.commit()
 
             # Create notification for assigned user
+            notify_user_id = None
             if contact_id:
-                contact = conn.execute("SELECT full_name FROM contacts WHERE id=?", [contact_id]).fetchone()
-                contact_name = contact[0] if contact else "Unknown"
-                # Find assigned user
                 assigned = conn.execute("SELECT assigned_to FROM contacts WHERE id=?", [contact_id]).fetchone()
                 if assigned and assigned[0]:
-                    send_notification(assigned[0], "telegram_message", "New Telegram message",
-                                    f"From {sender_name}: {text_content[:50]}", "channel_message", msg_id)
+                    notify_user_id = assigned[0]
+            elif lead_id:
+                assigned = conn.execute("SELECT assigned_to FROM leads WHERE id=?", [lead_id]).fetchone()
+                if assigned and assigned[0]:
+                    notify_user_id = assigned[0]
+            if notify_user_id:
+                send_notification(notify_user_id, "telegram_message", "Новое сообщение Telegram",
+                                f"От {sender_name}: {text_content[:100]}", "channel_message", msg_id)
 
         return _ok({"ok": True})
     except Exception as e:
@@ -9175,6 +9292,68 @@ async def setup_telegram_bot(request: Request, user=Depends(require_admin)):
         return _ok({"configured": True, "webhook_url": webhook_url})
     except Exception as e:
         logger.error("setup_telegram_bot: %s", e)
+        return _err(str(e), 500)
+
+
+@app.post("/api/channels/telegram/quick-setup")
+async def telegram_quick_setup(request: Request, user=Depends(require_admin)):
+    """One-click: save bot config + register webhook with Telegram API.
+    Body: {bot_token: str, config_name?: str}
+    """
+    try:
+        data = await request.json()
+        bot_token = data.get("bot_token", "").strip()
+        config_name = data.get("config_name", "Hermes CRM Bot").strip()
+
+        if not bot_token:
+            return _err("bot_token required", 400)
+
+        webhook_url = f"https://hermescrm.xyz/api/webhooks/telegram/{bot_token}"
+
+        with get_db() as conn:
+            # Upsert config
+            existing = conn.execute(
+                "SELECT id FROM channel_configs WHERE channel_type='telegram' AND bot_token=?", [bot_token]
+            ).fetchone()
+            if existing:
+                config_id = existing[0]
+                conn.execute("UPDATE channel_configs SET webhook_url=?, is_active=1 WHERE id=?", [webhook_url, config_id])
+            else:
+                cur = conn.execute(
+                    """INSERT INTO channel_configs (channel_type, config_name, bot_token, webhook_url, is_active, created_by)
+                       VALUES ('telegram', ?, ?, ?, 1, ?)""",
+                    [config_name, bot_token, webhook_url, user["user_id"]]
+                )
+                config_id = cur.lastrowid
+            conn.commit()
+
+        # Register webhook with Telegram API
+        import httpx as _httpx
+        tg_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(tg_url, json={"url": webhook_url})
+            result = resp.json()
+
+        # Get bot info
+        bot_info = {}
+        async with _httpx.AsyncClient(timeout=10) as client:
+            me_resp = await client.get(f"https://api.telegram.org/bot{bot_token}/getMe")
+            me_data = me_resp.json()
+            if me_data.get("ok"):
+                bot_info = me_data.get("result", {})
+
+        log_audit(user["user_id"], "telegram_quick_setup", "channel_config", config_id, ip=_get_ip(request))
+        return _ok({
+            "config_id": config_id,
+            "webhook_url": webhook_url,
+            "webhook_registered": result.get("ok", False),
+            "webhook_description": result.get("description", ""),
+            "bot_username": bot_info.get("username", ""),
+            "bot_name": bot_info.get("first_name", ""),
+            "deep_link_example": f"https://t.me/{bot_info.get('username', 'BOT')}?start=lead_38"
+        })
+    except Exception as e:
+        logger.error("telegram_quick_setup: %s", e)
         return _err(str(e), 500)
 
 

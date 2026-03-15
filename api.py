@@ -675,6 +675,54 @@ async def startup_event():
             """)
     except Exception as e:
         logger.warning("Phase 4 migration: %s", e)
+
+    # ─── Phase 5: Campaign ROI seed data ──────────────────────────
+    try:
+        with get_db() as conn:
+            # Add cost column to campaigns if missing
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(campaigns)").fetchall()]
+            if "cost" not in cols:
+                conn.execute("ALTER TABLE campaigns ADD COLUMN cost REAL DEFAULT 0")
+            if "lead_count" not in cols:
+                conn.execute("ALTER TABLE campaigns ADD COLUMN lead_count INTEGER DEFAULT 0")
+            if "conversion_count" not in cols:
+                conn.execute("ALTER TABLE campaigns ADD COLUMN conversion_count INTEGER DEFAULT 0")
+            # Set cost values for seed campaigns if cost=0
+            conn.execute("UPDATE campaigns SET cost=500 WHERE name='Весенняя рассылка 2026' AND (cost IS NULL OR cost=0)")
+            conn.execute("UPDATE campaigns SET cost=200 WHERE name='Акция для новых клиентов' AND (cost IS NULL OR cost=0)")
+            conn.execute("UPDATE campaigns SET cost=150 WHERE name='Приглашение на вебинар' AND (cost IS NULL OR cost=0)")
+            conn.execute("UPDATE campaigns SET cost=300 WHERE name LIKE 'Летняя акция%' AND (cost IS NULL OR cost=0)")
+            # Ensure we have WON deals for ROI demonstration
+            won_count = conn.execute("SELECT COUNT(*) FROM deals WHERE stage='WON'").fetchone()[0]
+            if won_count == 0:
+                # Update existing deals to WON with realistic values
+                deal_rows = conn.execute("SELECT id FROM deals ORDER BY id LIMIT 3").fetchall()
+                if len(deal_rows) >= 1:
+                    conn.execute("UPDATE deals SET stage='WON', value_amount=2500, won_date=datetime('now','-10 days') WHERE id=?", [deal_rows[0][0]])
+                if len(deal_rows) >= 2:
+                    conn.execute("UPDATE deals SET stage='WON', value_amount=1800, won_date=datetime('now','-5 days') WHERE id=?", [deal_rows[1][0]])
+                if len(deal_rows) >= 3:
+                    conn.execute("UPDATE deals SET stage='WON', value_amount=3200, won_date=datetime('now','-2 days') WHERE id=?", [deal_rows[2][0]])
+                logger.info("Updated %d deals to WON for ROI demo", min(len(deal_rows), 3))
+            # Link deals to campaigns if not linked yet
+            existing_links = conn.execute("SELECT COUNT(*) FROM campaign_deals").fetchone()[0]
+            if existing_links == 0:
+                spring_camp = conn.execute("SELECT id FROM campaigns WHERE name='Весенняя рассылка 2026'").fetchone()
+                if spring_camp:
+                    won_deals = [r[0] for r in conn.execute("SELECT id FROM deals WHERE stage='WON' LIMIT 3").fetchall()]
+                    for did in won_deals:
+                        conn.execute("INSERT OR IGNORE INTO campaign_deals (campaign_id, deal_id) VALUES (?,?)", [spring_camp[0], did])
+                    logger.info("Linked %d WON deals to campaign %d", len(won_deals), spring_camp[0])
+                # Also link a deal to the second campaign
+                second_camp = conn.execute("SELECT id FROM campaigns WHERE name='Акция для новых клиентов'").fetchone()
+                if second_camp:
+                    any_deal = conn.execute("SELECT id FROM deals WHERE stage='WON' LIMIT 1").fetchone()
+                    if any_deal:
+                        conn.execute("INSERT OR IGNORE INTO campaign_deals (campaign_id, deal_id) VALUES (?,?)", [second_camp[0], any_deal[0]])
+            conn.commit()
+    except Exception as e:
+        logger.warning("Phase 5 campaign seed: %s", e)
+
     logger.info("Token blacklist loaded (%d tokens)", len(_token_blacklist_cache))
 
 

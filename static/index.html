@@ -17615,15 +17615,43 @@ async function onLeadDrop(e, newStatus) {
         } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
     }
 
-    async function openGuardrailEditor(id) {
-        const name = prompt('Название правила (например: "Запрет скидок"):');
-        if (!name) return;
-        const rule = prompt('Инструкция для AI (например: "Никогда не обещай скидки и не обсуждай ценообразование"):');
-        if (!rule) return;
+    function openGuardrailEditor(id) {
+        const overlay = document.createElement('div');
+        overlay.id = 'guardrailModal';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+        overlay.innerHTML = '<div style="background:#1e293b;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:22px">🛡️</span><span style="font-size:16px;font-weight:700;color:#e2e8f0">Новое правило</span></div>' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Название правила</label>' +
+            '<input id="grName" placeholder="Например: Запрет скидок" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none" />' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Тип правила</label>' +
+            '<select id="grType" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none">' +
+              '<option value="restriction">🚫 Ограничение</option>' +
+              '<option value="instruction">📋 Инструкция</option>' +
+              '<option value="tone">🎭 Тон общения</option>' +
+            '</select>' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Инструкция для AI</label>' +
+            '<textarea id="grRule" rows="3" placeholder="Например: Никогда не обещай скидки и не обсуждай ценообразование" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:20px;outline:none;resize:vertical;font-family:inherit"></textarea>' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+              '<button onclick="document.getElementById(\'guardrailModal\').remove()" style="padding:10px 20px;background:#334155;border:none;color:#94a3b8;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Отмена</button>' +
+              '<button onclick="saveGuardrailFromModal()" style="padding:10px 20px;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;color:#fff;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Сохранить</button>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        setTimeout(() => document.getElementById('grName')?.focus(), 100);
+    }
+
+    async function saveGuardrailFromModal() {
+        const name = document.getElementById('grName')?.value?.trim();
+        const rule = document.getElementById('grRule')?.value?.trim();
+        const type = document.getElementById('grType')?.value || 'restriction';
+        if (!name || !rule) { showToast('Заполните все поля', 'error'); return; }
         try {
-            await api.post('/api/ai/guardrails', {rule_name: name, prompt_injection: rule, rule_type: 'restriction'});
+            await api.post('/api/ai/guardrails', {rule_name: name, prompt_injection: rule, rule_type: type});
+            document.getElementById('guardrailModal')?.remove();
             loadGuardrails();
-        } catch(e) { alert('Ошибка: ' + e.message); }
+            showToast('Правило добавлено', 'success');
+        } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
     }
 
     async function deleteGuardrail(id) {
@@ -17631,7 +17659,8 @@ async function onLeadDrop(e, newStatus) {
         try {
             await api.remove('/api/ai/guardrails/' + id);
             loadGuardrails();
-        } catch(e) { alert('Ошибка: ' + e.message); }
+            showToast('Правило удалено', 'success');
+        } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
     }
 
     // ── Topics Management ──
@@ -17658,15 +17687,39 @@ async function onLeadDrop(e, newStatus) {
         } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
     }
 
-    async function openTopicEditor(id) {
-        const name = prompt('Название темы (например: "Биллинг"):');
-        if (!name) return;
-        const desc = prompt('Описание темы:') || '';
-        const keywords = prompt('Ключевые слова через запятую (например: "оплата, счёт, тариф"):') || '';
+    function openTopicEditor(id) {
+        const overlay = document.createElement('div');
+        overlay.id = 'topicModal';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+        overlay.innerHTML = '<div style="background:#1e293b;border:1px solid rgba(34,211,238,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:22px">📂</span><span style="font-size:16px;font-weight:700;color:#e2e8f0">Новая тема</span></div>' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Название темы</label>' +
+            '<input id="topicName" placeholder="Например: Биллинг" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none" />' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Описание темы</label>' +
+            '<textarea id="topicDesc" rows="2" placeholder="Краткое описание для чего эта тема" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none;resize:vertical;font-family:inherit"></textarea>' +
+            '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Ключевые слова (через запятую)</label>' +
+            '<input id="topicKw" placeholder="Например: оплата, счёт, тариф, баланс" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:20px;outline:none" />' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+              '<button onclick="document.getElementById(\'topicModal\').remove()" style="padding:10px 20px;background:#334155;border:none;color:#94a3b8;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Отмена</button>' +
+              '<button onclick="saveTopicFromModal()" style="padding:10px 20px;background:linear-gradient(135deg,#22d3ee,#06b6d4);border:none;color:#0f172a;border-radius:10px;font-size:13px;cursor:pointer;font-weight:700">Сохранить</button>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        setTimeout(() => document.getElementById('topicName')?.focus(), 100);
+    }
+
+    async function saveTopicFromModal() {
+        const name = document.getElementById('topicName')?.value?.trim();
+        const desc = document.getElementById('topicDesc')?.value?.trim() || '';
+        const keywords = document.getElementById('topicKw')?.value?.trim() || '';
+        if (!name) { showToast('Введите название темы', 'error'); return; }
         try {
             await api.post('/api/ai/kb-topics', {name, description: desc, keywords});
+            document.getElementById('topicModal')?.remove();
             loadTopics();
-        } catch(e) { alert('Ошибка: ' + e.message); }
+            showToast('Тема добавлена', 'success');
+        } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
     }
 
     async function deleteTopic(id) {
@@ -17674,7 +17727,8 @@ async function onLeadDrop(e, newStatus) {
         try {
             await api.remove('/api/ai/kb-topics/' + id);
             loadTopics();
-        } catch(e) { alert('Ошибка: ' + e.message); }
+            showToast('Тема удалена', 'success');
+        } catch(e) { showToast('Ошибка: ' + e.message, 'error'); }
     }
 
     // ── Natural Language Config Generator ──

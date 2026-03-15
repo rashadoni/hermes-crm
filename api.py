@@ -6,6 +6,7 @@ CRM REST API — FastAPI endpoints
 import os
 import re
 import json
+import xml.etree.ElementTree as ET
 import logging
 import asyncio
 import threading
@@ -14,6 +15,7 @@ import secrets
 import unicodedata
 import io
 import base64
+import httpx
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
@@ -7300,6 +7302,43 @@ async def convert_currency(
         result = base_amount * to_cur[0]    # to target
         return _ok({"from": from_code, "to": to_code, "amount": amount, "result": round(result, 2), "rate": round(to_cur[0] / from_cur[0], 6)})
 
+
+
+
+@app.post("/api/currencies/sync-cbar")
+async def sync_cbar_rates(user=Depends(require_admin)):
+    """Sync exchange rates from Central Bank of Azerbaijan (cbar.az)."""
+    from datetime import datetime
+    today = datetime.now().strftime("%d.%m.%Y")
+    url = f"https://www.cbar.az/currencies/{today}.xml"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+        updated = []
+        with get_db() as conn:
+            # Parse CBAR XML: <ValType Type="Xarici valyutalar"><Valute Code="USD"><Nominal>1</Nominal><Name>...</Name><Value>1.7000</Value></Valute>
+            for valtype in root.findall('.//ValType'):
+                for valute in valtype.findall('Valute'):
+                    code = valute.get('Code')
+                    nominal_el = valute.find('Nominal')
+                    value_el = valute.find('Value')
+                    name_el = valute.find('Name')
+                    if code and value_el is not None and nominal_el is not None:
+                        nominal = float(nominal_el.text)
+                        value = float(value_el.text)
+                        rate = value / nominal  # rate per 1 unit of foreign currency in AZN
+                        # Update existing currency or skip
+                        existing = conn.execute("SELECT id FROM currencies WHERE code=? AND org_id=(SELECT org_id FROM users WHERE id=?)", [code, user["id"]]).fetchone()
+                        if existing:
+                            conn.execute("UPDATE currencies SET exchange_rate=? WHERE id=?", [round(rate, 6), existing[0]])
+                            updated.append({"code": code, "rate": round(rate, 6), "action": "updated"})
+        return _ok({"synced": len(updated), "date": today, "currencies": updated})
+    except httpx.HTTPError as e:
+        _err(f"Failed to fetch CBAR rates: {str(e)}", 502)
+    except ET.ParseError as e:
+        _err(f"Failed to parse CBAR XML: {str(e)}", 502)
 
 # ─── Email Integration (Send + Log) ──────────────────────────────
 

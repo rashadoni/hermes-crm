@@ -14631,10 +14631,16 @@ async function renderCurrenciesPage(container) {
             <p class="text-sm text-slate-400">${_t('Multi-currency conversion','Мультивалютное преобразование','Çoxvalütalı dönüşüm')}</p>
           </div>
         </div>
-        <button class="btn btn-primary flex items-center gap-2" onclick="showCurrencyForm()">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          ${t('cur_new')}
-        </button>
+        <div class="flex gap-2">
+          <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors" onclick="syncCbarRates()">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            ${_t('Sync CBAR','Синхр. с ЦБА','MBAR sinx.')}
+          </button>
+          <button class="btn btn-primary flex items-center gap-2" onclick="showCurrencyForm()">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            ${t('cur_new')}
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-3 gap-4 mb-8">
@@ -14723,6 +14729,23 @@ async function doConvert() {
     const data = r.data || r;
     document.getElementById('convResult').textContent = parseFloat(amount).toLocaleString() + ' ' + from + ' = ' + data.result.toLocaleString() + ' ' + to;
   } catch(e) { document.getElementById('convResult').textContent = _t('Error','Ошибка','Xəta'); }
+}
+
+async function syncCbarRates() {
+  const btn = event.target.closest('button');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Загрузка...';
+  btn.disabled = true;
+  try {
+    const res = await api.post('/api/currencies/sync-cbar', {});
+    showToast('success', 'Курсы синхронизированы с ЦБА (' + res.date + '): обновлено ' + res.synced + ' валют');
+    navigate('currencies');
+  } catch(e) {
+    showToast('error', 'Ошибка синхронизации: ' + (e.message||e));
+  } finally {
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
 }
 
 async function showCurrencyForm() {

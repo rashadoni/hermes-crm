@@ -4387,7 +4387,7 @@ async def process_journeys(user=Depends(require_auth)):
 
         for enrollment in enrollments:
             try:
-                _process_journey_step(conn, dict(zip([d[0] for d in conn.execute("SELECT * FROM journey_enrollments LIMIT 0").description] + ["step_type", "config", "yes_next_step", "no_next_step", "step_order"], enrollment)))
+                await _process_journey_step(conn, dict(zip([d[0] for d in conn.execute("SELECT * FROM journey_enrollments LIMIT 0").description] + ["step_type", "config", "yes_next_step", "no_next_step", "step_order"], enrollment)))
                 processed += 1
             except Exception as e:
                 logger.warning(f"Journey processing error: {e}")
@@ -4414,17 +4414,17 @@ async def _handle_send_email(conn, enrollment, config):
             logger.warning(f"No email address for {table} {entity_id}")
             return
 
-        subject = config.get("email_subject", "Message from Hermes CRM")
-        body = config.get("email_body", "Hello!")
+        subject = config.get("subject") or config.get("email_subject", "Message from Hermes CRM")
+        body = config.get("body") or config.get("email_body", "Hello!")
 
-        # Simple template substitution (name, company, etc)
-        if "{name}" in body:
-            name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
-            body = body.replace("{name}", name)
-        if "{company}" in body and "company_name" in entity_dict:
-            body = body.replace("{company}", entity_dict.get("company_name", ""))
+        # Template substitution with multiple formats
+        name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
+        company = entity_dict.get("company_name", "")
+        for old, new in [("{name}", name), ("{{contact_name}}", name), ("{{company_name}}", company), ("{company}", company)]:
+            body = body.replace(old, new)
+            subject = subject.replace(old, new)
 
-        body_html = f"<html><body><p>{body}</p></body></html>"
+        body_html = body if "<" in body else f"<html><body><p>{body}</p></body></html>"
         success = await send_email(email, subject, body_html)
 
         if success:
@@ -4458,12 +4458,13 @@ async def _handle_send_sms(conn, enrollment, config):
             logger.warning(f"No phone number for {table} {entity_id}")
             return
 
-        message = config.get("sms_message", "Hello from Hermes CRM!")
+        message = config.get("message") or config.get("sms_message", "Hello from Hermes CRM!")
 
-        # Simple template substitution
-        if "{name}" in message:
-            name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
-            message = message.replace("{name}", name)
+        # Template substitution
+        name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
+        company = entity_dict.get("company_name", "")
+        for old, new in [("{name}", name), ("{{contact_name}}", name), ("{{company_name}}", company)]:
+            message = message.replace(old, new)
 
         success = await send_sms(phone, message)
 
@@ -4481,18 +4482,18 @@ async def _handle_send_sms(conn, enrollment, config):
         logger.error(f"Error sending journey SMS: {e}")
 
 
-def _process_journey_step(conn, enrollment):
+async def _process_journey_step(conn, enrollment):
     """Execute a single journey step for an enrollment"""
     step_type = enrollment["step_type"]
     config = json.loads(enrollment.get("config") or "{}")
 
     if step_type == "send_email":
         # Send email to contact/lead
-        asyncio.run(_handle_send_email(conn, enrollment, config))
+        await _handle_send_email(conn, enrollment, config)
         _advance_journey(conn, enrollment)
     elif step_type == "send_sms":
         # Send SMS to contact/lead
-        asyncio.run(_handle_send_sms(conn, enrollment, config))
+        await _handle_send_sms(conn, enrollment, config)
         _advance_journey(conn, enrollment)
     elif step_type == "wait":
         _advance_journey(conn, enrollment)

@@ -18122,237 +18122,348 @@ async function onLeadDrop(e, newStatus) {
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 
-    // ─── Journey Builder Page ───
+    // ─── Journey Builder Page (Interactive) ───
+
+    const _jbx = {
+        icons: {send_email:'📧',wait:'⏳',condition:'🔀',send_sms:'📱',create_task:'📋',update_field:'✏️',send_telegram:'✈️',send_whatsapp:'💚'},
+        labels: {send_email:'Email',wait:'Ожидание',condition:'Условие',send_sms:'SMS',create_task:'Задача',update_field:'Обн. поле',send_telegram:'Telegram',send_whatsapp:'WhatsApp'},
+        statusColors: {draft:'#64748b',active:'#22c55e',paused:'#f59e0b',completed:'#3b82f6'},
+        statusLabels: {draft:'Черновик',active:'Активен',paused:'На паузе',completed:'Завершён'},
+        triggerLabels: {lead_created:'Новый лид',deal_stage_changed:'Смена этапа',manual:'Ручной',contact_tag:'Тег контакта',form_submitted:'Форма'},
+        inp: 'width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);box-sizing:border-box;margin-bottom:10px;font-size:13px',
+        btn: (bg,c) => `padding:8px 18px;border-radius:8px;background:${bg};color:${c||'#fff'};border:none;cursor:pointer;font-size:13px;font-weight:600`,
+    };
 
     async function renderJourneyBuilderPage(container) {
-        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">🛤️ Journey Builder / Müştəri Yolu</h2><div id="journeyContent"><div class="loading">Загрузка...</div></div></div>';
+        container.innerHTML = '<div style="padding:24px" id="jbRoot"><div class="loading">Загрузка...</div></div>';
         try {
-            const [jRes, statsRes] = await Promise.all([
-                api.get('/api/journeys'),
-                api.get('/api/journeys/stats')
-            ]);
+            const [jRes, statsRes] = await Promise.all([api.get('/api/journeys'), api.get('/api/journeys/stats')]);
             const journeys = jRes.data || [];
             const stats = statsRes.data || {};
-
-            let h = '';
-            h += '<div style="display:flex;gap:12px;margin-bottom:20px">';
-            h += '<button onclick="openJourneyModal()" style="padding:10px 20px;border-radius:8px;background:#8b5cf6;color:white;border:none;cursor:pointer;font-weight:600">+ Создать путь</button>';
-            h += '<button onclick="processJourneys()" style="padding:10px 20px;border-radius:8px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">⚙️ Обработать очередь</button>';
+            let h = '<h2 style="color:#e2e8f0;margin:0 0 20px;display:flex;align-items:center;gap:10px">🛤️ Journey Builder<span style="font-size:14px;color:#64748b;font-weight:400">Конструктор путей клиента</span></h2>';
+            h += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">';
+            h += `<button onclick="openJourneyModal()" style="${_jbx.btn('#8b5cf6')}">+ Создать путь</button>`;
+            h += `<button onclick="processJourneys()" style="${_jbx.btn('#334155','#e2e8f0')}">⚙️ Обработать очередь</button>`;
             h += '</div>';
-
-            // Stats
             h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">';
-            h += _statCard('🛤️', 'Путей / Yollar', stats.total_journeys || 0, '#8b5cf6');
-            h += _statCard('✅', 'Активных / Aktiv', stats.active_journeys || 0, '#22c55e');
-            h += _statCard('👥', 'Участников / İştirakçılar', stats.total_enrollments || 0, '#3b82f6');
-            h += _statCard('🎯', 'Конверсия / Konversiya', (stats.conversion_rate||0)+'%', '#f59e0b');
+            h += _statCard('🛤️','Путей',stats.total_journeys||0,'#8b5cf6');
+            h += _statCard('✅','Активных',stats.active_journeys||0,'#22c55e');
+            h += _statCard('👥','Участников',stats.total_enrollments||0,'#3b82f6');
+            h += _statCard('🎯','Конверсия',(stats.conversion_rate||0)+'%','#f59e0b');
             h += '</div>';
-
-            // Journey cards
             h += '<div style="display:grid;gap:16px">';
-            const statusColors = {draft:'#64748b',active:'#22c55e',paused:'#f59e0b',completed:'#3b82f6'};
-            const statusLabels = {draft:'Черновик',active:'Активен',paused:'На паузе',completed:'Завершён'};
-            const triggerLabels = {lead_created:'Новый лид',deal_stage_changed:'Смена этапа сделки',manual:'Ручной',contact_tag:'Тег контакта',form_submitted:'Форма отправлена'};
-
             journeys.forEach(j => {
-                const sc = statusColors[j.status]||'#64748b';
-                h += `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px">`;
-                h += `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">`;
-                h += `<span style="background:${sc}33;color:${sc};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">${statusLabels[j.status]||j.status}</span>`;
-                h += `<h3 style="color:#e2e8f0;margin:0;flex:1">${esc(j.name)}</h3>`;
-                h += `<button onclick="openJourneyDetail(${j.id})" style="padding:6px 14px;border-radius:6px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">📋 Шаги</button>`;
-                if (j.status==='draft') h += `<button onclick="activateJourney(${j.id})" style="padding:6px 14px;border-radius:6px;background:#22c55e33;color:#22c55e;border:none;cursor:pointer">▶ Запустить</button>`;
-                if (j.status==='active') h += `<button onclick="pauseJourney(${j.id})" style="padding:6px 14px;border-radius:6px;background:#f59e0b33;color:#f59e0b;border:none;cursor:pointer">⏸ Пауза</button>`;
+                const sc = _jbx.statusColors[j.status]||'#64748b';
+                h += `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(139,92,246,0.4)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'" id="jCard${j.id}">`;
+                h += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">`;
+                h += `<span style="background:${sc}22;color:${sc};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">${_jbx.statusLabels[j.status]||j.status}</span>`;
+                h += `<h3 style="color:#e2e8f0;margin:0;flex:1;cursor:pointer" onclick="openJourneyDetail(${j.id})">${esc(j.name)}</h3>`;
+                h += `<button onclick="openJourneyDetail(${j.id})" style="${_jbx.btn('#1e293b','#8b5cf6')};border:1px solid #8b5cf644">📋 Шаги</button>`;
+                h += `<button onclick="openEnrollModal(${j.id})" style="${_jbx.btn('#1e293b','#3b82f6')};border:1px solid #3b82f644">👤 Записать лида</button>`;
+                if (j.status==='draft') h += `<button onclick="activateJourney(${j.id})" style="${_jbx.btn('#22c55e22','#22c55e')}">▶ Запустить</button>`;
+                if (j.status==='active') h += `<button onclick="pauseJourney(${j.id})" style="${_jbx.btn('#f59e0b22','#f59e0b')}">⏸ Пауза</button>`;
+                h += `<button onclick="deleteJourney(${j.id})" style="${_jbx.btn('transparent','#ef4444')};font-size:14px" title="Удалить">🗑️</button>`;
                 h += '</div>';
-                h += `<div style="color:#94a3b8;font-size:13px;margin-bottom:8px">${esc(j.description||'')}</div>`;
-                h += `<div style="display:flex;gap:20px;color:#64748b;font-size:12px">`;
-                h += `<span>🎯 Триггер: ${triggerLabels[j.trigger_type]||j.trigger_type}</span>`;
-                h += `<span>📥 Вошли: ${j.entry_count||0}</span>`;
-                h += `<span>🏃 Активных: ${j.active_count||0}</span>`;
-                h += `<span>✅ Завершили: ${j.completed_count||0}</span>`;
+                if (j.description) h += `<div style="color:#94a3b8;font-size:13px;margin-bottom:8px">${esc(j.description)}</div>`;
+                h += `<div style="display:flex;gap:16px;color:#64748b;font-size:12px;flex-wrap:wrap">`;
+                h += `<span>🎯 ${_jbx.triggerLabels[j.trigger_type]||j.trigger_type}</span>`;
+                h += `<span>📥 Вошли: ${j.entry_count||0}</span><span>🏃 Активных: ${j.active_count||0}</span><span>✅ Завершили: ${j.completed_count||0}</span>`;
                 h += '</div></div>';
             });
-            if (journeys.length === 0) h += '<div style="padding:40px;text-align:center;color:#64748b;background:#0f172a;border-radius:12px">Нет созданных путей. Нажмите "Создать путь"</div>';
+            if (!journeys.length) h += '<div style="padding:40px;text-align:center;color:#64748b;background:#0f172a;border-radius:12px">Нет путей. Нажмите "+ Создать путь"</div>';
             h += '</div>';
-
-            document.getElementById('journeyContent').innerHTML = h;
-        } catch(e) { document.getElementById('journeyContent').innerHTML = '<div style="color:#ef4444">Ошибка: '+e.message+'</div>'; }
+            document.getElementById('jbRoot').innerHTML = h;
+        } catch(e) { document.getElementById('jbRoot').innerHTML = '<div style="color:#ef4444;padding:20px">Ошибка: '+e.message+'</div>'; }
     }
 
     function openJourneyModal(id) {
-        const overlay = document.createElement('div');
-        overlay.id = 'journeyModal';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid rgba(139,92,246,0.3);border-radius:16px;padding:28px;width:500px">
-            <h3 style="color:#e2e8f0;margin:0 0 20px">🛤️ ${id?'Редактировать':'Создать'} путь клиента</h3>
-            <label style="color:#94a3b8;font-size:13px">Название</label>
-            <input id="jName" placeholder="Onboarding нового клиента" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">
+        const o = document.createElement('div');
+        o.id='journeyModal';
+        o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+        o.innerHTML=`<div style="background:#1e293b;border:1px solid rgba(139,92,246,0.3);border-radius:16px;padding:28px;width:520px">
+            <h3 style="color:#e2e8f0;margin:0 0 20px">🛤️ ${id?'Редактировать':'Создать'} путь</h3>
+            <label style="color:#94a3b8;font-size:13px">Название *</label>
+            <input id="jName" placeholder="Напр: Onboarding нового клиента" style="${_jbx.inp}">
             <label style="color:#94a3b8;font-size:13px">Описание</label>
-            <textarea id="jDesc" rows="2" placeholder="Описание пути..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box;resize:vertical"></textarea>
-            <label style="color:#94a3b8;font-size:13px">Триггер</label>
-            <select id="jTrigger" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">
-                <option value="lead_created">Новый лид создан</option>
-                <option value="deal_stage_changed">Этап сделки изменился</option>
-                <option value="form_submitted">Форма отправлена</option>
-                <option value="contact_tag">Тег добавлен к контакту</option>
-                <option value="manual">Ручная регистрация</option>
+            <textarea id="jDesc" rows="2" placeholder="Описание..." style="${_jbx.inp};resize:vertical"></textarea>
+            <label style="color:#94a3b8;font-size:13px">Триггер запуска</label>
+            <select id="jTrigger" style="${_jbx.inp}">
+                <option value="manual">🖐 Ручная регистрация</option>
+                <option value="lead_created">📥 Новый лид создан</option>
+                <option value="deal_stage_changed">🔄 Этап сделки изменился</option>
+                <option value="form_submitted">📝 Форма отправлена</option>
+                <option value="contact_tag">🏷 Тег добавлен</option>
             </select>
             <div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end">
-                <button onclick="document.getElementById('journeyModal')?.remove()" style="padding:10px 20px;border-radius:8px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">Отмена</button>
-                <button onclick="saveJourney(${id||'null'})" style="padding:10px 20px;border-radius:8px;background:#8b5cf6;color:white;border:none;cursor:pointer">Сохранить</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
+                <button onclick="document.getElementById('journeyModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Отмена</button>
+                <button onclick="saveJourney(${id||'null'})" style="${_jbx.btn('#8b5cf6')}">Сохранить</button>
+            </div></div>`;
+        document.body.appendChild(o);
     }
 
     async function saveJourney(id) {
-        const data = {
-            name: document.getElementById('jName')?.value?.trim(),
-            description: document.getElementById('jDesc')?.value?.trim(),
-            trigger_type: document.getElementById('jTrigger')?.value
-        };
-        if (!data.name) { showToast('Введите название', 'error'); return; }
-        try {
-            if (id) await api.put('/api/journeys/'+id, data);
-            else await api.post('/api/journeys', data);
-            document.getElementById('journeyModal')?.remove();
-            location.hash='#/journeys';
-            showToast('Путь сохранён!', 'success');
-        } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
+        const d={name:document.getElementById('jName')?.value?.trim(),description:document.getElementById('jDesc')?.value?.trim(),trigger_type:document.getElementById('jTrigger')?.value};
+        if(!d.name){showToast('Введите название','error');return;}
+        try{if(id)await api.put('/api/journeys/'+id,d);else await api.post('/api/journeys',d);document.getElementById('journeyModal')?.remove();location.hash='#/journeys';showToast('Путь сохранён!','success');}catch(e){showToast('Ошибка: '+e.message,'error');}
     }
+    async function activateJourney(id){try{await api.post('/api/journeys/'+id+'/activate',{});location.hash='#/journeys';showToast('Путь активирован!','success');}catch(e){showToast(e.message,'error');}}
+    async function pauseJourney(id){try{await api.post('/api/journeys/'+id+'/pause',{});location.hash='#/journeys';showToast('Путь на паузе','info');}catch(e){showToast(e.message,'error');}}
+    async function deleteJourney(id){if(!confirm('Удалить этот путь?'))return;try{await api.remove('/api/journeys/'+id);location.hash='#/journeys';showToast('Путь удалён','success');}catch(e){showToast(e.message,'error');}}
+    async function processJourneys(){try{const r=await api.post('/api/journeys/process',{});showToast('⚙️ Обработано: '+(r.data?.processed||0),'success');}catch(e){showToast(e.message,'error');}}
 
-    async function activateJourney(id) {
-        try { await api.post('/api/journeys/'+id+'/activate', {}); location.hash='#/journeys'; showToast('Путь активирован!', 'success'); }
-        catch(e) { showToast('Ошибка: '+e.message, 'error'); }
-    }
-
-    async function pauseJourney(id) {
-        try { await api.post('/api/journeys/'+id+'/pause', {}); location.hash='#/journeys'; showToast('Путь на паузе', 'info'); }
-        catch(e) { showToast('Ошибка: '+e.message, 'error'); }
-    }
-
-    async function processJourneys() {
-        try { const res = await api.post('/api/journeys/process', {}); showToast(`⚙️ Обработано: ${res.data?.processed||0}`, 'success'); }
-        catch(e) { showToast('Ошибка: '+e.message, 'error'); }
-    }
-
+    // ─── Journey Detail (Visual Flow) ───
     async function openJourneyDetail(journeyId) {
-        // Show steps modal for journey
-        const overlay = document.createElement('div');
-        overlay.id = 'journeyDetailModal';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        overlay.innerHTML = '<div style="background:#1e293b;border-radius:16px;padding:28px;width:700px;max-height:80vh;overflow-y:auto" id="journeyDetailContent"><div class="loading">Загрузка...</div></div>';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
-
+        const o=document.createElement('div');o.id='journeyDetailModal';
+        o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+        o.innerHTML='<div style="background:#1e293b;border-radius:16px;padding:28px;width:800px;max-height:85vh;overflow-y:auto;border:1px solid rgba(139,92,246,0.2)" id="journeyDetailContent"><div class="loading">Загрузка...</div></div>';
+        document.body.appendChild(o);
+        o.addEventListener('click',e=>{if(e.target===o)o.remove();});
         try {
-            const [jRes, stepsRes] = await Promise.all([
-                api.get('/api/journeys/'+journeyId),
-                api.get('/api/journeys/'+journeyId+'/steps')
-            ]);
-            const journey = jRes.data || {};
-            const steps = stepsRes.data || [];
+            const [jRes,stepsRes,enrollRes]=await Promise.all([api.get('/api/journeys/'+journeyId),api.get('/api/journeys/'+journeyId+'/steps'),api.get('/api/journeys/'+journeyId+'/enrollments')]);
+            const journey=jRes.data||{},steps=stepsRes.data||[],enrollments=enrollRes.data||[];
+            let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">`;
+            h+=`<div><h3 style="color:#e2e8f0;margin:0">${esc(journey.name||'')}</h3>`;
+            h+=`<div style="color:#64748b;font-size:12px;margin-top:4px">Статус: <span style="color:${_jbx.statusColors[journey.status]||'#64748b'}">${_jbx.statusLabels[journey.status]||journey.status}</span> · Триггер: ${_jbx.triggerLabels[journey.trigger_type]||journey.trigger_type}</div></div>`;
+            h+=`<div style="display:flex;gap:8px">`;
+            h+=`<button onclick="openEnrollModal(${journeyId})" style="${_jbx.btn('#3b82f622','#3b82f6')}">👤 Записать лида</button>`;
+            h+=`<button onclick="document.getElementById('journeyDetailModal')?.remove()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:20px">✕</button></div></div>`;
 
-            const stepIcons = {send_email:'📧',wait:'⏳',condition:'🔀',send_sms:'📱',create_task:'📋',update_field:'✏️',send_telegram:'✈️',send_whatsapp:'💚'};
-            const stepLabels = {send_email:'Отправить email',wait:'Ожидание',condition:'Условие',send_sms:'Отправить SMS',create_task:'Создать задачу',update_field:'Обновить поле',send_telegram:'Telegram',send_whatsapp:'WhatsApp'};
+            // ─── Visual Flow ───
+            h+='<div style="position:relative;padding:0 0 0 40px;margin-bottom:20px">';
+            // Trigger node
+            h+=`<div style="position:relative;padding:14px 18px;background:linear-gradient(135deg,#8b5cf622,#3b82f622);border-radius:12px;margin-bottom:4px;border:1px solid #8b5cf644">`;
+            h+=`<div style="position:absolute;left:-40px;top:14px;width:28px;height:28px;background:#8b5cf6;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px">🎯</div>`;
+            h+=`<strong style="color:#c4b5fd">Триггер:</strong> <span style="color:#e2e8f0">${_jbx.triggerLabels[journey.trigger_type]||journey.trigger_type}</span></div>`;
+            if(steps.length) h+='<div style="margin-left:-22px;width:2px;height:16px;background:linear-gradient(#8b5cf6,#8b5cf633)"></div>';
 
-            let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">`;
-            h += `<h3 style="color:#e2e8f0;margin:0">${esc(journey.name||'')}</h3>`;
-            h += `<button onclick="document.getElementById('journeyDetailModal')?.remove()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px">✕</button></div>`;
-
-            // Steps timeline
-            h += '<div style="position:relative;padding-left:30px">';
             steps.forEach((s,i) => {
-                const config = JSON.parse(s.config || '{}');
-                const icon = stepIcons[s.step_type]||'⚙️';
-                h += `<div style="position:relative;padding:12px 16px;background:#0f172a;border-radius:10px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.1)">`;
-                h += `<div style="position:absolute;left:-30px;top:16px;width:20px;height:20px;background:#1e293b;border:2px solid #8b5cf6;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px">${i+1}</div>`;
-                if (i<steps.length-1) h += '<div style="position:absolute;left:-21px;top:36px;bottom:-12px;width:2px;background:#8b5cf633"></div>';
-                h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:18px">${icon}</span><strong style="color:#e2e8f0">${stepLabels[s.step_type]||s.step_type}</strong>`;
-                h += `<button onclick="deleteJourneyStep(${s.id},${journeyId})" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px">🗑️</button></div>`;
-                if (s.step_type==='wait') h += `<div style="color:#94a3b8;font-size:13px">Ждать ${config.wait_days||1} дн.</div>`;
-                if (s.step_type==='condition') h += `<div style="color:#94a3b8;font-size:13px">${esc(config.condition_field||'')} ${config.condition_operator||''} ${esc(config.condition_value||'')}</div>`;
-                if (s.step_type==='send_email') h += `<div style="color:#94a3b8;font-size:13px">Шаблон #${config.template_id||'?'}</div>`;
-                h += `<div style="color:#64748b;font-size:11px;margin-top:4px">Вошли: ${s.stats_entered||0} · Прошли: ${s.stats_completed||0}</div>`;
-                h += '</div>';
+                const config=JSON.parse(s.config||'{}');
+                const icon=_jbx.icons[s.step_type]||'⚙️';
+                const colors={send_email:'#3b82f6',send_sms:'#22c55e',wait:'#f59e0b',condition:'#ec4899',create_task:'#8b5cf6',send_telegram:'#06b6d4',send_whatsapp:'#22c55e',update_field:'#a855f7'};
+                const c=colors[s.step_type]||'#64748b';
+
+                h+=`<div style="position:relative;padding:14px 18px;background:#0f172a;border-radius:12px;margin-bottom:4px;border:1px solid ${c}44;transition:all 0.2s" onmouseover="this.style.borderColor='${c}'" onmouseout="this.style.borderColor='${c}44'" id="step_${s.id}">`;
+                h+=`<div style="position:absolute;left:-40px;top:14px;width:28px;height:28px;background:${c}22;border:2px solid ${c};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px">${icon}</div>`;
+                h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">`;
+                h+=`<strong style="color:#e2e8f0">${i+1}. ${_jbx.labels[s.step_type]||s.step_type}</strong>`;
+                h+=`<span style="margin-left:auto;display:flex;gap:4px">`;
+                h+=`<button onclick="editJourneyStep(${s.id},${journeyId},'${s.step_type}',\`${btoa(JSON.stringify(config))}\`)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px" title="Редактировать">✏️</button>`;
+                h+=`<button onclick="deleteJourneyStep(${s.id},${journeyId})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px" title="Удалить">🗑️</button></span></div>`;
+
+                // Config details
+                if(s.step_type==='send_email'){
+                    const subj=config.subject||config.email_subject||'(без темы)';
+                    h+=`<div style="color:#94a3b8;font-size:12px">📌 Тема: ${esc(subj)}</div>`;
+                    if(config.body||config.email_body){const b=(config.body||config.email_body).replace(/<[^>]+>/g,'').substring(0,80);h+=`<div style="color:#64748b;font-size:11px;margin-top:2px">${esc(b)}...</div>`;}
+                }
+                if(s.step_type==='send_sms'){const msg=config.message||config.sms_message||'(без текста)';h+=`<div style="color:#94a3b8;font-size:12px">💬 ${esc(msg.substring(0,80))}${msg.length>80?'...':''}</div>`;}
+                if(s.step_type==='wait'){const d=config.wait_days||config.duration_minutes||1;const unit=config.duration_minutes?'мин.':'дн.';h+=`<div style="color:#94a3b8;font-size:12px">⏱ Ждать: ${d} ${unit}</div>`;}
+                if(s.step_type==='condition'){h+=`<div style="color:#94a3b8;font-size:12px">📊 ${esc(config.condition_field||'?')} ${config.condition_operator||'?'} ${esc(config.condition_value||'?')}</div>`;}
+                if(s.step_type==='create_task'){h+=`<div style="color:#94a3b8;font-size:12px">📋 ${esc(config.task_title||'Новая задача')}</div>`;}
+                h+=`<div style="color:#475569;font-size:11px;margin-top:4px">Вошли: ${s.stats_entered||0} · Прошли: ${s.stats_completed||0}</div>`;
+                h+='</div>';
+                if(i<steps.length-1)h+=`<div style="margin-left:-22px;width:2px;height:16px;background:${c}44"></div>`;
             });
-            h += '</div>';
-
             // Add step button
-            h += `<button onclick="openAddStepModal(${journeyId},${steps.length+1})" style="width:100%;padding:12px;border-radius:8px;border:2px dashed rgba(139,92,246,0.3);background:transparent;color:#8b5cf6;cursor:pointer;margin-top:8px">+ Добавить шаг</button>`;
+            if(steps.length) h+='<div style="margin-left:-22px;width:2px;height:16px;background:#8b5cf633"></div>';
+            h+=`<div style="position:relative;padding:12px;border-radius:12px;border:2px dashed rgba(139,92,246,0.25);background:transparent;text-align:center;cursor:pointer;transition:all 0.2s" onclick="openAddStepModal(${journeyId},${steps.length+1})" onmouseover="this.style.borderColor='#8b5cf6';this.style.background='#8b5cf608'" onmouseout="this.style.borderColor='rgba(139,92,246,0.25)';this.style.background='transparent'">`;
+            h+=`<div style="position:absolute;left:-40px;top:12px;width:28px;height:28px;background:#1e293b;border:2px dashed #8b5cf644;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8b5cf6">+</div>`;
+            h+=`<span style="color:#8b5cf6;font-size:13px;font-weight:600">+ Добавить шаг</span></div>`;
+            h+='</div>';
 
-            document.getElementById('journeyDetailContent').innerHTML = h;
-        } catch(e) { document.getElementById('journeyDetailContent').innerHTML = '<div style="color:#ef4444">Ошибка: '+e.message+'</div>'; }
+            // ─── Enrolled leads section ───
+            h+=`<div style="margin-top:20px;border-top:1px solid rgba(255,255,255,0.06);padding-top:16px">`;
+            h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><h4 style="color:#e2e8f0;margin:0">👥 Записанные лиды</h4>`;
+            h+=`<span style="background:#334155;color:#94a3b8;padding:2px 10px;border-radius:12px;font-size:12px">${enrollments.length}</span></div>`;
+            if(enrollments.length){
+                h+='<div style="display:grid;gap:8px;max-height:200px;overflow-y:auto">';
+                enrollments.forEach(e=>{
+                    const stColor={active:'#22c55e',completed:'#3b82f6',exited:'#ef4444'}[e.status]||'#64748b';
+                    h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f172a;border-radius:8px;font-size:13px">`;
+                    h+=`<span style="width:8px;height:8px;border-radius:50%;background:${stColor}"></span>`;
+                    h+=`<span style="color:#e2e8f0;flex:1">Лид #${e.lead_id||e.contact_id||'?'}</span>`;
+                    h+=`<span style="color:${stColor};font-size:11px">${e.status}</span>`;
+                    h+=`<span style="color:#64748b;font-size:11px">Шаг ${e.step_order||'?'} (${_jbx.labels[e.step_type]||e.step_type||'?'})</span>`;
+                    if(e.status==='active') h+=`<button onclick="exitEnrollment(${e.id},${journeyId})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px">✕ Выход</button>`;
+                    h+='</div>';
+                });
+                h+='</div>';
+            } else h+='<div style="color:#64748b;font-size:13px">Нет записанных лидов. Нажмите "Записать лида"</div>';
+            h+='</div>';
+
+            document.getElementById('journeyDetailContent').innerHTML=h;
+        }catch(e){document.getElementById('journeyDetailContent').innerHTML='<div style="color:#ef4444">Ошибка: '+e.message+'</div>';}
     }
 
-    function openAddStepModal(journeyId, stepOrder) {
-        const modal = document.createElement('div');
-        modal.id = 'addStepModal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center';
-        modal.innerHTML = `<div style="background:#1e293b;border-radius:12px;padding:24px;width:420px">
-            <h4 style="color:#e2e8f0;margin:0 0 16px">Добавить шаг</h4>
-            <select id="newStepType" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin-bottom:12px;box-sizing:border-box" onchange="toggleStepConfig()">
-                <option value="send_email">📧 Отправить email</option>
-                <option value="wait">⏳ Ожидание (дни)</option>
-                <option value="condition">🔀 Условие (ветвление)</option>
-                <option value="send_sms">📱 SMS</option>
-                <option value="send_telegram">✈️ Telegram</option>
-                <option value="send_whatsapp">💚 WhatsApp</option>
-                <option value="create_task">📋 Создать задачу</option>
-                <option value="update_field">✏️ Обновить поле</option>
-            </select>
-            <div id="stepConfigFields"></div>
+    // ─── Enroll Lead Modal ───
+    async function openEnrollModal(journeyId) {
+        const o=document.createElement('div');o.id='enrollModal';
+        o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center';
+        o.innerHTML=`<div style="background:#1e293b;border-radius:12px;padding:24px;width:520px;max-height:70vh;overflow-y:auto" id="enrollContent"><div class="loading">Загрузка лидов...</div></div>`;
+        document.body.appendChild(o);
+        o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+        try{
+            const res=await api.get('/api/leads?limit=100');
+            const leads=(res.data?.leads||res.data||[]).filter(l=>l.status!=='converted');
+            let h=`<h4 style="color:#e2e8f0;margin:0 0 16px">👤 Записать лида в путь #${journeyId}</h4>`;
+            h+=`<input id="enrollSearch" placeholder="🔍 Поиск по имени или компании..." style="${_jbx.inp}" oninput="filterEnrollLeads()">`;
+            h+='<div id="enrollLeadsList" style="display:grid;gap:6px;max-height:45vh;overflow-y:auto">';
+            leads.forEach(l=>{
+                h+=`<div class="enrollLeadItem" data-search="${(l.contact_name+' '+l.company_name).toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f172a;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all 0.15s" onmouseover="this.style.borderColor='#8b5cf644'" onmouseout="this.style.borderColor='transparent'" onclick="enrollLead(${journeyId},${l.id},this)">`;
+                h+=`<div style="width:36px;height:36px;background:#8b5cf622;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px">${l.contact_name?l.contact_name[0].toUpperCase():'?'}</div>`;
+                h+=`<div style="flex:1"><div style="color:#e2e8f0;font-size:13px;font-weight:600">${esc(l.contact_name||'Без имени')}</div>`;
+                h+=`<div style="color:#64748b;font-size:11px">${esc(l.company_name||'')} ${l.email?'· '+esc(l.email):''} ${l.phone?'· '+esc(l.phone):''}</div></div>`;
+                h+=`<span style="color:#94a3b8;font-size:11px;background:#334155;padding:2px 8px;border-radius:10px">${l.status||'new'}</span></div>`;
+            });
+            h+='</div>';
+            h+=`<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById('enrollModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Закрыть</button></div>`;
+            document.getElementById('enrollContent').innerHTML=h;
+        }catch(e){document.getElementById('enrollContent').innerHTML='<div style="color:#ef4444">'+e.message+'</div>';}
+    }
+
+    function filterEnrollLeads(){
+        const q=(document.getElementById('enrollSearch')?.value||'').toLowerCase();
+        document.querySelectorAll('.enrollLeadItem').forEach(el=>{el.style.display=el.dataset.search.includes(q)?'flex':'none';});
+    }
+
+    async function enrollLead(journeyId,leadId,btn) {
+        if(btn)btn.style.opacity='0.5';
+        try{
+            await api.post('/api/journeys/'+journeyId+'/enroll',{lead_id:leadId});
+            showToast('✅ Лид записан в путь!','success');
+            document.getElementById('enrollModal')?.remove();
+            // Refresh detail if open
+            if(document.getElementById('journeyDetailModal'))openJourneyDetail(journeyId);
+        }catch(e){showToast('Ошибка: '+e.message,'error');if(btn)btn.style.opacity='1';}
+    }
+
+    async function exitEnrollment(enrollmentId,journeyId){
+        if(!confirm('Удалить лида из пути?'))return;
+        try{await api.post('/api/journeys/enrollments/'+enrollmentId+'/exit',{});showToast('Лид удалён из пути','info');openJourneyDetail(journeyId);}catch(e){showToast(e.message,'error');}
+    }
+
+    // ─── Add Step Modal (Full Config) ───
+    function openAddStepModal(journeyId,stepOrder) {
+        const m=document.createElement('div');m.id='addStepModal';
+        m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center';
+        m.innerHTML=`<div style="background:#1e293b;border-radius:14px;padding:24px;width:560px;max-height:80vh;overflow-y:auto">
+            <h4 style="color:#e2e8f0;margin:0 0 16px">Добавить шаг #${stepOrder}</h4>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px" id="stepTypeGrid"></div>
+            <div id="stepConfigFields" style="min-height:60px"></div>
             <div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end">
-                <button onclick="document.getElementById('addStepModal')?.remove()" style="padding:8px 16px;border-radius:8px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">Отмена</button>
-                <button onclick="saveJourneyStep(${journeyId},${stepOrder})" style="padding:8px 16px;border-radius:8px;background:#8b5cf6;color:white;border:none;cursor:pointer">Добавить</button>
-            </div>
-        </div>`;
-        document.body.appendChild(modal);
+                <button onclick="document.getElementById('addStepModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Отмена</button>
+                <button onclick="saveJourneyStep(${journeyId},${stepOrder})" style="${_jbx.btn('#8b5cf6')}" id="saveStepBtn">Добавить</button>
+            </div></div>`;
+        document.body.appendChild(m);
+
+        // Step type selector as visual tiles
+        const types=[['send_email','📧','Email','#3b82f6'],['send_sms','📱','SMS','#22c55e'],['wait','⏳','Ожидание','#f59e0b'],['condition','🔀','Условие','#ec4899'],['create_task','📋','Задача','#8b5cf6'],['send_telegram','✈️','Telegram','#06b6d4'],['send_whatsapp','💚','WhatsApp','#25d366'],['update_field','✏️','Обн. поле','#a855f7']];
+        let tg='';
+        types.forEach(([val,icon,lbl,clr],i)=>{
+            tg+=`<div onclick="selectStepType('${val}',this)" style="padding:12px 8px;border-radius:10px;text-align:center;cursor:pointer;border:2px solid ${i===0?clr:'transparent'};background:${i===0?clr+'15':'#0f172a'};transition:all 0.15s" data-type="${val}" data-color="${clr}" class="stepTypeTile">`;
+            tg+=`<div style="font-size:22px;margin-bottom:4px">${icon}</div><div style="color:#e2e8f0;font-size:11px;font-weight:600">${lbl}</div></div>`;
+        });
+        document.getElementById('stepTypeGrid').innerHTML=tg;
+        window._selectedStepType='send_email';
         toggleStepConfig();
     }
 
-    function toggleStepConfig() {
-        const type = document.getElementById('newStepType')?.value;
-        const c = document.getElementById('stepConfigFields');
-        if (!c) return;
-        let h = '';
-        if (type==='wait') h = '<input id="stepWaitDays" type="number" value="3" min="1" placeholder="Дней" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);box-sizing:border-box">';
-        else if (type==='condition') {
-            h = '<input id="stepCondField" placeholder="Поле (напр. status)" style="width:100%;padding:8px;border-radius:6px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin-bottom:8px;box-sizing:border-box">';
-            h += '<select id="stepCondOp" style="width:100%;padding:8px;border-radius:6px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin-bottom:8px;box-sizing:border-box"><option value="equals">Равно</option><option value="not_equals">Не равно</option><option value="contains">Содержит</option><option value="greater_than">Больше</option></select>';
-            h += '<input id="stepCondVal" placeholder="Значение" style="width:100%;padding:8px;border-radius:6px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);box-sizing:border-box">';
-        } else if (type==='send_email') h = '<input id="stepTemplateId" type="number" placeholder="ID шаблона email" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);box-sizing:border-box">';
-        else if (type==='create_task') h = '<input id="stepTaskTitle" placeholder="Название задачи" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);box-sizing:border-box">';
-        c.innerHTML = h;
+    function selectStepType(type,el){
+        window._selectedStepType=type;
+        document.querySelectorAll('.stepTypeTile').forEach(t=>{t.style.border='2px solid transparent';t.style.background='#0f172a';});
+        el.style.border='2px solid '+el.dataset.color;el.style.background=el.dataset.color+'15';
+        toggleStepConfig();
     }
 
-    async function saveJourneyStep(journeyId, stepOrder) {
-        const type = document.getElementById('newStepType')?.value;
-        let config = {};
-        if (type==='wait') config.wait_days = parseInt(document.getElementById('stepWaitDays')?.value||3);
-        if (type==='condition') {
-            config.condition_field = document.getElementById('stepCondField')?.value;
-            config.condition_operator = document.getElementById('stepCondOp')?.value;
-            config.condition_value = document.getElementById('stepCondVal')?.value;
-        }
-        if (type==='send_email') config.template_id = parseInt(document.getElementById('stepTemplateId')?.value||0);
-        if (type==='create_task') config.task_title = document.getElementById('stepTaskTitle')?.value;
+    function toggleStepConfig(){
+        const type=window._selectedStepType||'send_email';
+        const c=document.getElementById('stepConfigFields');if(!c)return;
+        let h='';
+        if(type==='send_email'){
+            h+=`<label style="color:#94a3b8;font-size:12px">Тема письма</label>`;
+            h+=`<input id="stepEmailSubject" placeholder="Добро пожаловать в Hermes CRM!" style="${_jbx.inp}">`;
+            h+=`<label style="color:#94a3b8;font-size:12px">Текст письма (HTML) · Переменные: {{contact_name}}, {{company_name}}</label>`;
+            h+=`<textarea id="stepEmailBody" rows="5" placeholder="<h2>Здравствуйте, {{contact_name}}!</h2><p>Текст...</p>" style="${_jbx.inp};resize:vertical;font-family:monospace;font-size:12px"></textarea>`;
+        } else if(type==='send_sms'){
+            h+=`<label style="color:#94a3b8;font-size:12px">Текст SMS · Переменные: {{contact_name}}, {{company_name}}</label>`;
+            h+=`<textarea id="stepSmsMsg" rows="3" placeholder="{{contact_name}}, спасибо за интерес к Hermes CRM!" style="${_jbx.inp};resize:vertical"></textarea>`;
+            h+=`<div style="color:#64748b;font-size:11px">Макс. 160 символов для 1 SMS. Отправка через Twilio.</div>`;
+        } else if(type==='wait'){
+            h+=`<label style="color:#94a3b8;font-size:12px">Длительность ожидания</label>`;
+            h+=`<div style="display:flex;gap:8px">`;
+            h+=`<input id="stepWaitVal" type="number" value="1" min="1" style="${_jbx.inp};flex:1">`;
+            h+=`<select id="stepWaitUnit" style="${_jbx.inp};flex:1"><option value="minutes">Минут</option><option value="hours">Часов</option><option value="days" selected>Дней</option></select></div>`;
+        } else if(type==='condition'){
+            h+=`<label style="color:#94a3b8;font-size:12px">Поле для проверки</label>`;
+            h+=`<select id="stepCondField" style="${_jbx.inp}"><option value="status">Статус лида</option><option value="source">Источник</option><option value="priority">Приоритет</option><option value="email">Email</option><option value="phone">Телефон</option></select>`;
+            h+=`<label style="color:#94a3b8;font-size:12px">Оператор</label>`;
+            h+=`<select id="stepCondOp" style="${_jbx.inp}"><option value="equals">Равно</option><option value="not_equals">Не равно</option><option value="contains">Содержит</option><option value="greater_than">Больше</option></select>`;
+            h+=`<label style="color:#94a3b8;font-size:12px">Значение</label>`;
+            h+=`<input id="stepCondVal" placeholder="new / referral / high" style="${_jbx.inp}">`;
+        } else if(type==='create_task'){
+            h+=`<label style="color:#94a3b8;font-size:12px">Название задачи</label>`;
+            h+=`<input id="stepTaskTitle" placeholder="Позвонить клиенту" style="${_jbx.inp}">`;
+            h+=`<label style="color:#94a3b8;font-size:12px">Описание</label>`;
+            h+=`<textarea id="stepTaskDesc" rows="2" placeholder="Описание задачи..." style="${_jbx.inp};resize:vertical"></textarea>`;
+        } else { h+='<div style="color:#64748b;font-size:13px;padding:12px">Настройки для этого типа шага будут добавлены позже</div>'; }
+        c.innerHTML=h;
+    }
 
-        try {
-            await api.post('/api/journeys/'+journeyId+'/steps', {step_type:type, step_order:stepOrder, config:JSON.stringify(config)});
+    async function saveJourneyStep(journeyId,stepOrder){
+        const type=window._selectedStepType||'send_email';
+        let config={};
+        if(type==='send_email'){config.subject=document.getElementById('stepEmailSubject')?.value||'';config.body=document.getElementById('stepEmailBody')?.value||'';}
+        if(type==='send_sms'){config.message=document.getElementById('stepSmsMsg')?.value||'';}
+        if(type==='wait'){
+            const val=parseInt(document.getElementById('stepWaitVal')?.value||1);
+            const unit=document.getElementById('stepWaitUnit')?.value||'days';
+            if(unit==='minutes')config.duration_minutes=val;else if(unit==='hours')config.duration_minutes=val*60;else config.wait_days=val;
+        }
+        if(type==='condition'){config.condition_field=document.getElementById('stepCondField')?.value;config.condition_operator=document.getElementById('stepCondOp')?.value;config.condition_value=document.getElementById('stepCondVal')?.value;}
+        if(type==='create_task'){config.task_title=document.getElementById('stepTaskTitle')?.value;config.task_description=document.getElementById('stepTaskDesc')?.value;}
+        try{
+            await api.post('/api/journeys/'+journeyId+'/steps',{step_type:type,step_order:stepOrder,config:config});
             document.getElementById('addStepModal')?.remove();
             openJourneyDetail(journeyId);
-            showToast('Шаг добавлен!', 'success');
-        } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
+            showToast('Шаг добавлен!','success');
+        }catch(e){showToast('Ошибка: '+e.message,'error');}
     }
 
-    async function deleteJourneyStep(stepId, journeyId) {
-        if (!confirm('Удалить шаг?')) return;
-        try {
-            await api.remove('/api/journeys/steps/'+stepId);
+    function editJourneyStep(stepId,journeyId,stepType,configB64){
+        try{const config=JSON.parse(atob(configB64));
+        const m=document.createElement('div');m.id='editStepModal';
+        m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10002;display:flex;align-items:center;justify-content:center';
+        let fields='';
+        if(stepType==='send_email'){
+            fields+=`<label style="color:#94a3b8;font-size:12px">Тема</label><input id="editSubject" value="${esc(config.subject||config.email_subject||'')}" style="${_jbx.inp}">`;
+            fields+=`<label style="color:#94a3b8;font-size:12px">Текст (HTML)</label><textarea id="editBody" rows="5" style="${_jbx.inp};resize:vertical;font-family:monospace;font-size:12px">${esc(config.body||config.email_body||'')}</textarea>`;
+        }else if(stepType==='send_sms'){
+            fields+=`<label style="color:#94a3b8;font-size:12px">Текст SMS</label><textarea id="editSms" rows="3" style="${_jbx.inp};resize:vertical">${esc(config.message||config.sms_message||'')}</textarea>`;
+        }else if(stepType==='wait'){
+            const val=config.duration_minutes||config.wait_days||1;const isMin=!!config.duration_minutes;
+            fields+=`<label style="color:#94a3b8;font-size:12px">Длительность</label><div style="display:flex;gap:8px"><input id="editWaitVal" type="number" value="${val}" style="${_jbx.inp};flex:1"><select id="editWaitUnit" style="${_jbx.inp};flex:1"><option value="minutes" ${isMin?'selected':''}>Минут</option><option value="days" ${!isMin?'selected':''}>Дней</option></select></div>`;
+        }else{fields=`<div style="color:#64748b;font-size:13px;padding:12px">Редактирование этого типа шага скоро</div>`;}
+        m.innerHTML=`<div style="background:#1e293b;border-radius:14px;padding:24px;width:520px"><h4 style="color:#e2e8f0;margin:0 0 16px">✏️ Редактировать шаг</h4>${fields}<div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end"><button onclick="document.getElementById('editStepModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Отмена</button><button onclick="updateJourneyStep(${stepId},${journeyId},'${stepType}')" style="${_jbx.btn('#8b5cf6')}">Сохранить</button></div></div>`;
+        document.body.appendChild(m);
+        }catch(e){showToast('Ошибка: '+e.message,'error');}
+    }
+
+    async function updateJourneyStep(stepId,journeyId,stepType){
+        let config={};
+        if(stepType==='send_email'){config.subject=document.getElementById('editSubject')?.value||'';config.body=document.getElementById('editBody')?.value||'';}
+        else if(stepType==='send_sms'){config.message=document.getElementById('editSms')?.value||'';}
+        else if(stepType==='wait'){const v=parseInt(document.getElementById('editWaitVal')?.value||1);const u=document.getElementById('editWaitUnit')?.value;if(u==='minutes')config.duration_minutes=v;else config.wait_days=v;}
+        try{
+            await api.put('/api/journeys/steps/'+stepId,{config:JSON.stringify(config)});
+            document.getElementById('editStepModal')?.remove();
             openJourneyDetail(journeyId);
-            showToast('Шаг удалён', 'success');
-        } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
+            showToast('Шаг обновлён!','success');
+        }catch(e){showToast(e.message,'error');}
+    }
+
+    async function deleteJourneyStep(stepId,journeyId){
+        if(!confirm('Удалить этот шаг?'))return;
+        try{await api.remove('/api/journeys/steps/'+stepId);openJourneyDetail(journeyId);showToast('Шаг удалён','success');}catch(e){showToast(e.message,'error');}
     }
 
 </script>

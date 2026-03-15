@@ -280,7 +280,7 @@
                 currentUser.token = r.token;
                 currentPage = 'dashboard';
                 cachedData = { tickets: null, contracts: null, documents: null };
-                generateNotifications();
+                await loadNotifications();
                 render();
                 showToast(t('welcome_back') + ', ' + (currentUser.full_name || '').split(' ')[0] + '!', 'success');
             } catch (err) {
@@ -376,7 +376,7 @@
         function renderTopBar(title) {
             const unread = notifications.filter(n => n.unread).length;
             return '<div class="top-bar"><div class="top-bar-title">' + title + '</div><div class="top-bar-actions">' +
-                '<select class="lang-select" onchange="L=this.value;generateNotifications();cachedData={tickets:null,contracts:null,documents:null};render()">' +
+                '<select class="lang-select" onchange="L=this.value;cachedData={tickets:null,contracts:null,documents:null};render()">' +
                 '<option value="en"' + (L==='en'?' selected':'') + '>EN</option>' +
                 '<option value="ru"' + (L==='ru'?' selected':'') + '>\u0420\u0423</option>' +
                 '<option value="az"' + (L==='az'?' selected':'') + '>AZ</option></select>' +

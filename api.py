@@ -6654,6 +6654,12 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
         # SLA breach check
         if new_status in ("resolved", "closed"):
             _check_sla_breach(conn, ticket_id)
+        # ── Portal workflow: notify on status change ──
+        new_status = updates.get("status")
+        if new_status and new_status != old[0]:
+            tkt = conn.execute("SELECT company_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
+            if tkt and tkt[0]:
+                workflow_ticket_status_changed(conn, ticket_id, old[0], new_status, tkt[0])
         # Prepare notification data (send OUTSIDE db block)
         new_assigned = updates.get("assigned_to")
         _notify_assign = False
@@ -6729,6 +6735,15 @@ async def add_ticket_comment(ticket_id: int, request: Request, user=Depends(requ
             "UPDATE tickets SET first_response_at=datetime('now'), updated_at=datetime('now') WHERE id=? AND first_response_at IS NULL",
             [ticket_id]
         )
+    # ── Portal workflow: notify client about CRM response ──
+    try:
+        with get_db() as conn2:
+            tkt2 = conn2.execute("SELECT company_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
+            usr2 = conn2.execute("SELECT full_name FROM users WHERE id=?", [user["user_id"]]).fetchone()
+            if tkt2 and tkt2[0] and not is_internal:
+                workflow_ticket_comment_added(conn2, ticket_id, tkt2[0], usr2[0] if usr2 else "Support", is_from_portal=False)
+    except Exception as e:
+        logger.warning("Workflow comment notify failed: %s", e)
     return _ok({"added": True})
 
 
@@ -8426,6 +8441,208 @@ async def portal_change_password(request: Request):
     return _ok({"message": "Password changed successfully"})
 
 
+
+
+# ═══════════════════ PORTAL WORKFLOW ENGINE ═══════════════════
+
+def _ensure_portal_notifications_table(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS portal_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        portal_user_id INTEGER,
+        company_id INTEGER,
+        type TEXT DEFAULT 'info',
+        title TEXT NOT NULL,
+        message TEXT DEFAULT '',
+        entity_type TEXT DEFAULT '',
+        entity_id INTEGER DEFAULT 0,
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    )""")
+
+def send_portal_notification(portal_user_id=None, company_id=None, ntype="info", title="", message="", entity_type="", entity_id=0):
+    """Send notification to portal user(s). If company_id given, notifies all users in that company."""
+    try:
+        with get_db() as conn:
+            _ensure_portal_notifications_table(conn)
+            if portal_user_id:
+                conn.execute(
+                    "INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                    [portal_user_id, company_id, ntype, title, message, entity_type, entity_id]
+                )
+            elif company_id:
+                users = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
+                for u in users:
+                    conn.execute(
+                        "INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                        [u[0], company_id, ntype, title, message, entity_type, entity_id]
+                    )
+    except Exception as e:
+        logger.warning("Failed to send portal notification: %s", e)
+
+def _send_email_alert(to_email, subject, body):
+    """Send email alert (best-effort). Configure SMTP in env vars."""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        smtp_host = os.environ.get("SMTP_HOST", "")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+        smtp_user = os.environ.get("SMTP_USER", "")
+        smtp_pass = os.environ.get("SMTP_PASS", "")
+        smtp_from = os.environ.get("SMTP_FROM", smtp_user)
+        if not smtp_host or not smtp_user:
+            logger.debug("SMTP not configured, skipping email to %s", to_email)
+            return
+        msg = MIMEText(body, "html")
+        msg["Subject"] = subject
+        msg["From"] = smtp_from
+        msg["To"] = to_email
+        with smtplib.SMTP(smtp_host, smtp_port) as srv:
+            srv.starttls()
+            srv.login(smtp_user, smtp_pass)
+            srv.send_message(msg)
+        logger.info("Email sent to %s: %s", to_email, subject)
+    except Exception as e:
+        logger.warning("Email send failed to %s: %s", to_email, e)
+
+def workflow_ticket_created(conn, ticket_id, company_id, subject, priority):
+    """Workflow: portal user created a ticket."""
+    # 1. Notify all CRM admins/managers
+    admins = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager') AND is_active=1").fetchall()
+    for a in admins:
+        send_notification(a[0], "portal_ticket", f"New portal ticket: {subject}",
+                         f"Priority: {priority}. Client created ticket TK-{ticket_id:04d} from portal.",
+                         "ticket", ticket_id)
+    # 2. Auto-assign based on category (round-robin among active agents)
+    agents = conn.execute("SELECT id FROM users WHERE role IN ('admin','manager','agent') AND is_active=1 ORDER BY id").fetchall()
+    if agents:
+        assigned_to = agents[ticket_id % len(agents)][0]
+        conn.execute("UPDATE tickets SET assigned_to=?, first_response_at=NULL WHERE id=?", [assigned_to, ticket_id])
+        send_notification(assigned_to, "ticket_assigned",
+                         f"Ticket TK-{ticket_id:04d}: {subject}",
+                         f"Auto-assigned from portal. Priority: {priority}.", "ticket", ticket_id)
+    # 3. Send portal notification back to client
+    send_portal_notification(company_id=company_id, ntype="ticket",
+                            title=f"Ticket TK-{ticket_id:04d} created",
+                            message=f"Your ticket \"{subject}\" has been received. We will respond shortly.",
+                            entity_type="ticket", entity_id=ticket_id)
+
+def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, company_id):
+    """Workflow: CRM user changed ticket status."""
+    ticket = conn.execute("SELECT subject FROM tickets WHERE id=?", [ticket_id]).fetchone()
+    subj = ticket[0] if ticket else ""
+    tn = f"TK-{ticket_id:04d}"
+    status_msg = {
+        "open": "is now being worked on",
+        "in_progress": "is in progress",
+        "waiting": "is waiting for your response",
+        "resolved": "has been resolved",
+        "closed": "has been closed"
+    }
+    msg = status_msg.get(new_status, f"status changed to {new_status}")
+    send_portal_notification(company_id=company_id, ntype="ticket_update",
+                            title=f"Ticket {tn} {msg}",
+                            message=f"\"{subj}\" — {old_status} → {new_status}",
+                            entity_type="ticket", entity_id=ticket_id)
+
+def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_from_portal=False):
+    """Workflow: comment added to ticket."""
+    ticket = conn.execute("SELECT subject, assigned_to FROM tickets WHERE id=?", [ticket_id]).fetchone()
+    if not ticket:
+        return
+    subj, assigned = ticket
+    tn = f"TK-{ticket_id:04d}"
+    if is_from_portal:
+        # Portal user commented → notify CRM assigned user
+        if assigned:
+            send_notification(assigned, "ticket_comment",
+                             f"Portal reply on {tn}: {subj}",
+                             f"Client replied to ticket {tn}.", "ticket", ticket_id)
+    else:
+        # CRM user commented → notify portal users
+        send_portal_notification(company_id=company_id, ntype="ticket_update",
+                                title=f"New response on {tn}",
+                                message=f"{author_name} replied to your ticket \"{subj}\".",
+                                entity_type="ticket", entity_id=ticket_id)
+
+def workflow_contract_status_changed(conn, contract_id, old_status, new_status, counterparty):
+    """Workflow: contract status changed."""
+    contract = conn.execute("SELECT contract_name FROM contracts WHERE id=?", [contract_id]).fetchone()
+    cname = contract[0] if contract else f"#{contract_id}"
+    # Find matching company
+    company = conn.execute("SELECT id FROM companies WHERE ? LIKE '%' || name || '%'", [counterparty]).fetchone()
+    if not company:
+        return
+    company_id = company[0]
+    status_labels = {
+        "draft": "saved as draft",
+        "pending": "is pending approval",
+        "active": "has been approved and is now active",
+        "expired": "has expired",
+        "terminated": "has been terminated"
+    }
+    msg = status_labels.get(new_status, f"status changed to {new_status}")
+    send_portal_notification(company_id=company_id, ntype="contract",
+                            title=f"Contract \"{cname}\" {msg}",
+                            message=f"Status: {old_status} → {new_status}",
+                            entity_type="contract", entity_id=contract_id)
+
+def workflow_document_status_changed(conn, offer_id, old_status, new_status, company_id):
+    """Workflow: offer/document status changed."""
+    doc = conn.execute("SELECT offer_number, offer_type FROM offers WHERE id=?", [offer_id]).fetchone()
+    if not doc:
+        return
+    num, dtype = doc
+    status_labels = {
+        "draft": "saved as draft",
+        "sent": "has been sent for your review",
+        "approved": "has been approved",
+        "rejected": "has been rejected",
+        "expired": "has expired"
+    }
+    msg = status_labels.get(new_status, f"status changed to {new_status}")
+    send_portal_notification(company_id=company_id, ntype="document",
+                            title=f"{dtype.title()} {num} {msg}",
+                            message=f"Status: {old_status} → {new_status}",
+                            entity_type="document", entity_id=offer_id)
+
+
+@app.get("/api/portal/notifications")
+async def portal_notifications_list(request: Request):
+    user = _portal_require_auth(request)
+    with get_db() as conn:
+        _ensure_portal_notifications_table(conn)
+        rows = conn.execute(
+            "SELECT id, type, title, message, entity_type, entity_id, is_read, created_at FROM portal_notifications WHERE portal_user_id=? ORDER BY created_at DESC LIMIT 50",
+            [user["portal_user_id"]]
+        ).fetchall()
+        cols = ["id", "type", "title", "message", "entity_type", "entity_id", "is_read", "created_at"]
+        return _ok([dict(zip(cols, r)) for r in rows])
+
+@app.post("/api/portal/notifications/read")
+async def portal_notifications_mark_read(request: Request):
+    user = _portal_require_auth(request)
+    data = await request.json()
+    notif_id = data.get("id")
+    with get_db() as conn:
+        _ensure_portal_notifications_table(conn)
+        if notif_id:
+            conn.execute("UPDATE portal_notifications SET is_read=1 WHERE id=? AND portal_user_id=?",
+                        [notif_id, user["portal_user_id"]])
+        else:
+            conn.execute("UPDATE portal_notifications SET is_read=1 WHERE portal_user_id=?",
+                        [user["portal_user_id"]])
+    return _ok({"marked": True})
+
+@app.get("/api/portal/notifications/count")
+async def portal_notifications_count(request: Request):
+    user = _portal_require_auth(request)
+    with get_db() as conn:
+        _ensure_portal_notifications_table(conn)
+        row = conn.execute("SELECT COUNT(*) FROM portal_notifications WHERE portal_user_id=? AND is_read=0",
+                          [user["portal_user_id"]]).fetchone()
+        return _ok({"unread": row[0] if row else 0})
+
+
 @app.get("/api/portal/tickets")
 async def portal_tickets(request: Request):
     """Get tickets for the portal user's company."""
@@ -8476,6 +8693,8 @@ async def portal_create_ticket(request: Request):
         )
         ticket_id = cur.lastrowid
         ticket_number = f"TK-{ticket_id:04d}"
+        # ── Workflow trigger ──
+        workflow_ticket_created(conn, ticket_id, user.get("company_id"), subject, priority)
     return _ok({"created": True, "ticket_number": ticket_number})
 
 
@@ -8521,6 +8740,8 @@ async def portal_add_comment(ticket_id: int, request: Request):
             "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal, created_at) VALUES (?,?,?,0,datetime('now'))",
             [ticket_id, None, comment]
         )
+        # ── Workflow trigger ──
+        workflow_ticket_comment_added(conn, ticket_id, user.get("company_id"), user.get("email", "Client"), is_from_portal=True)
     return _ok({"added": True})
 
 

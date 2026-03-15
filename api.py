@@ -2612,8 +2612,8 @@ async def expiring_contracts(
 
 # ─── Notifications (computed) ────────────────────────────────
 
-@app.get("/api/notifications")
-async def get_notifications(user=Depends(require_auth)):
+@app.get("/api/notifications/smart")
+async def get_notifications_smart(user=Depends(require_auth)):
     """Computed notifications from existing data."""
     notifications = []
 

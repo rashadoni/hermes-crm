@@ -14270,7 +14270,6 @@ async function renderWorkflowsPage(container) {
       `}
     </div>`;
 }
-}
 
 async function showWorkflowForm(ruleId) {
   const L = currentLang;
@@ -14464,7 +14463,6 @@ async function renderDashboardSettings(container) {
       </div>
     </div>`;
 }
-}
 
 async function createDashLayout() {
   const _t = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
@@ -14593,7 +14591,6 @@ async function renderCurrenciesPage(container) {
         </div>
       </div>
     </div>`;
-}
 }
 
 async function doConvert() {
@@ -14826,7 +14823,6 @@ async function renderEmailLogPage(container) {
       `}
     </div>`;
 }
-}
 
 async function loadContactEmailHistory(contactId, containerId) {
   const container = document.getElementById(containerId);
@@ -14920,7 +14916,6 @@ async function renderNurturingPage(container) {
         </div>
       `}
     </div>`;
-}
 }
 
 async function showNurtureForm(seqId) {
@@ -15301,7 +15296,6 @@ async function collectAndSaveCustomFields(entityType, entityId) {
   if (Object.keys(vals).length) {
     try { await api.put('/api/custom-fields/values/' + entityType + '/' + entityId, vals); } catch(e){}
   }
-}
 
 // ─── Campaign ROI ─────────────────────────────────────────────
 async function renderCampaignRoiPage(container) {
@@ -15379,7 +15373,6 @@ async function renderCampaignRoiPage(container) {
         </div>
       `}
     </div>`;
-}
 }
 
 async function showCampaignRoiDetail(campaignId) {
@@ -15541,7 +15534,6 @@ async function renderSegmentsPage(container) {
         </div>
       `}
     </div>`;
-}
 }
 
 async function showSegmentForm(segId) {
@@ -15884,7 +15876,6 @@ async function testSmtpEmail() {
     resultEl.style.color = '#f87171';
     resultEl.innerHTML = '❌ ' + t('smtp_test_failed') + ':<br><span style="font-size:12px;color:#fca5a5;">' + (e.message || e) + '</span>';
   }
-}
 
 // ─── Web Forms ───────────────────────────────────────────────
 async function renderWebForms(el) {

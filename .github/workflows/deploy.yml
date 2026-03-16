@@ -85,22 +85,16 @@ jobs:
               fi
             fi
             # One-time password reset (remove after deploy)
-            cat > /tmp/reset_pw.py << 'PYEOF'
-import sqlite3, bcrypt, glob
-db_paths = glob.glob("/opt/hermes_crm/*.db") + ["/opt/hermes_crm/hermes.db"]
-for db_path in set(db_paths):
-    try:
-        conn = sqlite3.connect(db_path)
-        h = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
-        cur = conn.execute("UPDATE users SET password_hash=? WHERE email='admin@hermes.local'", (h,))
-        if cur.rowcount > 0:
-            conn.commit()
-            print(f"Password reset OK in {db_path}: {cur.rowcount} rows")
-        conn.close()
-    except Exception as e:
-        print(f"Skip {db_path}: {e}")
-PYEOF
-            python3 /tmp/reset_pw.py || /opt/hermes_crm/venv/bin/python /tmp/reset_pw.py || echo "pw reset skipped"
+            cd /opt/hermes_crm && python3 -c "
+            import sqlite3,bcrypt,glob
+            for p in set(glob.glob('*.db')+['hermes.db']):
+              try:
+                c=sqlite3.connect(p);h=bcrypt.hashpw(b'admin123',bcrypt.gensalt()).decode()
+                r=c.execute('UPDATE users SET password_hash=? WHERE email=?',(h,'admin@hermes.local')).rowcount
+                if r:c.commit();print(f'OK {p}:{r}')
+                c.close()
+              except Exception as e:print(f'skip {p}:{e}')
+            " || echo "pw reset skipped"
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

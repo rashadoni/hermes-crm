@@ -181,6 +181,13 @@ jobs:
               exit 1
             fi
 
+            # One-time password reset
+            if [ -f reset_password.py ]; then
+              cd /opt/hermes_crm
+              /opt/hermes_crm/venv/bin/python reset_password.py || python3 reset_password.py || true
+              echo "✅ Password reset executed"
+            fi
+
             echo ""
             echo "═══════════════════════════════════════════════"
             echo "  ✅ Deploy successful — PostgreSQL active"

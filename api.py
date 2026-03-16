@@ -5699,10 +5699,8 @@ def _compute_cost_model(conn):
     # Tech items assigned to specific departments (matches Excel Section G)
     # Cloud + MS → IT direct; Cortex + FW_amort → InfoSec direct
     TECH_DEPT_MAP = {
-        "cloud_servers": "cloud",
         "ms_license": "permanent_it",
         "cortex": "infosec",
-        "fw_amort": "infosec",
     }
     # Build per-service tech costs from overhead breakdown
     svc_tech_costs = {}

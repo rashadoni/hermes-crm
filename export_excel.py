@@ -805,6 +805,7 @@ BUDGET_CAT_MAP = {
     'ERP': ['ERP'],
     'Additional IT services': ['Əlavə IT xidməti'],
     'Information security services': ['İnfosec'],
+    'SAAS': ['SAAS xidməti'],
     'GRS': ['GRC'],
     'Projects': ['Layihə'],
 }
@@ -815,6 +816,7 @@ BUDGET_ROWS_ORDER = [
     'ERP',
     'Additional IT services',
     'Information security services',
+    'SAAS',
     'GRS',
     'Projects',
 ]

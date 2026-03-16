@@ -315,6 +315,17 @@
   body.light-theme .kanban-card:hover { border-color:#0176D3 !important;box-shadow:0 2px 8px rgba(1,118,211,0.12) !important; }
   body.light-theme .kanban-col[data-stage="WON"] { background:rgba(46,132,74,0.04) !important; }
   body.light-theme .kanban-col[data-stage="LOST"] { background:rgba(194,48,48,0.04) !important; }
+  /* Kanban column inline-style overrides */
+  body.light-theme [data-stage] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  body.light-theme [data-stage] > div:first-child { background:#FAFAF9 !important; }
+  body.light-theme [style*="rgba(30,41,59"] { background:#FFFFFF !important; }
+  body.light-theme [style*="rgba(15,23,42"] { background:#FFFFFF !important; }
+  body.light-theme [style*="linear-gradient(180deg,rgba(30"] { background:#FFFFFF !important;border:1px solid #DDDBDA !important;box-shadow:0 1px 3px rgba(0,0,0,0.06) !important; }
+  /* Contacts/table container dark backgrounds */
+  body.light-theme [style*="#0c1220"] { background:#FFFFFF !important;border-color:#DDDBDA !important;box-shadow:0 1px 3px rgba(0,0,0,0.06) !important; }
+  body.light-theme [style*="#080d16"] { background:#FFFFFF !important; }
+  body.light-theme [style*="#151d2e"] { background:#FAFAF9 !important; }
+  body.light-theme [style*="#111827"] { background:#FAFAF9 !important; }
 
   /* ▸ TOAST NOTIFICATIONS ────────────────────────── */
   body.light-theme .toast-success { background:#2E844A !important;color:#FFFFFF !important; }

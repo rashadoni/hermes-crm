@@ -8111,8 +8111,9 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
         campaign_desc = campaign["description"] or ""
         campaign_type = campaign["type"] or "email"
 
-        # Populate recipients based on target_type
-        if not conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]:
+        # Clear old recipients for re-send, then populate fresh
+        conn.execute("DELETE FROM campaign_recipients WHERE campaign_id=?", [campaign_id])
+        if True:
             import json as _json
             target_type = campaign["target_type"] or "all"
             now = datetime.utcnow().isoformat() + "Z"

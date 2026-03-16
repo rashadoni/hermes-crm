@@ -15006,10 +15006,10 @@ function showCampaignDetail(id) {
     const isDraft = campaign.status === 'draft';
 
     showModal(`
-      <h2 class="text-xl font-bold mb-4">${isDraft ? t('campaign_edit') : _t('Campaign Details','Детали кампании','Kampaniya detalları')}</h2>
+      <h2 class="text-xl font-bold mb-4">${t('campaign_edit')}</h2>
       <div class="space-y-3">
-        <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full" value="${esc(campaign.name)}" ${isDraft ? '' : 'disabled'}></div>
-        <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="2" ${isDraft ? '' : 'disabled'}>${esc(campaign.description||'')}</textarea></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full" value="${esc(campaign.name)}"></div>
+        <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="2">${esc(campaign.description||'')}</textarea></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="text-sm text-slate-400">${_t('Budget (investment)','Бюджет (инвестиции)','Büdcə (investisiya)')}</label><input id="campCost" type="number" step="0.01" class="form-input w-full" value="${campaign.cost||0}" placeholder="0.00"></div>
           <div><label class="text-sm text-slate-400">${_t('Template','Шаблон','Şablon')}</label><div class="form-input w-full bg-slate-800/50 text-sm text-slate-300">${campaign.template_name||'—'}</div></div>
@@ -15020,7 +15020,6 @@ function showCampaignDetail(id) {
           <span class="ml-3">👥 ${campaign.total_recipients||0}</span>
           <span class="ml-3">📤 ${campaign.sent_count||0}</span>
         </div>
-        ${isDraft ? `
         <div><label class="text-sm text-slate-400">${_t('Recipients','Получатели','Alıcılar')}</label>
           <select id="campDetailTarget" class="form-input w-full" onchange="onCampDetailTargetChange()">
             <option value="all" ${campaign.target_type==='all'?'selected':''}>${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
@@ -15038,23 +15037,16 @@ function showCampaignDetail(id) {
           </div>
           <div id="campDetailList" style="max-height:200px;overflow-y:auto;border:1px solid #334155;border-radius:8px;padding:4px;"></div>
         </div>
-        ` : `
-        <div class="text-sm mt-2" style="background:#1e293b;padding:8px 12px;border-radius:8px;">
-          <span class="text-slate-400">${_t('Target','Аудитория','Hədəf')}:</span>
-          <span style="color:#6366f1;font-weight:600;margin-left:6px;">${({all:_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər'),contacts:_t('Contacts only','Только контакты','Yalnız kontaktlar'),leads:_t('Leads only','Только лиды','Yalnız lidlər'),custom:_t('Custom selection','Ручной выбор','Əl ilə seçim')})[campaign.target_type]||_t('All','Все','Hamısı')}</span>
-          ${campaign.template_name ? '<span class="ml-4 text-slate-400">' + _t('Template','Шаблон','Şablon') + ':</span><span style="color:#22c55e;margin-left:6px;">' + esc(campaign.template_name) + '</span>' : ''}
-        </div>
-        `}
       </div>
       <div class="flex gap-2 mt-4">
-        ${isDraft ? `<button class="btn flex-1" onclick="updateCampaignDraft(${id})" style="background:#4338ca;color:white;">${t('common_save')}</button>` : ''}
-        ${isDraft ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
+        <button class="btn flex-1" onclick="updateCampaignDraft(${id})" style="background:#4338ca;color:white;">${t('common_save')}</button>
+        <button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>
         <button class="btn btn-danger flex-1" onclick="deleteCampaign(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
         <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
       </div>
     `);
-    // For drafts load recipients for editing
-    if (isDraft) {
+    // Load recipients for editing
+    {
       loadAllCampaignRecipients('detail');
       loadCampDetailCount();
       // If custom, pre-select saved recipients

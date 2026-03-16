@@ -15213,7 +15213,13 @@ function getEmailEditorToolbarHTML() {
   var _t = function(en,ru,az){ return L==='ru'?ru:L==='az'?az:en; };
   var s = 'width:32px;height:32px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;';
   var sep = '<span style="width:1px;height:24px;background:#475569;margin:0 4px;flex-shrink:0;"></span>';
-  var html = '<div id="etToolbar" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:10px 10px 0 0;border-bottom:none;">';
+  // Tab switcher: Edit / Preview
+  var html = '<div style="display:flex;gap:0;margin-bottom:0;">';
+  html += '<button type="button" id="etTabEdit" onclick="etSwitchTab(\'edit\')" style="flex:1;padding:8px 0;background:#1e293b;border:1px solid #334155;border-bottom:2px solid #6366f1;border-radius:8px 0 0 0;color:#e2e8f0;font-weight:600;font-size:13px;cursor:pointer;">&#9998; ' + _t('Edit','Редактор','Redaktor') + '</button>';
+  html += '<button type="button" id="etTabPreview" onclick="etSwitchTab(\'preview\')" style="flex:1;padding:8px 0;background:#0f172a;border:1px solid #334155;border-bottom:1px solid #334155;border-radius:0 8px 0 0;color:#64748b;font-weight:500;font-size:13px;cursor:pointer;">&#128065; ' + _t('Preview','Предпросмотр','Önbaxış') + '</button>';
+  html += '</div>';
+  // Toolbar
+  html += '<div id="etToolbar" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px;background:#1e293b;border:1px solid #334155;border-top:none;">';
   html += '<button type="button" onclick="etCmd(&quot;bold&quot;)" style="' + s + 'font-weight:bold;" title="Bold">B</button>';
   html += '<button type="button" onclick="etCmd(&quot;italic&quot;)" style="' + s + 'font-style:italic;" title="Italic">I</button>';
   html += '<button type="button" onclick="etCmd(&quot;underline&quot;)" style="' + s + 'text-decoration:underline;" title="Underline">U</button>';
@@ -15221,29 +15227,105 @@ function getEmailEditorToolbarHTML() {
   html += '<button type="button" onclick="etCmd(&quot;insertUnorderedList&quot;)" style="' + s + '" title="' + _t('List','Список','Siyahı') + '">&#8226;</button>';
   html += '<button type="button" onclick="etCmd(&quot;insertOrderedList&quot;)" style="' + s + '" title="' + _t('Numbered','Нумерация','Nömrəli') + '">1.</button>';
   html += sep;
-  html += '<button type="button" onclick="etCmd(&quot;justifyLeft&quot;)" style="' + s + 'font-size:14px;">&#9776;</button>';
-  html += '<button type="button" onclick="etCmd(&quot;justifyCenter&quot;)" style="' + s + 'font-size:14px;">&#8801;</button>';
-  html += sep;
-  html += '<select onchange="etCmd(&quot;fontSize&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:80px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
+  html += '<select onchange="etCmd(&quot;fontSize&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:70px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
   html += '<option value="">' + _t('Size','Размер','Ölçü') + '</option>';
   html += '<option value="1">S</option><option value="3">M</option><option value="5">L</option><option value="7">XL</option></select>';
-  html += '<select onchange="etCmd(&quot;foreColor&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:80px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
+  html += '<select onchange="etCmd(&quot;foreColor&quot;,this.value);this.value=&quot;&quot;;" style="height:32px;width:70px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;padding:0 6px;cursor:pointer;flex-shrink:0;">';
   html += '<option value="">' + _t('Color','Цвет','Rəng') + '</option>';
   html += '<option value="#ffffff" style="color:#fff">&#9632; ' + _t('White','Белый','Ağ') + '</option>';
   html += '<option value="#ef4444" style="color:#ef4444">&#9632; ' + _t('Red','Красный','Qırmızı') + '</option>';
   html += '<option value="#3b82f6" style="color:#3b82f6">&#9632; ' + _t('Blue','Синий','Mavi') + '</option>';
-  html += '<option value="#22c55e" style="color:#22c55e">&#9632; ' + _t('Green','Зелёный','Yaşıl') + '</option>';
-  html += '<option value="#f59e0b" style="color:#f59e0b">&#9632; ' + _t('Yellow','Жёлтый','Sarı') + '</option>';
-  html += '<option value="#8b5cf6" style="color:#8b5cf6">&#9632; ' + _t('Purple','Фиолетовый','Bənövşəyi') + '</option></select>';
+  html += '<option value="#22c55e" style="color:#22c55e">&#9632; ' + _t('Green','Зелёный','Yaşıl') + '</option></select>';
   html += sep;
-  html += '<button type="button" onclick="emailEditorInsertLink()" style="height:32px;padding:0 10px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;">&#128279;</button>';
-  html += '<button type="button" onclick="emailEditorInsertImage()" style="height:32px;padding:0 10px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;">&#128247;</button>';
+  html += '<button type="button" onclick="emailEditorInsertLink()" style="height:32px;padding:0 10px;background:#334155;border:none;border-radius:6px;color:#e2e8f0;cursor:pointer;" title="' + _t('Link','Ссылка','Keçid') + '">&#128279;</button>';
   html += '<span style="flex:1"></span>';
-  html += '<button type="button" onclick="emailEditorToggleSource()" style="height:32px;padding:0 10px;background:#475569;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;">&lt;/&gt;</button>';
+  html += '<button type="button" onclick="emailEditorToggleSource()" style="height:32px;padding:0 10px;background:#475569;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;" title="HTML">&lt;/&gt;</button>';
   html += '</div>';
-  html += '<div id="etBody" contenteditable="true" style="min-height:200px;max-height:400px;overflow-y:auto;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:0 0 10px 10px;color:#e2e8f0;font-family:Arial,sans-serif;line-height:1.6;outline:none;"></div>';
-  html += '<textarea id="etBodySource" style="display:none;min-height:200px;max-height:400px;width:100%;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:0 0 10px 10px;color:#94a3b8;font-family:monospace;font-size:12px;line-height:1.5;resize:vertical;outline:none;" class="form-input"></textarea>';
+  // Variable insertion chips
+  var chipStyle = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#1e1b4b;border:1px solid #4338ca;border-radius:20px;color:#a5b4fc;font-size:11px;cursor:pointer;transition:all 0.2s;white-space:nowrap;';
+  var vars = [
+    {v:'client_name',icon:'&#128100;',label:_t('Client Name','Имя клиента','Müştəri adı')},
+    {v:'client_email',icon:'&#128231;',label:_t('Client Email','Email клиента','Müştəri emaili')},
+    {v:'company_name',icon:'&#127970;',label:_t('Company','Компания','Şirkət')},
+    {v:'service_name',icon:'&#128736;',label:_t('Service','Услуга','Xidmət')},
+    {v:'new_services',icon:'&#127381;',label:_t('New Services','Новые услуги','Yeni xidmətlər')},
+    {v:'improvements',icon:'&#128200;',label:_t('Improvements','Улучшения','Yaxşılaşmalar')},
+    {v:'upcoming',icon:'&#128197;',label:_t('Upcoming','Предстоящее','Gələcək')},
+    {v:'date',icon:'&#128198;',label:_t('Date','Дата','Tarix')},
+    {v:'month',icon:'&#128467;',label:_t('Month','Месяц','Ay')},
+    {v:'year',icon:'&#128345;',label:_t('Year','Год','İl')}
+  ];
+  html += '<div style="padding:6px 8px;background:#0f172a;border:1px solid #334155;border-top:none;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">';
+  html += '<span style="font-size:10px;color:#64748b;font-weight:600;margin-right:4px;">' + _t('INSERT:','ВСТАВИТЬ:','ƏLAVƏ ET:') + '</span>';
+  for (var i = 0; i < vars.length; i++) {
+    html += '<button type="button" onclick="etInsertVar(\'' + vars[i].v + '\')" style="' + chipStyle + '" onmouseover="this.style.background=\'#312e81\';this.style.borderColor=\'#6366f1\'" onmouseout="this.style.background=\'#1e1b4b\';this.style.borderColor=\'#4338ca\'">' + vars[i].icon + ' ' + vars[i].label + '</button>';
+  }
+  html += '</div>';
+  // Editor area
+  html += '<div id="etBody" contenteditable="true" style="min-height:200px;max-height:350px;overflow-y:auto;padding:16px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 10px 10px;color:#e2e8f0;font-family:Arial,sans-serif;line-height:1.6;outline:none;"></div>';
+  html += '<textarea id="etBodySource" style="display:none;min-height:200px;max-height:350px;width:100%;padding:16px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 10px 10px;color:#94a3b8;font-family:monospace;font-size:12px;line-height:1.5;resize:vertical;outline:none;" class="form-input"></textarea>';
+  // Preview area (hidden by default)
+  html += '<div id="etPreviewArea" style="display:none;min-height:200px;max-height:400px;overflow-y:auto;padding:20px;background:#ffffff;border:1px solid #334155;border-top:none;border-radius:0 0 10px 10px;color:#1e293b;font-family:Arial,sans-serif;line-height:1.6;"></div>';
   return html;
+}
+
+function etInsertVar(varName) {
+  var editor = document.getElementById('etBody');
+  if (!editor) return;
+  editor.focus();
+  var chip = '<span contenteditable="false" style="display:inline-block;padding:2px 8px;background:#312e81;border:1px solid #6366f1;border-radius:12px;color:#a5b4fc;font-size:12px;font-weight:500;cursor:default;user-select:all;">{{' + varName + '}}</span>&nbsp;';
+  document.execCommand('insertHTML', false, chip);
+}
+
+function etSwitchTab(tab) {
+  var editTab = document.getElementById('etTabEdit');
+  var prevTab = document.getElementById('etTabPreview');
+  var toolbar = document.getElementById('etToolbar');
+  var editor = document.getElementById('etBody');
+  var source = document.getElementById('etBodySource');
+  var preview = document.getElementById('etPreviewArea');
+  var chipBar = toolbar ? toolbar.nextElementSibling : null;
+  if (!editTab || !prevTab || !preview) return;
+  var activeStyle = 'flex:1;padding:8px 0;background:#1e293b;border:1px solid #334155;border-bottom:2px solid #6366f1;color:#e2e8f0;font-weight:600;font-size:13px;cursor:pointer;';
+  var inactiveStyle = 'flex:1;padding:8px 0;background:#0f172a;border:1px solid #334155;border-bottom:1px solid #334155;color:#64748b;font-weight:500;font-size:13px;cursor:pointer;';
+  if (tab === 'preview') {
+    editTab.style.cssText = inactiveStyle + 'border-radius:8px 0 0 0;';
+    prevTab.style.cssText = activeStyle + 'border-radius:0 8px 0 0;';
+    if (toolbar) toolbar.style.display = 'none';
+    if (chipBar) chipBar.style.display = 'none';
+    if (editor) editor.style.display = 'none';
+    if (source) source.style.display = 'none';
+    preview.style.display = 'block';
+    var L = currentLang;
+    var _t = function(en,ru,az){ return L==='ru'?ru:L==='az'?az:en; };
+    // Render preview with sample data
+    var raw = editor ? editor.innerHTML : '';
+    var sampleData = {
+      client_name: 'Aysel Mammadova',
+      client_email: 'aysel@example.com',
+      company_name: 'Guven Technology',
+      service_name: 'IT Security Audit',
+      new_services: 'Cloud Migration, AI Analytics',
+      improvements: _t('Faster response times, enhanced dashboard','Ускорение отклика, обновлённая панель','Daha sürətli cavab, təkmilləşdirilmiş panel'),
+      upcoming: _t('New API v2.0 launch in April','Запуск API v2.0 в апреле','Apreldə yeni API v2.0 buraxılışı'),
+      date: new Date().toLocaleDateString(),
+      month: new Date().toLocaleString(L==='az'?'az-AZ':L==='ru'?'ru-RU':'en-US', {month: 'long'}),
+      year: new Date().getFullYear().toString()
+    };
+    // Strip chip spans and replace vars
+    var html = raw.replace(/<span[^>]*contenteditable="false"[^>]*>\{\{(\w+)\}\}<\/span>/g, function(m,v){ return sampleData[v] || '{{' + v + '}}'; });
+    html = html.replace(/\{\{(\w+)\}\}/g, function(m,v){ return '<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-weight:500;">' + (sampleData[v] || m) + '</span>'; });
+    preview.innerHTML = '<div style="margin-bottom:10px;padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:11px;color:#92400e;">&#128161; ' + _t('Preview with sample data — actual values will vary','Предпросмотр с примерными данными — реальные значения будут другими','Nümunə məlumatlarla önbaxış — real dəyərlər fərqli olacaq') + '</div>' +
+      '<div style="background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;">' + html + '</div>';
+  } else {
+    editTab.style.cssText = activeStyle + 'border-radius:8px 0 0 0;';
+    prevTab.style.cssText = inactiveStyle + 'border-radius:0 8px 0 0;';
+    if (toolbar) toolbar.style.display = 'flex';
+    if (chipBar) chipBar.style.display = 'flex';
+    if (editor && (!source || source.style.display === 'none')) editor.style.display = 'block';
+    if (source && source.style.display !== 'none') source.style.display = 'block';
+    preview.style.display = 'none';
+  }
 }
 
 function emailEditorInsertLink() {
@@ -15283,7 +15365,11 @@ function getEmailEditorContent() {
   var source = document.getElementById('etBodySource');
   var editor = document.getElementById('etBody');
   if (source && source.style.display !== 'none') return source.value;
-  return editor ? editor.innerHTML : '';
+  if (!editor) return '';
+  // Strip styled chips back to raw {{var}} for storage
+  var html = editor.innerHTML;
+  html = html.replace(/<span[^>]*contenteditable="false"[^>]*>\{\{(\w+)\}\}<\/span>/g, '{{$1}}');
+  return html;
 }
 
 // Global filter state for email templates
@@ -15431,31 +15517,40 @@ function showCreateEmailTemplateModal() {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   showModal(`
-    <h2 class="text-xl font-bold mb-4">${t('email_template_new')}</h2>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <span style="font-size:24px;">&#10133;</span>
+      <h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin:0;">${t('email_template_new')}</h2>
+    </div>
     <div class="space-y-3">
-      <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
-          <select id="etCategory" class="form-input w-full">
-            <option value="general">${_t('General','Общее','Ümumi')}</option>
-            <option value="welcome">${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
-            <option value="follow_up">${_t('Follow-up','Последующее','Təqib')}</option>
-            <option value="proposal">${_t('Proposal','Предложение','Təklif')}</option>
-            <option value="newsletter">${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
-          </select></div>
-        <div><label class="text-sm text-slate-400">${t('email_template_lang')}</label>
-          <select id="etLang" class="form-input w-full">
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-            <option value="az">Azərbaycanca</option>
-          </select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_name')}</label><input id="etName" class="form-input w-full" style="margin-top:4px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_category')}</label>
+            <select id="etCategory" class="form-input w-full" style="margin-top:4px;">
+              <option value="general">&#128203; ${_t('General','Общее','Ümumi')}</option>
+              <option value="welcome">&#128075; ${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
+              <option value="follow_up">&#128260; ${_t('Follow-up','Последующее','Təqib')}</option>
+              <option value="proposal">&#128188; ${_t('Proposal','Предложение','Təklif')}</option>
+              <option value="newsletter">&#128240; ${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
+            </select></div>
+          <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_lang')}</label>
+            <select id="etLang" class="form-input w-full" style="margin-top:4px;">
+              <option value="en">&#127468;&#127463; English</option>
+              <option value="ru">&#127479;&#127482; Русский</option>
+              <option value="az">&#127462;&#127487; Azərbaycanca</option>
+            </select></div>
+        </div>
+      </div>
+      <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" style="margin-top:4px;"></div>
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_body')}</label>
+        <div style="font-size:10px;color:#475569;margin:4px 0 6px;">&#128161; ${_t('Click the colored chips below the toolbar to insert dynamic fields','Нажмите на цветные кнопки под панелью чтобы вставить динамические поля','Dinamik sahələr əlavə etmək üçün panelin altındakı rəngli düymələrə basın')}</div>
+        <div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div>
       </div>
     </div>
-    <div class="flex gap-2 mt-4">
-      <button class="btn btn-primary flex-1" onclick="saveNewEmailTemplate()">${t('common_save')}</button>
-      <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary" style="flex:2;padding:10px;" onclick="saveNewEmailTemplate()">&#128190; ${t('common_save')}</button>
+      <button class="btn btn-secondary" style="flex:1;padding:10px;" onclick="closeModal()">&#10006; ${_t('Cancel','Отмена','Ləğv et')}</button>
     </div>
   `);
 }
@@ -15465,34 +15560,49 @@ function showEditEmailTemplateModal(id, name, subject, category, lang, isActive)
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   api.get('/api/email-templates/' + id).then(({data}) => {
     showModal(`
-      <h2 class="text-xl font-bold mb-4">${t('email_template_edit')}</h2>
-      <div class="space-y-3">
-        <div><label class="text-sm text-slate-400">${t('email_template_name')}</label><input id="etName" class="form-input w-full" value="${esc(name)}"></div>
-        <div><label class="text-sm text-slate-400">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" value="${esc(subject)}"></div>
-        <div><label class="text-sm text-slate-400">${t('email_template_body')}</label><div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div></div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="text-sm text-slate-400">${t('email_template_category')}</label>
-            <select id="etCategory" class="form-input w-full">
-              <option value="general" ${category==='general'?'selected':''}>${_t('General','Общее','Ümumi')}</option>
-              <option value="welcome" ${category==='welcome'?'selected':''}>${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
-              <option value="follow_up" ${category==='follow_up'?'selected':''}>${_t('Follow-up','Последующее','Təqib')}</option>
-              <option value="proposal" ${category==='proposal'?'selected':''}>${_t('Proposal','Предложение','Təklif')}</option>
-              <option value="newsletter" ${category==='newsletter'?'selected':''}>${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
-            </select></div>
-          <div><label class="text-sm text-slate-400">${t('email_template_is_active')}</label>
-            <select id="etActive" class="form-input w-full">
-              <option value="1" ${isActive?'selected':''}>${_t('Active','Активен','Aktiv')}</option>
-              <option value="0" ${!isActive?'selected':''}>${_t('Inactive','Неактивен','Deaktiv')}</option>
-            </select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin:0;">&#9998; ${t('email_template_edit')}</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="etActive" style="height:30px;padding:0 8px;background:${isActive?'#064e3b':'#451a03'};border:1px solid ${isActive?'#059669':'#92400e'};border-radius:20px;color:${isActive?'#6ee7b7':'#fbbf24'};font-size:11px;font-weight:600;cursor:pointer;">
+            <option value="1" ${isActive?'selected':''}>${_t('Active','Активен','Aktiv')}</option>
+            <option value="0" ${!isActive?'selected':''}>${_t('Inactive','Неактивен','Deaktiv')}</option>
+          </select>
         </div>
       </div>
-      <div class="flex gap-2 mt-4">
-        <button class="btn btn-primary flex-1" onclick="updateEmailTemplate(${id})">${t('common_save')}</button>
-        <button class="btn btn-danger flex-1" onclick="deleteEmailTemplate(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
-        <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+      <div class="space-y-3">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_name')}</label><input id="etName" class="form-input w-full" value="${esc(name)}" style="margin-top:4px;"></div>
+          <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_category')}</label>
+            <select id="etCategory" class="form-input w-full" style="margin-top:4px;">
+              <option value="general" ${category==='general'?'selected':''}>&#128203; ${_t('General','Общее','Ümumi')}</option>
+              <option value="welcome" ${category==='welcome'?'selected':''}>&#128075; ${_t('Welcome','Приветствие','Xoş gəldiniz')}</option>
+              <option value="follow_up" ${category==='follow_up'?'selected':''}>&#128260; ${_t('Follow-up','Последующее','Təqib')}</option>
+              <option value="proposal" ${category==='proposal'?'selected':''}>&#128188; ${_t('Proposal','Предложение','Təklif')}</option>
+              <option value="newsletter" ${category==='newsletter'?'selected':''}>&#128240; ${_t('Newsletter','Рассылка','Xəbər bülleteni')}</option>
+            </select></div>
+        </div>
+        <div><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_subject')}</label><input id="etSubject" class="form-input w-full" value="${esc(subject)}" style="margin-top:4px;"></div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${t('email_template_body')}</label>
+          <div style="font-size:10px;color:#475569;margin:4px 0 6px;">&#128161; ${_t('Click the colored chips below the toolbar to insert dynamic fields','Нажмите на цветные кнопки под панелью чтобы вставить динамические поля','Dinamik sahələr əlavə etmək üçün panelin altındakı rəngli düymələrə basın')}</div>
+          <div id="etEditorWrap">${getEmailEditorToolbarHTML()}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-primary" style="flex:2;padding:10px;" onclick="updateEmailTemplate(${id})">&#128190; ${t('common_save')}</button>
+        <button class="btn btn-secondary" style="flex:1;padding:10px;" onclick="closeModal()">&#10006; ${_t('Cancel','Отмена','Ləğv et')}</button>
+        <button style="flex:0 0 auto;padding:10px 14px;background:#450a0a;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;cursor:pointer;font-size:12px;" onclick="deleteEmailTemplate(${id})" title="${t('common_delete')}">&#128465;</button>
       </div>
     `);
-    setTimeout(function(){ var ed = document.getElementById('etBody'); if(ed) ed.innerHTML = data.body_html || ''; }, 50);
+    setTimeout(function(){
+      var ed = document.getElementById('etBody');
+      if(ed) {
+        // Convert {{var}} into styled chips in editor
+        var bodyHtml = (data.body_html || '');
+        bodyHtml = bodyHtml.replace(/\{\{(\w+)\}\}/g, '<span contenteditable="false" style="display:inline-block;padding:2px 8px;background:#312e81;border:1px solid #6366f1;border-radius:12px;color:#a5b4fc;font-size:12px;font-weight:500;cursor:default;user-select:all;">{{$1}}</span>');
+        ed.innerHTML = bodyHtml;
+      }
+    }, 50);
   }).catch(e => showToast(e.message, 'error'));
 }
 

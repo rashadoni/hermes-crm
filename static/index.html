@@ -6334,6 +6334,8 @@ async function renderAccounts(el) {
     const costMap = costRes.data?.clients || {};
     const activityCounts = actCounts || {};
     const clients = companies.filter(c => c.category === 'client');
+    window._accountsItems = clients;
+    window._accountsActivity = activityCounts;
 
     // Search
     let filtered = clients;
@@ -6423,13 +6425,37 @@ let _acctSearchTimer = null;
 function onAccountsSearch(q) {
   state.companiesQuery = q;
   clearTimeout(_acctSearchTimer);
-  _acctSearchTimer = setTimeout(async () => {
-    const tmpEl = document.createElement('div');
-    await renderAccounts(tmpEl);
-    const newBody = tmpEl.querySelector('#accountsTableBody');
-    const curBody = document.getElementById('accountsTableBody');
-    if (curBody && newBody) curBody.innerHTML = newBody.innerHTML;
-  }, 300);
+  _acctSearchTimer = setTimeout(() => _updateAccountsTable(), 300);
+}
+function _updateAccountsTable() {
+  const items = window._accountsItems || [];
+  const activityCounts = window._accountsActivity || {};
+  const L = currentLang;
+  const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
+  let filtered = items;
+  if (state.companiesQuery) {
+    const sq = state.companiesQuery.toLowerCase();
+    filtered = filtered.filter(c => (c.name||'').toLowerCase().includes(sq) || (c.cost_code||'').toLowerCase().includes(sq) || (c.domain||'').toLowerCase().includes(sq));
+  }
+  let rows = '';
+  if (filtered.length === 0) {
+    rows = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';
+  } else {
+    filtered.forEach(c => {
+      const ac = activityCounts[c.id] || {};
+      const name = c.cost_code || c.name;
+      rows += '<tr style="border-top:1px solid rgba(71,85,105,0.2);cursor:pointer;transition:background 0.2s" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'transparent\'" onclick="showCompanyDetail(' + c.id + ')">';
+      rows += '<td style="padding:14px 16px"><div style="font-weight:600;color:#e2e8f0;font-size:14px">' + esc(name) + '</div>' + (c.group_name ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + esc(c.group_name) + '</div>' : '') + '</td>';
+      rows += '<td style="padding:14px 16px;color:#94a3b8;font-size:13px">' + esc(c.domain || '—') + '</td>';
+      rows += '<td style="padding:14px 16px;text-align:center"><span style="background:rgba(59,130,246,0.15);color:#60a5fa;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">' + (c.contacts_count || 0) + '</span></td>';
+      rows += '<td style="padding:14px 16px;text-align:center"><span style="background:' + (c.contracts_count > 0 ? 'rgba(34,197,94,0.15);color:#4ade80' : 'rgba(245,158,11,0.15);color:#fbbf24') + ';padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">' + (c.contracts_count || 0) + '</span></td>';
+      rows += '<td style="padding:14px 16px;text-align:center;color:#94a3b8;font-size:13px">' + (c.user_count || '—') + '</td>';
+      rows += '<td style="padding:14px 16px;text-align:center;color:#94a3b8;font-size:12px">' + (ac.count ? ac.count + ' ' + _t('acts', 'дейст.', 'fəal.') : '—') + '</td>';
+      rows += '</tr>';
+    });
+  }
+  const tbody = document.getElementById('accountsTableBody');
+  if (tbody) tbody.innerHTML = rows;
 }
 
 async function deactivateCompany(id, name) {

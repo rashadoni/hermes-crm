@@ -84,19 +84,20 @@ jobs:
                 certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL still pending"
               fi
             fi
-            # Check nginx status and fix if needed
-            echo "=== Nginx status ==="
-            nginx -t 2>&1 && echo "nginx config OK" || echo "nginx config ERROR"
-            systemctl is-active nginx && echo "nginx running" || systemctl start nginx
-            echo "=== Nginx ports ==="
-            ss -tlnp | grep -E ':80|:443' || echo "nginx not listening on 80/443"
-            echo "=== SSL check ==="
-            grep -l "ssl_certificate" /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null && echo "SSL configured" || echo "SSL NOT configured - retrying..."
-            if ! grep -q "ssl_certificate" /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null; then
-              certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL setup failed"
-            fi
-            systemctl reload nginx 2>/dev/null || true
+            # Show nginx config for debugging
+            echo "=== Nginx config ==="
+            cat /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null | head -30
+            echo "=== SSL cert check ==="
+            certbot certificates 2>&1 | head -20
+            # Force renew SSL if expired
+            certbot renew --force-renewal --nginx 2>&1 | tail -5 || echo "certbot renew skipped"
+            nginx -t 2>&1 && systemctl reload nginx
+            # Test HTTPS locally
+            echo "=== Local HTTPS test ==="
+            curl -sk -o /dev/null -w "HTTPS: %{http_code}" https://localhost/ 2>&1 || echo "local HTTPS failed"
+            echo ""
+            curl -s -o /dev/null -w "HTTP: %{http_code}" http://127.0.0.1:8766/ 2>&1
+            echo ""
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"
-            curl -s -o /dev/null -w "Local HTTP: %{http_code}" http://127.0.0.1:8766/ 2>&1 && echo ""

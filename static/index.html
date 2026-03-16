@@ -5188,6 +5188,27 @@ function _leadTempBadge(score) {
   return `<span style="background:#1e3a5f;color:#93c5fd;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700">❄️ COLD</span>`;
 }
 
+function _leadCalcScore(item) {
+  // Calculate a basic temp score for leads that have no DB score
+  if (item.score > 0) return item.score;
+  let s = 10; // base score for existing
+  const p = (item.priority||'').toLowerCase();
+  if (p === 'high') s += 25;
+  else if (p === 'medium') s += 10;
+  if (item.email) s += 5;
+  if (item.phone) s += 5;
+  if (item.contact) s += 5;
+  if ((item.value||0) > 0) s += 10;
+  if ((item.value||0) > 10000) s += 10;
+  if ((item.users||0) > 0) s += 5;
+  if ((item.users||0) > 50) s += 10;
+  const src = (item.source||'').toLowerCase();
+  if (src === 'referral' || src === 'recommendation') s += 15;
+  else if (src === 'linkedin') s += 10;
+  else if (src === 'website') s += 5;
+  return Math.min(s, 100);
+}
+
 function _companyTempScore(item) {
   // Calculate temperature score for companies based on activity data
   let score = 0;
@@ -5894,8 +5915,6 @@ async function renderCompanyList(el, mode) {
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">${t('nav_clients')} <span class="text-slate-500 text-lg font-normal">(${filtered.length})</span></h1>
         <div class="flex gap-2">
-          <button class="btn btn-sm ${window._leadsView==='kanban'?'btn-primary':'btn-secondary'}" onclick="window._leadsView='kanban';renderCompanyList(document.getElementById('app'),'client')">☰ ${_i._g('ld_kanban')}</button>
-          <button class="btn btn-sm ${window._leadsView!=='kanban'?'btn-primary':'btn-secondary'}" onclick="window._leadsView='cards';renderCompanyList(document.getElementById('app'),'client')">▦ ${_i._g('ld_cards')}</button>
           <button class="btn btn-sm" style="background:#92400e;color:#fcd34d" onclick="openLeadModal()">+ ${t('leads_new')}</button>
           <button class="btn btn-sm" style="background:#1e3a5f;color:#60a5fa" onclick="openCreateGroupModal()">+ Qrup yarat</button>
         </div>
@@ -5918,27 +5937,26 @@ async function renderCompanyList(el, mode) {
           ${window._leadsSort ? '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="window._leadsSort=null;renderCompanyList(document.getElementById(\'app\'),\'client\')">✕</button>' : ''}
         </div>
       </div>
-      ${window._leadsView === 'kanban' ? _renderLeadsKanban(filtered) : `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="companyCardsGrid">
         ${filtered.length === 0 ? `<div class="col-span-full text-center text-slate-500 py-8">${t('nothing_found')}</div>` : ''}
         ${(()=>{
           let sorted = [...filtered];
           if (window._leadsSort === 'hot') {
             sorted.sort((a,b) => {
-              const sa = a.score || _companyTempScore(a);
-              const sb = b.score || _companyTempScore(b);
+              const sa = a.type==='lead' ? _leadCalcScore(a) : _companyTempScore(a);
+              const sb = b.type==='lead' ? _leadCalcScore(b) : _companyTempScore(b);
               return sb - sa;
             });
           } else if (window._leadsSort === 'cold') {
             sorted.sort((a,b) => {
-              const sa = a.score || _companyTempScore(a);
-              const sb = b.score || _companyTempScore(b);
+              const sa = a.type==='lead' ? _leadCalcScore(a) : _companyTempScore(a);
+              const sb = b.type==='lead' ? _leadCalcScore(b) : _companyTempScore(b);
               return sa - sb;
             });
           }
           return sorted.map(item => _renderCompanyCard(item, 'client')).join('');
         })()}
-      </div>`}
+      </div>
     `;
     return;
   }
@@ -6059,7 +6077,7 @@ function _renderCompanyCard(item, mode) {
       </div>
       ${item.contact ? `<p class="text-slate-400 text-sm">${esc(item.contact)}</p>` : ''}
       ${item.email ? `<p class="text-indigo-400 text-sm">${esc(item.email)}</p>` : ''}
-      <div class="flex gap-2 mt-2 items-center">${pBadge} ${item.source ? '<span class="text-xs text-slate-500">'+_leadSourceLabel(item.source)+'</span>' : ''} ${_leadTempBadge(item.score)} ${item.score>0 ? '<span class="score-badge '+(item.score>=61?'score-high':item.score>=31?'score-medium':'score-low')+'">'+item.score+'</span>' : ''}</div>
+      <div class="flex gap-2 mt-2 items-center">${pBadge} ${item.source ? '<span class="text-xs text-slate-500">'+_leadSourceLabel(item.source)+'</span>' : ''} ${(()=>{ const sc = _leadCalcScore(item); return _leadTempBadge(sc) + ' <span class="score-badge '+(sc>=61?'score-high':sc>=31?'score-medium':'score-low')+'">'+sc+'</span>'; })()}</div>
       <div class="flex justify-between mt-3 text-sm text-slate-400">
         ${item.value ? '<span style="color:#fcd34d">~'+item.value.toLocaleString()+' ₼</span>' : '<span>—</span>'}
         ${item.users ? '<span>&#128100; '+item.users+' ist.</span>' : ''}

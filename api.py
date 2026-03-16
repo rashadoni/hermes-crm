@@ -12283,8 +12283,8 @@ async def ai_command_center(user=Depends(require_auth)):
                 "unread_alerts": unread_alerts
             })
     except Exception as e:
-        logger.error("Command center error: %s", e)
-        _err(str(e), 500)
+        logger.error("Command center error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Command center: {str(e)[:500]}")
 
 
 @app.get("/api/ai/chat-session/{session_id}")

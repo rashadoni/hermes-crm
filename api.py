@@ -8614,12 +8614,25 @@ async def get_email_logs_all(
             sent_by INTEGER, status TEXT DEFAULT 'sent', created_at TEXT DEFAULT (datetime('now'))
         )""")
         rows = conn.execute(
-            """SELECT e.*, u.full_name as sender_name FROM email_log e
+            """SELECT e.*, u.full_name as sender_name,
+                      c.first_name || ' ' || COALESCE(c.last_name,'') as contact_name,
+                      c.company as contact_company,
+                      d.title as deal_title
+               FROM email_log e
                LEFT JOIN users u ON e.sent_by=u.id
+               LEFT JOIN contacts c ON e.contact_id=c.id
+               LEFT JOIN deals d ON e.deal_id=d.id
                ORDER BY e.created_at DESC LIMIT ? OFFSET ?""", [limit, offset]
         ).fetchall()
         cols = [d[0] for d in conn.execute(
-            "SELECT e.*, u.full_name as sender_name FROM email_log e LEFT JOIN users u ON e.sent_by=u.id LIMIT 0"
+            """SELECT e.*, u.full_name as sender_name,
+                      c.first_name || ' ' || COALESCE(c.last_name,'') as contact_name,
+                      c.company as contact_company,
+                      d.title as deal_title
+               FROM email_log e
+               LEFT JOIN users u ON e.sent_by=u.id
+               LEFT JOIN contacts c ON e.contact_id=c.id
+               LEFT JOIN deals d ON e.deal_id=d.id LIMIT 0"""
         ).description]
         total = conn.execute("SELECT COUNT(*) FROM email_log").fetchone()[0]
         return _ok({"items": [dict(zip(cols, r)) for r in rows], "total": total})

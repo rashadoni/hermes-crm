@@ -54,6 +54,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LeadDrive CRM", version="1.0.0")
 
+# ─── Global exception handler for debugging ───────────────────
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import JSONResponse as StarletteJSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: StarletteRequest, exc: Exception):
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return StarletteJSONResponse(
+        status_code=500,
+        content={"detail": f"Server error: {str(exc)[:500]}"}
+    )
+
 # Include external API v1 router
 app.include_router(external_api_router)
 
@@ -163,9 +175,8 @@ def _ok(data=None, total=None):
 
 
 def _err(message, status_code=400):
-    # Don't expose internal errors to client
-    if status_code == 500:
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # Temporarily expose internal errors for PostgreSQL migration debugging
+    logger.error("_err called: status=%d msg=%s", status_code, message)
     raise HTTPException(status_code=status_code, detail=message)
 
 

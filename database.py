@@ -54,6 +54,10 @@ _RE_DATE_NOW_OFFSET = re.compile(
     re.IGNORECASE,
 )
 _RE_JULIANDAY = re.compile(r"julianday\s*\(", re.IGNORECASE)
+_RE_LAST_INSERT_ROWID = re.compile(r"SELECT\s+last_insert_rowid\s*\(\s*\)", re.IGNORECASE)
+_RE_DATE_COLUMN = re.compile(r"\bdate\s*\(\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\)", re.IGNORECASE)
+_RE_STRFTIME = re.compile(r"strftime\s*\(\s*'([^']*)'\s*,\s*([^)]+)\)", re.IGNORECASE)
+_RE_IFNULL = re.compile(r"\bIFNULL\s*\(", re.IGNORECASE)
 
 
 def rewrite_sql(sql, params=None):
@@ -138,6 +142,31 @@ def rewrite_sql(sql, params=None):
 
     if 'julianday' in sql.lower():
         sql = _replace_julianday(sql)
+
+    # ── SELECT last_insert_rowid() → SELECT lastval()
+    sql = _RE_LAST_INSERT_ROWID.sub("SELECT lastval()", sql)
+
+    # ── date(column) → (column)::DATE  (but NOT date('now') which is already handled)
+    # Only match column references, not string literals
+    def _replace_date_column(m):
+        inner = m.group(1)
+        # Skip if it looks like a string literal (already handled by date('now') rules)
+        if inner.startswith("'") or inner.startswith('"'):
+            return m.group(0)
+        return f"({inner})::DATE"
+
+    sql = _RE_DATE_COLUMN.sub(_replace_date_column, sql)
+
+    # ── strftime('%Y-%m-%d', col) → TO_CHAR(col, 'YYYY-MM-DD')
+    def _replace_strftime(m):
+        fmt = m.group(1).replace('%Y', 'YYYY').replace('%m', 'MM').replace('%d', 'DD').replace('%H', 'HH24').replace('%M', 'MI').replace('%S', 'SS')
+        col = m.group(2).strip()
+        return f"TO_CHAR(({col})::TIMESTAMP, '{fmt}')"
+
+    sql = _RE_STRFTIME.sub(_replace_strftime, sql)
+
+    # ── IFNULL(x, y) → COALESCE(x, y)
+    sql = _RE_IFNULL.sub("COALESCE(", sql)
 
     # ── INTEGER PRIMARY KEY AUTOINCREMENT → SERIAL PRIMARY KEY
     sql = _RE_AUTOINCREMENT.sub("SERIAL PRIMARY KEY", sql)

@@ -13735,14 +13735,19 @@ async def ai_nl_analytics(request: Request, user=Depends(require_auth)):
 - activities(id, activity_type, subject, content, timestamp, deal_id, lead_id, contact_id)
 - tickets(id, subject, description, status[open/in_progress/resolved/closed], priority, contact_id, assigned_to, created_at)"""
 
-    prompt = f"""You are a CRM analytics AI. The user asked a question about their CRM data. Generate a SQLite query to answer it, then provide a human-readable answer.
+    prompt = f"""You are a CRM analytics AI. The user asked a question about their CRM data. Generate a PostgreSQL query to answer it, then provide a human-readable answer.
 
-Database schema:
+Database schema (PostgreSQL):
 {schema}
 
 User question: {question}
 
-IMPORTANT: Generate ONLY safe SELECT queries. Never use INSERT, UPDATE, DELETE, DROP, ALTER, or any modifying statement.
+IMPORTANT:
+- Generate ONLY safe SELECT queries. Never use INSERT, UPDATE, DELETE, DROP, ALTER, or any modifying statement.
+- Use PostgreSQL syntax: NOW(), CURRENT_DATE, EXTRACT(), TO_CHAR(), INTERVAL, etc.
+- For date arithmetic use: column::DATE, CURRENT_DATE - INTERVAL '30 days', etc.
+- For string aggregation use STRING_AGG(col, ',') not GROUP_CONCAT.
+- Use ILIKE for case-insensitive matching.
 
 Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_name}:
 {{

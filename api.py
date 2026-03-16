@@ -8615,8 +8615,8 @@ async def get_email_logs_all(
         )""")
         rows = conn.execute(
             """SELECT e.*, u.full_name as sender_name,
-                      c.first_name || ' ' || COALESCE(c.last_name,'') as contact_name,
-                      c.company as contact_company,
+                      c.name as contact_name,
+                      c.company_name as contact_company,
                       d.title as deal_title
                FROM email_log e
                LEFT JOIN users u ON e.sent_by=u.id
@@ -8626,8 +8626,8 @@ async def get_email_logs_all(
         ).fetchall()
         cols = [d[0] for d in conn.execute(
             """SELECT e.*, u.full_name as sender_name,
-                      c.first_name || ' ' || COALESCE(c.last_name,'') as contact_name,
-                      c.company as contact_company,
+                      c.name as contact_name,
+                      c.company_name as contact_company,
                       d.title as deal_title
                FROM email_log e
                LEFT JOIN users u ON e.sent_by=u.id

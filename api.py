@@ -8599,6 +8599,32 @@ async def get_email_log(
         return _ok([dict(zip(cols, r)) for r in rows])
 
 
+@app.get("/api/email-logs")
+async def get_email_logs_all(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user=Depends(require_auth)
+):
+    """Get all email logs (for email journal page)."""
+    with get_db() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, direction TEXT DEFAULT 'outbound',
+            from_address TEXT DEFAULT '', to_address TEXT DEFAULT '', subject TEXT DEFAULT '',
+            body_text TEXT DEFAULT '', contact_id INTEGER, deal_id INTEGER, ticket_id INTEGER,
+            sent_by INTEGER, status TEXT DEFAULT 'sent', created_at TEXT DEFAULT (datetime('now'))
+        )""")
+        rows = conn.execute(
+            """SELECT e.*, u.full_name as sender_name FROM email_log e
+               LEFT JOIN users u ON e.sent_by=u.id
+               ORDER BY e.created_at DESC LIMIT ? OFFSET ?""", [limit, offset]
+        ).fetchall()
+        cols = [d[0] for d in conn.execute(
+            "SELECT e.*, u.full_name as sender_name FROM email_log e LEFT JOIN users u ON e.sent_by=u.id LIMIT 0"
+        ).description]
+        total = conn.execute("SELECT COUNT(*) FROM email_log").fetchone()[0]
+        return _ok({"items": [dict(zip(cols, r)) for r in rows], "total": total})
+
+
 # ─── Lead Nurturing ───────────────────────────────────────────────
 
 @app.get("/api/nurture-sequences")
@@ -8998,6 +9024,17 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
                 delivery_status = "sent" if success else "failed"
                 if not success:
                     delivery_error = "Email delivery failed"
+                # Log to email_log for journal
+                try:
+                    smtp_from = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "noreply@leaddrivecrm.org"))
+                    conn.execute(
+                        """INSERT INTO email_log (direction, from_address, to_address, subject, body_text,
+                           contact_id, deal_id, ticket_id, sent_by, status) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                        ["outbound", smtp_from, recipient_email, subj, content,
+                         contact_id, None, None, user["user_id"], delivery_status]
+                    )
+                except Exception as elog_err:
+                    logger.warning("email_log insert failed: %s", elog_err)
             elif channel_type == "sms" and recipient_phone:
                 phone = recipient_phone if recipient_phone.startswith("+") else "+" + recipient_phone
                 success = await send_sms(phone, content)

@@ -15608,7 +15608,7 @@ async function renderEmailLogPage(container) {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
   let logs = [];
-  try { const r = await api.get('/api/email-logs?limit=100'); logs = r.data || r || []; } catch(e){}
+  try { const r = await api.get('/api/email-logs?limit=100'); logs = r.items || r.data || r || []; } catch(e){}
 
   const emailIcon = '<svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>';
 
@@ -15672,15 +15672,15 @@ async function renderEmailLogPage(container) {
                   </div>
                   <div class="text-sm text-slate-400 mb-2">
                     <span class="block">${_t('To:','Кому:','Kime:')}</span>
-                    <span class="text-slate-300">${esc(log.recipient_email||'—')}</span>
+                    <span class="text-slate-300">${esc(log.to_address||log.recipient_email||'—')}</span>
                   </div>
                   <div class="flex gap-4 text-xs text-slate-500">
-                    <span>${_t('Sent','Отправлено','Göndərildi')}: ${log.sent_at ? new Date(log.sent_at).toLocaleString() : '—'}</span>
+                    <span>${_t('Sent','Отправлено','Göndərildi')}: ${(log.created_at||log.sent_at) ? new Date(log.created_at||log.sent_at).toLocaleString() : '—'}</span>
                     ${log.opened_at ? '<span>' + _t('Opened','Открыто','Açılmış') + ': ' + new Date(log.opened_at).toLocaleString() + '</span>' : ''}
                   </div>
                 </div>
                 <div class="text-right text-xs text-slate-500">
-                  <div>${esc(log.sender_email||_t('system','система','sistem'))}</div>
+                  <div>${esc(log.from_address||log.sender_name||log.sender_email||_t('system','система','sistem'))}</div>
                 </div>
               </div>
             </div>

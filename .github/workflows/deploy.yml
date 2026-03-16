@@ -84,38 +84,8 @@ jobs:
                 certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL still pending"
               fi
             fi
-            # === FIREWALL DIAGNOSTICS AND FIX ===
-            echo "=== UFW status ==="
-            ufw status verbose 2>&1 || echo "ufw not installed"
-            echo "=== iptables INPUT chain ==="
-            iptables -L INPUT -n --line-numbers 2>&1 | head -30
-            echo "=== iptables listening ports ==="
-            ss -tlnp | grep -E ':80|:443|:8766' 2>&1
-            echo "=== nftables check ==="
-            nft list ruleset 2>&1 | head -40 || echo "nftables not active"
-            # FIX: Open ports 80 and 443 in UFW if active
-            if ufw status 2>/dev/null | grep -q "Status: active"; then
-              echo "UFW is active - opening ports 80 and 443..."
-              ufw allow 80/tcp
-              ufw allow 443/tcp
-              ufw allow 22/tcp
-              ufw reload
-              echo "UFW rules after fix:"
-              ufw status verbose
-            fi
-            # FIX: Also ensure iptables allows 80/443
-            iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-            iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-            echo "=== iptables after fix ==="
-            iptables -L INPUT -n --line-numbers 2>&1 | head -20
-            # Test external connectivity
-            echo "=== External connectivity test ==="
-            curl -sk -o /dev/null -w "HTTPS localhost: %{http_code}" https://localhost/ 2>&1 || echo "local HTTPS failed"
-            echo ""
-            curl -sk -o /dev/null -w "HTTPS 178.156.249.177: %{http_code}" https://178.156.249.177/ 2>&1 || echo "IP HTTPS failed"
-            echo ""
-            curl -s -o /dev/null -w "HTTP 8766: %{http_code}" http://127.0.0.1:8766/ 2>&1
-            echo ""
+            # Reload nginx config
+            nginx -t 2>&1 && systemctl reload nginx
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

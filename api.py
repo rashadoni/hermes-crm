@@ -10476,15 +10476,15 @@ async def portal_register(request: Request):
         _err("Email and password (min 6 chars) required", 400)
     with get_db() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS portal_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT DEFAULT '',
             company_id INTEGER,
             contact_id INTEGER,
             is_active INTEGER DEFAULT 1,
-            last_login TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
+            last_login TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
         # Check if contact exists
         contact = conn.execute("SELECT id, company_id FROM contacts WHERE email=?", [email]).fetchone()
@@ -10510,15 +10510,15 @@ async def portal_login(request: Request):
     password = data.get("password", "")
     with get_db() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS portal_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT DEFAULT '',
             company_id INTEGER,
             contact_id INTEGER,
             is_active INTEGER DEFAULT 1,
-            last_login TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
+            last_login TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
         user = conn.execute("SELECT * FROM portal_users WHERE email=? AND is_active=1", [email]).fetchone()
         if not user:

@@ -244,7 +244,7 @@ async def send_email(to: str, subject: str, body_html: str):
     """
     Send HTML email via SMTP.
     Reads settings from env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
-    Defaults: SMTP_HOST=localhost, SMTP_PORT=587, SMTP_FROM=noreply@hermescrm.xyz
+    Defaults: SMTP_HOST=localhost, SMTP_PORT=587, SMTP_FROM=noreply@leaddrivecrm.org
     Uses STARTTLS for remote hosts, direct connection for localhost (Postfix).
     """
     import smtplib
@@ -255,7 +255,7 @@ async def send_email(to: str, subject: str, body_html: str):
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "")
     smtp_pass = os.getenv("SMTP_PASS", "")
-    smtp_from = os.getenv("SMTP_FROM", "noreply@hermescrm.xyz")
+    smtp_from = os.getenv("SMTP_FROM", "noreply@leaddrivecrm.org")
 
     try:
         # Create message
@@ -9348,7 +9348,7 @@ async def telegram_quick_setup(request: Request, user=Depends(require_admin)):
         if not bot_token:
             return _err("bot_token required", 400)
 
-        webhook_url = f"https://hermescrm.xyz/api/webhooks/telegram/{bot_token}"
+        webhook_url = f"https://leaddrivecrm.org/api/webhooks/telegram/{bot_token}"
 
         with get_db() as conn:
             # Upsert config
@@ -11687,7 +11687,7 @@ def _send_escalation_notification(agent_email, agent_name, ticket_num, reason, s
             </table>
             <h3>Резюме диалога:</h3>
             <p style="background:#f8f9fa;padding:12px;border-radius:8px">{summary[:500]}</p>
-            <p><a href="https://hermescrm.xyz/#/tickets" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none">Открыть в CRM</a></p>
+            <p><a href="https://leaddrivecrm.org/#/tickets" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none">Открыть в CRM</a></p>
         </div>"""
         msg.attach(MIMEText(html, "html"))
         with smtplib.SMTP(smtp_host, smtp_port) as server:

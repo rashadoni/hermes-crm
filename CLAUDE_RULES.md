@@ -11,7 +11,7 @@
 - FastAPI backend (`api.py`) + SQLite (`crm.db`)
 - Vanilla JS SPA (`static/index.html`)
 - Gunicorn + Uvicorn workers, service: `hermes-crm`
-- Domain: hermescrm.xyz
+- Domain: leaddrivecrm.org (legacy: hermescrm.xyz)
 
 ## Code Conventions
 - Translations: `t('key')` for translation keys in EN/RU/AZ blocks; `_t(en,ru,az)` for inline

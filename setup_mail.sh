@@ -1,11 +1,11 @@
 #!/bin/bash
-# setup_mail.sh - Configure Postfix for hermescrm.xyz on Hetzner server
+# setup_mail.sh - Configure Postfix for leaddrivecrm.org on Hetzner server
 # Run as root on the server: sudo bash setup_mail.sh
 
 set -e
 
-DOMAIN="hermescrm.xyz"
-NOREPLY_EMAIL="noreply@hermescrm.xyz"
+DOMAIN="leaddrivecrm.org"
+NOREPLY_EMAIL="noreply@leaddrivecrm.org"
 SERVER_IP="178.156.249.177"
 
 echo "========================================"
@@ -122,7 +122,7 @@ echo ""
 echo "Environment variables needed in .env:"
 echo "  SMTP_HOST=localhost"
 echo "  SMTP_PORT=587"
-echo "  SMTP_FROM=noreply@hermescrm.xyz"
+echo "  SMTP_FROM=noreply@leaddrivecrm.org"
 echo ""
 echo "Test with:"
 echo "  POST /api/channels/test-email"

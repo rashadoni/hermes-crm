@@ -882,7 +882,7 @@ async def v1_info():
         "api": "LeadDrive CRM External API",
         "version": "v1",
         "auth": "X-API-Key header",
-        "docs": "https://hermescrm.xyz/api/v1/docs",
+        "docs": "https://leaddrivecrm.org/api/v1/docs",
         "endpoints": {
             "contacts": {"list": "GET /api/v1/contacts", "get": "GET /api/v1/contacts/:id", "create": "POST /api/v1/contacts", "update": "PUT /api/v1/contacts/:id", "delete": "DELETE /api/v1/contacts/:id"},
             "companies": {"list": "GET /api/v1/companies", "get": "GET /api/v1/companies/:id", "create": "POST /api/v1/companies", "update": "PUT /api/v1/companies/:id"},

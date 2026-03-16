@@ -50,6 +50,35 @@ jobs:
             echo "TWILIO_FROM_NUMBER=+13509005853" >> .env
             # Clean up any leading whitespace in .env
             sed -i 's/^[[:space:]]*//' .env
+            # Setup nginx for leaddrivecrm.org (one-time, idempotent)
+            if [ ! -f /etc/nginx/sites-available/leaddrivecrm.org ]; then
+              echo "Setting up nginx for leaddrivecrm.org..."
+              cat > /etc/nginx/sites-available/leaddrivecrm.org << 'NGINX_EOF'
+            server {
+                listen 80;
+                server_name leaddrivecrm.org www.leaddrivecrm.org;
+                location / {
+                    proxy_pass http://127.0.0.1:8766;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    client_max_body_size 50M;
+                }
+            }
+            NGINX_EOF
+              # Fix indentation in nginx config
+              sed -i 's/^            //' /etc/nginx/sites-available/leaddrivecrm.org
+              ln -sf /etc/nginx/sites-available/leaddrivecrm.org /etc/nginx/sites-enabled/
+              nginx -t && systemctl reload nginx
+              # Get SSL certificate (non-interactive)
+              certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL setup pending (DNS may not be ready yet)"
+            else
+              echo "nginx config for leaddrivecrm.org already exists"
+            fi
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

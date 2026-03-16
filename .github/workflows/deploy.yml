@@ -87,47 +87,34 @@ jobs:
             # One-time: reset admin password + create portal user
             PYTHON_BIN="python3"
             [ -d "/opt/hermes_crm/venv" ] && PYTHON_BIN="/opt/hermes_crm/venv/bin/python"
-            $PYTHON_BIN -c "
-import sqlite3, bcrypt
-db = sqlite3.connect('/opt/hermes_crm/crm.db')
-# Reset admin password
-h = bcrypt.hashpw(b'admin123', bcrypt.gensalt()).decode()
-db.execute('UPDATE users SET password_hash=? WHERE email=?', [h, 'admin@hermes.local'])
-db.commit()
-print('Admin password reset to admin123')
-# Ensure a contact exists for portal registration
-c = db.execute('SELECT id FROM contacts WHERE email=?', ['rashadrahimsoy@gmail.com']).fetchone()
-if not c:
-    db.execute('INSERT INTO contacts (name, email, phone, source) VALUES (?,?,?,?)',
-               ['Rashad Rahimov', 'rashadrahimsoy@gmail.com', '', 'manual'])
-    db.commit()
-    print('Contact created for portal')
-else:
-    print('Contact already exists')
-# Create portal_users table and user
-db.execute('''CREATE TABLE IF NOT EXISTS portal_users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    full_name TEXT DEFAULT '',
-    company_id INTEGER,
-    contact_id INTEGER,
-    is_active INTEGER DEFAULT 1,
-    last_login TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-)''')
-pu = db.execute('SELECT id FROM portal_users WHERE email=?', ['rashadrahimsoy@gmail.com']).fetchone()
-if not pu:
-    cid = db.execute('SELECT id, company_id FROM contacts WHERE email=?', ['rashadrahimsoy@gmail.com']).fetchone()
-    ph = bcrypt.hashpw(b'portal123', bcrypt.gensalt()).decode()
-    db.execute('INSERT INTO portal_users (email, password_hash, full_name, company_id, contact_id) VALUES (?,?,?,?,?)',
-               ['rashadrahimsoy@gmail.com', ph, 'Rashad Rahimov', cid[1] if cid else None, cid[0] if cid else None])
-    db.commit()
-    print('Portal user created: rashadrahimsoy@gmail.com / portal123')
-else:
-    print('Portal user already exists')
-db.close()
-"
+            cat > /tmp/reset_pw.py << 'PYEOF'
+            import sqlite3, bcrypt
+            db = sqlite3.connect("/opt/hermes_crm/crm.db")
+            h = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
+            db.execute("UPDATE users SET password_hash=? WHERE email=?", [h, "admin@hermes.local"])
+            db.commit()
+            print("Admin password reset to admin123")
+            c = db.execute("SELECT id FROM contacts WHERE email=?", ["rashadrahimsoy@gmail.com"]).fetchone()
+            if not c:
+                db.execute("INSERT INTO contacts (name, email, phone, source) VALUES (?,?,?,?)", ["Rashad Rahimov", "rashadrahimsoy@gmail.com", "", "manual"])
+                db.commit()
+                print("Contact created for portal")
+            else:
+                print("Contact already exists")
+            db.execute("CREATE TABLE IF NOT EXISTS portal_users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, full_name TEXT DEFAULT '', company_id INTEGER, contact_id INTEGER, is_active INTEGER DEFAULT 1, last_login TEXT, created_at TEXT DEFAULT (datetime('now')))")
+            pu = db.execute("SELECT id FROM portal_users WHERE email=?", ["rashadrahimsoy@gmail.com"]).fetchone()
+            if not pu:
+                cid = db.execute("SELECT id, company_id FROM contacts WHERE email=?", ["rashadrahimsoy@gmail.com"]).fetchone()
+                ph = bcrypt.hashpw(b"portal123", bcrypt.gensalt()).decode()
+                db.execute("INSERT INTO portal_users (email, password_hash, full_name, company_id, contact_id) VALUES (?,?,?,?,?)", ["rashadrahimsoy@gmail.com", ph, "Rashad Rahimov", cid[1] if cid else None, cid[0] if cid else None])
+                db.commit()
+                print("Portal user created")
+            else:
+                print("Portal user already exists")
+            db.close()
+            PYEOF
+            sed -i 's/^            //' /tmp/reset_pw.py
+            $PYTHON_BIN /tmp/reset_pw.py
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

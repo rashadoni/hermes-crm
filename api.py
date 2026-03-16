@@ -4725,7 +4725,7 @@ async def export_pricing_excel(request: Request, user=Depends(require_auth)):
         sys.path.insert(0, _api_dir)
 
     try:
-        from export_excel import load_data, generate_template1, generate_template2
+        from export_excel import load_data, generate_template1, generate_template2, generate_budget_pl
 
         body = await request.json()
         template = body.get("template", "1")
@@ -4737,7 +4737,11 @@ async def export_pricing_excel(request: Request, user=Depends(require_auth)):
         export_dir = os.path.join(STATIC_DIR, "exports")
         os.makedirs(export_dir, exist_ok=True)
 
-        if template == "2":
+        if template == "3":
+            path = os.path.join(export_dir, f"Budget_PL_{uid}.xlsx")
+            generate_budget_pl(data, legal, adjustments, path, effective_date=effective_date)
+            fname = "Budget_PL_2026.xlsx"
+        elif template == "2":
             path = os.path.join(export_dir, f"SALES_Report_{uid}.xlsx")
             generate_template2(data, legal, adjustments, path, effective_date=effective_date)
             fname = "SALES_Report.xlsx"

@@ -810,6 +810,7 @@ const translations = {
     pricing_export: 'Export Excel',
     pricing_export_t1: 'Template 1 (Board Format)',
     pricing_export_t2: 'Template 2 (CFO Report)',
+    pricing_export_t3: 'Template 3 (Budget P&L)',
     pricing_exporting: 'Exporting...',
     pricing_service: 'Service',
     pricing_price: 'Price (₼)',
@@ -1597,6 +1598,7 @@ const translations = {
     pricing_export: 'Экспорт в Excel',
     pricing_export_t1: 'Шаблон 1 (Для правления)',
     pricing_export_t2: 'Шаблон 2 (CFO отчёт)',
+    pricing_export_t3: 'Шаблон 3 (Бюджет P&L)',
     pricing_exporting: 'Экспорт...',
     pricing_service: 'Услуга',
     pricing_price: 'Цена (₼)',
@@ -2367,6 +2369,7 @@ const translations = {
     pricing_export: 'Excel İxracı',
     pricing_export_t1: 'Şablon 1 (İdarə Heyəti)',
     pricing_export_t2: 'Şablon 2 (CFO Hesabat)',
+    pricing_export_t3: 'Şablon 3 (Büdcə P&L)',
     pricing_exporting: 'İxrac edilir...',
     pricing_service: 'Xidmət',
     pricing_price: 'Qiymət (₼)',
@@ -7912,8 +7915,11 @@ async function renderPricing(el) {
             <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-t-lg text-sm" onclick="exportPricingExcel('1');document.getElementById('exportDropdown').classList.add('hidden')">
               📊 ${t('pricing_export_t1')}
             </button>
-            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-b-lg text-sm" onclick="exportPricingExcel('2');document.getElementById('exportDropdown').classList.add('hidden')">
+            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 text-sm" onclick="exportPricingExcel('2');document.getElementById('exportDropdown').classList.add('hidden')">
               📈 ${t('pricing_export_t2')}
+            </button>
+            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-b-lg text-sm" onclick="exportPricingExcel('3');document.getElementById('exportDropdown').classList.add('hidden')">
+              📋 ${t('pricing_export_t3')}
             </button>
           </div>
         </div>
@@ -8584,8 +8590,11 @@ function renderPricingEditMode(el) {
             <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-t-lg text-sm" onclick="exportPricingExcel('1');document.getElementById('exportDropdown2').classList.add('hidden')">
               📊 ${t('pricing_export_t1')}
             </button>
-            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-b-lg text-sm" onclick="exportPricingExcel('2');document.getElementById('exportDropdown2').classList.add('hidden')">
+            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 text-sm" onclick="exportPricingExcel('2');document.getElementById('exportDropdown2').classList.add('hidden')">
               📈 ${t('pricing_export_t2')}
+            </button>
+            <button class="w-full text-left px-4 py-3 hover:bg-slate-700 rounded-b-lg text-sm" onclick="exportPricingExcel('3');document.getElementById('exportDropdown2').classList.add('hidden')">
+              📋 ${t('pricing_export_t3')}
             </button>
           </div>
         </div>

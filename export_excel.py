@@ -799,9 +799,141 @@ def generate_template2(data, legal, adjustments=None, output_path=None, effectiv
     return output_path
 
 
+BUDGET_CAT_MAP = {
+    'Sales revenue': BOARD_CATS,  # all categories summed = total revenue
+    'Permanent IT service': ['Daimi İT xidməti'],
+    'ERP': ['ERP'],
+    'Additional IT services': ['Əlavə IT xidməti'],
+    'Information security services': ['İnfosec'],
+    'GRS': ['GRC'],
+    'Projects': ['Layihə'],
+}
+
+BUDGET_ROWS_ORDER = [
+    'Sales revenue',
+    'Permanent IT service',
+    'ERP',
+    'Additional IT services',
+    'Information security services',
+    'GRS',
+    'Projects',
+]
+
+
+def generate_budget_pl(data, legal, adjustments=None, output_path=None, effective_date=None):
+    """Generate Budget P&L template: categories as rows, months as columns."""
+    base_data = data
+    if adjustments:
+        data = apply_adjustments(data, adjustments)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Budget PL'
+
+    now = datetime.datetime.now()
+    year = now.year
+
+    # Styles matching the uploaded template
+    title_font = Font(name='Calibri', size=14, bold=True)
+    hdr_font = Font(name='Calibri', size=11, bold=True)
+    normal_font = Font(name='Calibri', size=11)
+    revenue_fmt = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)'
+    detail_fmt = '#,##0.00'
+    annual_fmt = '#,##0'
+    date_fmt = '[$-409]mmm\\-yy;@'
+
+    thin = Side(style='thin', color='FFB0BEC5')
+    border = Border(top=thin, bottom=thin, left=thin, right=thin)
+
+    # Row 1: Title
+    ws['A1'] = f'BUDGET {year}'
+    ws['A1'].font = title_font
+    ws['O1'] = 'Budget'
+    ws['O1'].font = hdr_font
+
+    # Row 2: Month headers (dates for each month)
+    for mi in range(12):
+        # Use ~end of month dates like in template (last business day area)
+        import calendar
+        last_day = calendar.monthrange(year, mi + 1)[1]
+        dt = datetime.datetime(year, mi + 1, last_day)
+        c = ws.cell(row=2, column=3 + mi, value=dt)
+        c.number_format = date_fmt
+        c.font = hdr_font
+        c.alignment = Alignment(horizontal='center')
+        c.border = border
+    ws.cell(row=2, column=15, value=str(year))
+    ws.cell(row=2, column=15).font = hdr_font
+    ws.cell(row=2, column=15).alignment = Alignment(horizontal='center')
+
+    # Build monthly totals per board category
+    # For each company: base months use base_data, adjusted months use adjusted data
+    cat_monthly = {bc: [0.0] * 12 for bc in BOARD_CATS}
+
+    for comp_name in set(list(base_data.keys()) + list(data.keys())):
+        base_info = base_data.get(comp_name, {})
+        adj_info = data.get(comp_name, {})
+        group = (adj_info or base_info).get('group', '')
+
+        base_board = aggregate_board_cats(base_info.get('categories', {}))
+        adj_board = aggregate_board_cats(adj_info.get('categories', {}))
+
+        eff_month = _get_company_eff_month(comp_name, group, adjustments, effective_date)
+
+        for bc in BOARD_CATS:
+            bv = base_board.get(bc, 0)
+            av = adj_board.get(bc, 0)
+            for mi in range(12):
+                use_adj = (eff_month is None) or (mi >= eff_month)
+                cat_monthly[bc][mi] += av if use_adj else bv
+
+    # Write data rows
+    row = 3
+    for cat_label in BUDGET_ROWS_ORDER:
+        ws.cell(row=row, column=1, value=cat_label).font = normal_font
+
+        board_cats_for_row = BUDGET_CAT_MAP[cat_label]
+        monthly_vals = [0.0] * 12
+        for bc in board_cats_for_row:
+            for mi in range(12):
+                monthly_vals[mi] += cat_monthly.get(bc, [0.0] * 12)[mi]
+
+        is_total_row = (cat_label == 'Sales revenue')
+        fmt = revenue_fmt if is_total_row else detail_fmt
+
+        for mi in range(12):
+            c = ws.cell(row=row, column=3 + mi, value=round(monthly_vals[mi], 2))
+            c.number_format = fmt
+            c.font = Font(name='Calibri', size=11, bold=is_total_row)
+            c.border = border
+
+        # Annual total (column O = 15)
+        annual = sum(monthly_vals)
+        c = ws.cell(row=row, column=15, value=round(annual, 2))
+        c.number_format = annual_fmt
+        c.font = Font(name='Calibri', size=11, bold=is_total_row)
+        c.border = border
+
+        row += 1
+
+    # Column widths
+    ws.column_dimensions['A'].width = 32
+    ws.column_dimensions['B'].width = 4
+    for ci in range(3, 16):
+        ws.column_dimensions[get_column_letter(ci)].width = 14
+
+    if not output_path:
+        output_path = os.path.join(STATIC_DIR, 'exports', 'Budget_PL.xlsx')
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    wb.save(output_path)
+    return output_path
+
+
 if __name__ == '__main__':
     data, legal = load_data()
     p1 = generate_template1(data, legal)
     print(f'Template 1: {p1}')
     p2 = generate_template2(data, legal)
     print(f'Template 2: {p2}')
+    p3 = generate_budget_pl(data, legal)
+    print(f'Budget PL: {p3}')

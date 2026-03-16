@@ -12531,14 +12531,14 @@ function _renderCostServices(d) {
 
     return `
       <div class="svc-bar-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:13px;font-weight:600;color:#e2e8f0;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
           <span style="font-size:11px;font-weight:700;color:${statusColor};padding:2px 8px;border-radius:5px;background:${statusBg};">${statusLabel}</span>
         </div>
         <div class="svc-bar-track" style="margin-bottom:8px;">
           <div class="svc-bar-fill" style="width:${barWidth}%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;font-size:11px;">
+        <div style="display:flex;align-items:flex-start;gap:16px;font-size:11px;">
           <div style="flex:1;">
             <div style="color:#94a3b8;margin-bottom:4px;">Maya</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${_fmtAZN(sa.cost)}</div>
@@ -12551,15 +12551,15 @@ function _renderCostServices(d) {
             <div style="color:#94a3b8;margin-bottom:4px;">Balans</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${isProfitable?'+':''}${_fmtAZN(sa.balance)}</div>
           </div>
-          <div style="flex:1;">
+          <div style="flex:0.6;">
             <div style="color:#94a3b8;margin-bottom:4px;">%</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${sa.balance_pct?.toFixed(1)}%</div>
           </div>
-          <div style="flex:0.7;text-align:center;">
+          <div style="flex:0.5;text-align:center;">
             <div style="color:#94a3b8;margin-bottom:4px;">İşçi</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.employee_count}</div>
           </div>
-          <div style="flex:0.7;text-align:center;">
+          <div style="flex:0.5;text-align:center;">
             <div style="color:#94a3b8;margin-bottom:4px;">Müş.</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.client_count}</div>
           </div>

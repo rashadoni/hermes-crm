@@ -12307,8 +12307,8 @@ function _renderCostAnalytics(d) {
       .svc-bar-card:hover { background:rgba(51,65,85,0.3); border-color:rgba(99,102,241,0.3); }
       .svc-bar-track { height:6px; border-radius:3px; background:rgba(30,41,59,0.8); overflow:hidden; }
       .svc-bar-fill { height:100%; border-radius:3px; transition:width 0.8s ease; }
-      .donut-chart { width:140px; height:140px; border-radius:50%; position:relative; }
-      .donut-hole { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:80px; height:80px; border-radius:50%; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .donut-chart { width:150px; height:150px; border-radius:50%; position:relative; }
+      .donut-hole { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:90px; height:90px; border-radius:50%; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; }
       .legend-item { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 0; }
       .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
       .total-row-v2 { display:flex; justify-content:space-between; padding:8px 14px; font-weight:700; font-size:13px; border-top:1px solid #334155; margin-top:4px; }
@@ -12379,8 +12379,8 @@ function _renderCostAnalytics(d) {
         <div style="display:flex;gap:20px;align-items:center;margin-bottom:18px;padding:12px;background:rgba(15,23,42,0.4);border-radius:10px;">
           <div class="donut-chart" style="background:conic-gradient(${conicGrad});flex-shrink:0;">
             <div class="donut-hole">
-              <span style="font-size:9px;color:#64748b;">Cəmi</span>
-              <span style="font-size:12px;font-weight:700;color:#e2e8f0;">${_fmtAZN(totalComposition)}</span>
+              <span style="font-size:9px;color:#64748b;">Sec F</span>
+              <span style="font-size:11px;font-weight:700;color:#e2e8f0;white-space:nowrap;">${(totalComposition/1000).toFixed(0)}K ₼</span>
             </div>
           </div>
           <div style="flex:1;">

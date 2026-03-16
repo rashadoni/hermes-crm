@@ -78,6 +78,11 @@ jobs:
               certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL setup pending (DNS may not be ready yet)"
             else
               echo "nginx config for leaddrivecrm.org already exists"
+              # Retry SSL if not yet obtained
+              if ! grep -q "ssl_certificate" /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null; then
+                echo "Retrying SSL certificate..."
+                certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL still pending"
+              fi
             fi
             systemctl restart hermes-crm
             sleep 2

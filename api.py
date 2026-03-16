@@ -1732,6 +1732,9 @@ async def list_leads(
         if status:
             where.append("l.status=?")
             params.append(status)
+        else:
+            # By default exclude converted leads — they live in companies
+            where.append("l.status != 'converted'")
         if source:
             where.append("l.source=?")
             params.append(source)

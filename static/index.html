@@ -5421,22 +5421,36 @@ async function openLeadDetail(leadId) {
 
       <!-- Tab: Convert -->
       ${lead.status!=='converted'?`<div id="ldTabConvert" class="ld-tab" style="display:none">
-        <div class="space-y-3">
-          <p class="text-sm text-slate-400">${_i._g('ld_convert_desc')}</p>
-          <div class="space-y-2">
-            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvCompany" checked disabled> <span class="text-sm">${_i._g('ld_conv_company')}: <b>${esc(lead.company_name)}</b></span></label>
-            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvContact" checked> <span class="text-sm">${_i._g('ld_conv_contact')}: <b>${esc(lead.contact_name||'N/A')}</b></span></label>
-            <label class="flex items-center gap-2"><input type="checkbox" id="ldConvDeal" checked> <span class="text-sm">${_i._g('ld_conv_deal')}</span></label>
-          </div>
-          <div id="ldConvDealFields">
-            <div class="grid grid-cols-2 gap-3 mt-2">
-              <div><label class="text-xs text-slate-500">${_i._g('ld_deal_title')}</label>
-                <input id="ldConvDealTitle" class="form-input w-full text-sm" value="${esc(lead.company_name)} — New Deal"></div>
-              <div><label class="text-xs text-slate-500">${t('leads_value')}</label>
-                <input id="ldConvDealValue" type="number" class="form-input w-full text-sm" value="${lead.estimated_value||0}"></div>
+        <div style="padding:4px 0;">
+          <p style="color:#94a3b8;font-size:13px;margin-bottom:16px;">${_i._g('ld_convert_desc')}</p>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:10px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🏢</div>
+              <div style="flex:1;min-width:0;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${_i._g('ld_conv_company')}</div><div style="font-size:14px;color:#e2e8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(lead.company_name)}</div></div>
+              <div style="color:#22c55e;font-size:18px;">✓</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:10px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">👤</div>
+              <div style="flex:1;min-width:0;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${_i._g('ld_conv_contact')}</div><div style="font-size:14px;color:#e2e8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(lead.contact_name||'N/A')}</div></div>
+              <div style="color:#6366f1;font-size:18px;">✓</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">💰</div>
+              <div style="flex:1;min-width:0;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${_i._g('ld_conv_deal')}</div><div style="font-size:14px;color:#e2e8f0;font-weight:600;">New Deal</div></div>
+              <div style="color:#f59e0b;font-size:18px;">✓</div>
             </div>
           </div>
-          <button class="btn bg-green-600 hover:bg-green-700 w-full mt-3" onclick="convertLeadEnhanced(${lead.id})">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div>
+              <label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px;">${_i._g('ld_deal_title')}</label>
+              <input id="ldConvDealTitle" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;outline:none;" value="${esc(lead.company_name)} — New Deal">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:6px;">${t('leads_value')}</label>
+              <input id="ldConvDealValue" type="number" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;outline:none;" value="${lead.estimated_value||0}">
+            </div>
+          </div>
+          <button onclick="convertLeadEnhanced(${lead.id})" style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(34,197,94,0.3);" onmouseover="this.style.opacity='0.9';this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1';this.style.transform='none'">
             ✅ ${_i._g('ld_convert_now')}
           </button>
         </div>

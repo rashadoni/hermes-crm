@@ -213,47 +213,54 @@ class PgCursorWrapper:
         if isinstance(params, list):
             params = tuple(params)
 
+        sql_upper = sql.strip().upper()
+        is_insert = sql_upper.startswith("INSERT")
+        is_ddl = sql_upper.startswith(("CREATE", "ALTER", "DROP"))
+
         # Auto-add RETURNING id for INSERT statements (for lastrowid support)
-        is_insert = sql.strip().upper().startswith("INSERT")
         returning_added = False
         if is_insert and "RETURNING" not in sql.upper():
-            # Only add RETURNING id if the table likely has an id column
             sql_clean = sql.rstrip().rstrip(';')
             sql = sql_clean + " RETURNING id"
             returning_added = True
 
-        # Use savepoint for graceful error recovery
-        sp_name = "sp_exec"
-        try:
-            self._cursor.execute(f"SAVEPOINT {sp_name}")
-            self._cursor.execute(sql, params)
-            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-        except psycopg2.errors.UndefinedColumn:
-            # RETURNING id failed — table has no 'id' column, retry without
-            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
-            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-            if returning_added:
-                sql = sql.rsplit(" RETURNING id", 1)[0]
-                returning_added = False
+        if is_ddl:
+            # DDL statements use savepoints for graceful "already exists" handling
+            sp_name = "sp_ddl"
+            try:
                 self._cursor.execute(f"SAVEPOINT {sp_name}")
                 self._cursor.execute(sql, params)
                 self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-            else:
+            except (psycopg2.errors.DuplicateTable,
+                    psycopg2.errors.DuplicateObject,
+                    psycopg2.errors.DuplicateColumn):
+                self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+                return self
+            except Exception:
+                try:
+                    self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+                except Exception:
+                    pass
                 raise
-        except psycopg2.errors.DuplicateTable:
-            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
-            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-            return self
-        except psycopg2.errors.DuplicateObject:
-            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
-            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-            return self
-        except psycopg2.errors.UniqueViolation:
-            # For ON CONFLICT DO NOTHING cases where conflict still raises
-            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
-            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
-            self.lastrowid = None
-            return self
+        else:
+            # DML/SELECT — execute directly, no savepoint wrapper
+            try:
+                self._cursor.execute(sql, params)
+            except psycopg2.errors.UndefinedColumn:
+                if returning_added:
+                    # RETURNING id failed — table has no 'id' column, retry without
+                    self._conn.rollback()
+                    sql = sql.rsplit(" RETURNING id", 1)[0]
+                    returning_added = False
+                    self._cursor.execute(sql, params)
+                else:
+                    raise
+            except psycopg2.errors.UniqueViolation:
+                self._conn.rollback()
+                self.lastrowid = None
+                return self
 
         self.description = self._cursor.description
         self.rowcount = self._cursor.rowcount
@@ -261,8 +268,12 @@ class PgCursorWrapper:
         # Get lastrowid from RETURNING clause
         if is_insert and returning_added and self._cursor.description:
             try:
-                row = self._cursor.fetchone()
-                self.lastrowid = row[0] if row else None
+                if self._cursor.rowcount > 0:
+                    row = self._cursor.fetchone()
+                    self.lastrowid = row[0] if row else None
+                else:
+                    # ON CONFLICT DO NOTHING — no rows inserted
+                    self.lastrowid = None
                 self._returning_consumed = True
             except Exception:
                 self.lastrowid = None

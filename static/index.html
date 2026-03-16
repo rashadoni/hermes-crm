@@ -12154,15 +12154,15 @@ function _renderAiMarkdown(text) {
   // Convert markdown to styled HTML
   let html = text
     // Headers: # → h2, ## → h3, ### → h4
-    .replace(/^### (.+)$/gm, '<h4 style="font-size:13px;font-weight:700;color:#c4b5fd;margin:16px 0 6px 0;padding:0;">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;color:#a78bfa;margin:20px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #312e81;">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 style="font-size:16px;font-weight:700;color:#e0e7ff;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #4f46e5;">$1</h2>')
+    .replace(/^### (.+)$/gm, '<h4 style="font-size:13px;font-weight:700;color:#94a3b8;margin:16px 0 6px 0;padding:0;">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;color:#cbd5e1;margin:20px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #334155;">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 style="font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #475569;">$1</h2>')
     // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e2e8f0;">$1</strong>')
     // Numbered lists
-    .replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:8px;margin:6px 0 6px 4px;"><span style="color:#6366f1;font-weight:700;min-width:18px;">$1.</span><span>$2</span></div>')
+    .replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:8px;margin:6px 0 6px 4px;"><span style="color:#64748b;font-weight:700;min-width:18px;">$1.</span><span>$2</span></div>')
     // Bullet points
-    .replace(/^- (.+)$/gm, '<div style="display:flex;gap:8px;margin:5px 0 5px 4px;"><span style="color:#6366f1;">•</span><span>$1</span></div>')
+    .replace(/^- (.+)$/gm, '<div style="display:flex;gap:8px;margin:5px 0 5px 4px;"><span style="color:#64748b;">•</span><span>$1</span></div>')
     // Paragraphs (double newline)
     .replace(/\n\n/g, '</div><div style="margin-top:8px;">')
     // Single newlines that aren't already handled

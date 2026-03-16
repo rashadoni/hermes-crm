@@ -6465,6 +6465,7 @@ function switchCompanyTab(tab, btn) {
 // ─── ACCOUNTS (Компании) PAGE — Salesforce-style ───
 async function renderAccounts(el) {
   showLoading(el);
+  if (!window._sortState.accounts) window._sortState.accounts = {field:'id',dir:'desc'};
   state.companiesQuery = '';
   const L = currentLang;
   const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
@@ -6524,19 +6525,27 @@ async function renderAccounts(el) {
     // Table
     html += '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(99,102,241,0.1);border-radius:16px;overflow:hidden">';
     html += '<table style="width:100%;border-collapse:collapse">';
+    var _aSt = window._sortState.accounts||{};
+    var _aH = function(field,label,align) {
+      var isA = _aSt.field===field;
+      var arr = isA?(_aSt.dir==='asc'?' ▲':' ▼'):'';
+      var clr = isA?'#c4b5fd':'#94a3b8';
+      return '<th onclick="_toggleSort(\'accounts\',\''+field+'\');renderAccounts(document.getElementById(\'app\'))" style="text-align:'+(align||'left')+';padding:14px 16px;font-size:12px;font-weight:600;color:'+clr+';text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;user-select:none;transition:color 0.2s" onmouseover="this.style.color=\'#e2e8f0\'" onmouseout="this.style.color=\''+clr+'\'">'+label+'<span style="font-size:10px;margin-left:2px">'+arr+'</span></th>';
+    };
     html += '<thead><tr style="background:rgba(15,23,42,0.6)">';
-    html += '<th style="text-align:left;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Account Name', 'Название', 'Ad') + '</th>';
-    html += '<th style="text-align:left;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Domain', 'Домен', 'Domen') + '</th>';
-    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Contacts', 'Контакты', 'Əlaqələr') + '</th>';
-    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Contracts', 'Контракты', 'Müqavilələr') + '</th>';
-    html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Users', 'Юзеры', 'İstifadəçilər') + '</th>';
+    html += _aH('name', _t('Account Name', 'Название', 'Ad'), 'left');
+    html += _aH('domain', _t('Domain', 'Домен', 'Domen'), 'left');
+    html += _aH('contacts_count', _t('Contacts', 'Контакты', 'Əlaqələr'), 'center');
+    html += _aH('contracts_count', _t('Contracts', 'Контракты', 'Müqavilələr'), 'center');
+    html += _aH('user_count', _t('Users', 'Юзеры', 'İstifadəçilər'), 'center');
     html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Activity', 'Активность', 'Fəaliyyət') + '</th>';
     html += '</tr></thead><tbody id="accountsTableBody">';
 
-    if (clients.length === 0) {
+    var sortedClients = _sortItems(clients, 'accounts');
+    if (sortedClients.length === 0) {
       html += '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';
     } else {
-      clients.forEach(c => {
+      sortedClients.forEach(c => {
         const ac = activityCounts[c.id] || {};
         const cost = costMap[c.id];
         const name = c.cost_code || c.name;
@@ -6573,6 +6582,7 @@ function _updateAccountsTable() {
     const sq = state.companiesQuery.toLowerCase();
     filtered = filtered.filter(c => (c.name||'').toLowerCase().includes(sq) || (c.cost_code||'').toLowerCase().includes(sq) || (c.domain||'').toLowerCase().includes(sq));
   }
+  filtered = _sortItems(filtered, 'accounts');
   let rows = '';
   if (filtered.length === 0) {
     rows = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';

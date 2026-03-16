@@ -15046,16 +15046,6 @@ function showCampaignDetail(id) {
         </div>
         `}
       </div>
-      <!-- Linked Deals Section -->
-      <div class="mt-4 p-3 rounded-lg" style="background:#0f172a;border:1px solid #1e293b;">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-sm font-semibold text-slate-300">${_t('Linked Deals','Привязанные сделки','Bağlı sövdələşmələr')}</h4>
-          <button class="text-xs px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white" onclick="showLinkDealToCampaign(${id})">${_t('+ Link Deal','+ Привязать сделку','+ Sövdələşmə bağla')}</button>
-        </div>
-        <div id="campaignDealsContainer" class="space-y-1">
-          <div class="text-xs text-slate-500">${_t('Loading...','Загрузка...','Yüklənir...')}</div>
-        </div>
-      </div>
       <div class="flex gap-2 mt-4">
         ${isDraft ? `<button class="btn flex-1" onclick="updateCampaignDraft(${id})" style="background:#4338ca;color:white;">${t('common_save')}</button>` : ''}
         ${isDraft ? `<button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>` : ''}
@@ -15063,7 +15053,6 @@ function showCampaignDetail(id) {
         <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
       </div>
     `);
-    loadCampaignDeals(id);
     // For drafts load recipients for editing
     if (isDraft) {
       loadAllCampaignRecipients('detail');
@@ -15079,86 +15068,6 @@ function showCampaignDetail(id) {
       }
     }
   }).catch(e => showToast(e.message, 'error'));
-}
-
-// Load deals linked to a campaign
-async function loadCampaignDeals(campId) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  try {
-    const resp = await api.get('/api/campaigns/' + campId + '/deals');
-    const deals = resp.data || resp || [];
-    const container = document.getElementById('campaignDealsContainer');
-    if (!container) return;
-    if (deals.length === 0) {
-      container.innerHTML = '<div class="text-xs text-slate-500 py-1">' + _t('No deals linked','Нет привязанных сделок','Bağlı sövdələşmə yoxdur') + '</div>';
-      return;
-    }
-    const stageColors = {LEAD:'#64748b',QUALIFIED:'#3b82f6',PROPOSAL:'#8b5cf6',NEGOTIATION:'#f59e0b',WON:'#22c55e',LOST:'#ef4444'};
-    container.innerHTML = deals.map(d => `
-      <div class="flex items-center justify-between py-1.5 px-2 rounded" style="background:#1e293b;">
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full" style="background:${stageColors[d.stage]||'#64748b'}"></span>
-          <span class="text-sm text-white">${esc(d.title)}</span>
-          <span class="text-xs px-1.5 py-0.5 rounded" style="background:${stageColors[d.stage]||'#64748b'}30;color:${stageColors[d.stage]||'#64748b'}">${d.stage}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-sm font-medium" style="color:${d.stage==='WON'?'#22c55e':'#94a3b8'}">$${(d.value_amount||0).toLocaleString()}</span>
-          <button class="text-xs text-red-400 hover:text-red-300" onclick="unlinkDealFromCampaign(${campId},${d.id})">\u2715</button>
-        </div>
-      </div>
-    `).join('');
-  } catch(e) {
-    const container = document.getElementById('campaignDealsContainer');
-    if (container) container.innerHTML = '<div class="text-xs text-red-400">' + e.message + '</div>';
-  }
-}
-
-// Show dialog to link a deal to campaign
-async function showLinkDealToCampaign(campId) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  try {
-    const resp = await api.get('/api/deals?limit=50');
-    const deals = resp.data || resp || [];
-    const alreadyLinked = await api.get('/api/campaigns/' + campId + '/deals');
-    const linkedIds = new Set((alreadyLinked.data||alreadyLinked||[]).map(d => d.id));
-    const available = deals.filter(d => !linkedIds.has(d.id));
-    if (available.length === 0) {
-      showToast(_t('All deals already linked','Все сделки уже привязаны','Bütün sövdələşmələr artıq bağlıdır'), 'info');
-      return;
-    }
-    const stageColors = {LEAD:'#64748b',QUALIFIED:'#3b82f6',PROPOSAL:'#8b5cf6',NEGOTIATION:'#f59e0b',WON:'#22c55e',LOST:'#ef4444'};
-    const items = available.map(d => `
-      <div class="flex items-center justify-between py-2 px-3 rounded cursor-pointer hover:bg-slate-700/50 transition" onclick="linkDealToCampaign(${campId},${d.id})">
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full" style="background:${stageColors[d.stage]||'#64748b'}"></span>
-          <span class="text-sm text-white">${esc(d.title)}</span>
-          <span class="text-xs px-1.5 py-0.5 rounded" style="background:${stageColors[d.stage]||'#64748b'}30;color:${stageColors[d.stage]||'#64748b'}">${d.stage}</span>
-        </div>
-        <span class="text-sm text-slate-400">$${(d.value_amount||0).toLocaleString()}</span>
-      </div>
-    `).join('');
-    showModal('<h3 class="text-lg font-bold mb-3">' + _t('Link a Deal','Привязать сделку','Sövdələşmə bağla') + '</h3><div class="space-y-1 max-h-64 overflow-y-auto">' + items + '</div><div class="mt-3"><button class="btn btn-secondary w-full" onclick="closeModal();showCampaignDetail('+campId+')">' + _t('Back','Назад','Geri') + '</button></div>');
-  } catch(e) { showToast(e.message, 'error'); }
-}
-
-// Link deal to campaign
-async function linkDealToCampaign(campId, dealId) {
-  try {
-    await api.post('/api/campaigns/' + campId + '/deals', {deal_id: dealId});
-    showToast('Deal linked!', 'success');
-    closeModal();
-    showCampaignDetail(campId);
-  } catch(e) { showToast(e.message, 'error'); }
-}
-
-// Unlink deal from campaign
-async function unlinkDealFromCampaign(campId, dealId) {
-  try {
-    await api.remove('/api/campaigns/' + campId + '/deals/' + dealId);
-    loadCampaignDeals(campId);
-  } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function saveNewCampaign() {
@@ -16845,89 +16754,6 @@ async function renderCampaignRoiPage(container) {
         </div>
       `}
     </div>`;
-}
-
-async function showCampaignRoiDetail(campaignId) {
-  const L = currentLang;
-  const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
-  let roi = { deals:[], total_deals:0, won_value:0, total_value:0, active_value:0, lost_value:0 };
-  try { const r = await api.get('/api/campaigns/' + campaignId + '/roi'); roi = r.data || r; } catch(e){}
-
-  let allDeals = [];
-  try { const r = await api.get('/api/deals?limit=200'); allDeals = r.data || r || []; } catch(e){}
-  const linkedIds = new Set(roi.deals.map(d => d.id));
-  const available = allDeals.filter(d => !linkedIds.has(d.id));
-
-  const app = document.getElementById('app');
-  app.innerHTML = `
-    <div class="p-6">
-      <div class="flex items-center gap-3 mb-4">
-        <button class="text-slate-400 hover:text-white" onclick="navigate('campaign-roi')">← ${t('roi_title')}</button>
-        <h1 class="text-xl font-bold">${_t('Campaign','Кампания','Kampaniya')} #${campaignId}</h1>
-      </div>
-      <div class="grid grid-cols-4 gap-3 mb-6">
-        <div class="bg-slate-800 rounded-lg p-3 text-center">
-          <div class="text-lg font-bold">${roi.total_deals}</div>
-          <div class="text-xs text-slate-400">${t('roi_deals')}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-3 text-center">
-          <div class="text-lg font-bold text-green-400">${roi.won_value.toLocaleString()} ₼</div>
-          <div class="text-xs text-slate-400">${t('roi_won')}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-3 text-center">
-          <div class="text-lg font-bold text-indigo-400">${roi.active_value.toLocaleString()} ₼</div>
-          <div class="text-xs text-slate-400">${_t('Active','Активные','Aktiv')}</div>
-        </div>
-        <div class="bg-slate-800 rounded-lg p-3 text-center">
-          <div class="text-lg font-bold text-red-400">${roi.lost_value.toLocaleString()} ₼</div>
-          <div class="text-xs text-slate-400">${_t('Lost','Потеряно','İtirilmiş')}</div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 mb-4">
-        <select id="roiDealSelect" class="text-sm" style="max-width:300px">
-          <option value="">— ${t('roi_link_deal')} —</option>
-          ${available.map(d => '<option value="' + d.id + '">' + esc(d.title) + ' (' + (d.value_amount||0).toLocaleString() + ' ' + (d.currency||'AZN') + ')</option>').join('')}
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="linkDealToCampaignRoi(${campaignId})">+</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead><tr class="text-left border-b border-slate-700">
-          <th class="p-2">${_t('Deal','Сделка','Sövdələşmə')}</th>
-          <th class="p-2">${_t('Stage','Стадия','Mərhələ')}</th>
-          <th class="p-2">${_t('Amount','Сумма','Məbləğ')}</th>
-          <th class="p-2"></th>
-        </tr></thead>
-        <tbody>
-          ${roi.deals.length===0 ? '<tr><td colspan="4" class="p-4 text-center text-slate-500">' + t('roi_no_deals') + '</td></tr>' :
-            roi.deals.map(d => `
-              <tr class="border-b border-slate-800">
-                <td class="p-2">${esc(d.title)}</td>
-                <td class="p-2"><span class="text-xs px-2 py-0.5 rounded-full ${d.stage==='WON'?'bg-green-500/20 text-green-400':d.stage==='LOST'?'bg-red-500/20 text-red-400':'bg-indigo-500/20 text-indigo-400'}">${d.stage}</span></td>
-                <td class="p-2">${d.value_amount.toLocaleString()} ${d.currency||'AZN'}</td>
-                <td class="p-2 text-right"><button class="text-xs text-red-400 hover:underline" onclick="unlinkDealFromCampaignRoi(${campaignId},${d.id})">✕</button></td>
-              </tr>
-            `).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function linkDealToCampaignRoi(campaignId) {
-  const sel = document.getElementById('roiDealSelect');
-  if (!sel || !sel.value) return;
-  try {
-    await api.post('/api/campaigns/' + campaignId + '/deals', { deal_id: parseInt(sel.value) });
-    showToast('Deal linked', 'success');
-    showCampaignRoiDetail(campaignId);
-  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
-}
-
-async function unlinkDealFromCampaignRoi(campaignId, dealId) {
-  try {
-    await api.remove('/api/campaigns/' + campaignId + '/deals/' + dealId);
-    showToast('Unlinked', 'success');
-    showCampaignRoiDetail(campaignId);
-  } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
 // ─── Contact Segments ─────────────────────────────────────────

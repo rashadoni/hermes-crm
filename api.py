@@ -8026,19 +8026,9 @@ async def list_campaigns(
         result = [dict(zip(cols, r)) for r in rows]
         if with_metrics:
             for camp in result:
-                cid = camp["id"]
-                metrics = conn.execute("""
-                    SELECT COUNT(cd.deal_id) as deal_count,
-                           COALESCE(SUM(CASE WHEN d.stage='WON' THEN d.value_amount ELSE 0 END), 0) as revenue,
-                           COALESCE(SUM(d.value_amount), 0) as pipeline
-                    FROM campaign_deals cd
-                    LEFT JOIN deals d ON cd.deal_id = d.id
-                    WHERE cd.campaign_id=?
-                """, [cid]).fetchone()
-                camp["revenue"] = float(metrics[1]) if metrics else 0
-                camp["pipeline"] = float(metrics[2]) if metrics else 0
+                camp["revenue"] = 0
                 camp["lead_count"] = camp.get("lead_count", 0) or 0
-                camp["conversion_count"] = metrics[0] if metrics else 0
+                camp["conversion_count"] = camp.get("conversion_count", 0) or 0
                 camp["cost"] = float(camp.get("cost", 0) or 0)
         return _ok(result, total=total)
 
@@ -9972,101 +9962,25 @@ async def save_custom_field_values(entity_type: str, entity_id: int, request: Re
 
 # ─── Campaign ROI ─────────────────────────────────────────────────
 
-@app.get("/api/campaigns/{campaign_id}/roi")
-async def campaign_roi(campaign_id: int, user=Depends(require_auth)):
-    """Calculate ROI for a campaign based on linked deals."""
-    with get_db() as conn:
-        campaign = conn.execute("SELECT * FROM campaigns WHERE id=?", [campaign_id]).fetchone()
-        if not campaign:
-            _err("Campaign not found", 404)
-        budget = float(campaign["cost"] or 0) if "cost" in campaign.keys() else 0
-        # Get linked deals
-        rows = conn.execute(
-            """SELECT d.id, d.title, d.stage, d.value_amount, d.currency
-               FROM campaign_deals cd JOIN deals d ON cd.deal_id = d.id
-               WHERE cd.campaign_id=?""", [campaign_id]
-        ).fetchall()
-        deals = [{"id":r[0],"title":r[1],"stage":r[2],"value_amount":float(r[3] or 0),"currency":r[4]} for r in rows]
-        total_value = sum(d["value_amount"] for d in deals)
-        won_value = sum(d["value_amount"] for d in deals if d["stage"] == "WON")
-        lost_value = sum(d["value_amount"] for d in deals if d["stage"] == "LOST")
-        active_value = total_value - won_value - lost_value
-        roi_pct = ((won_value - budget) / budget * 100) if budget > 0 else 0
-        return _ok({
-            "campaign_id": campaign_id,
-            "deals": deals,
-            "total_deals": len(deals),
-            "total_value": total_value,
-            "won_value": won_value,
-            "lost_value": lost_value,
-            "active_value": active_value,
-            "budget": budget,
-            "roi_percent": round(roi_pct, 1)
-        })
-
-
-@app.get("/api/campaigns/{campaign_id}/deals")
-async def get_campaign_deals(campaign_id: int, user=Depends(require_auth)):
-    """List deals linked to a campaign."""
-    with get_db() as conn:
-        rows = conn.execute(
-            """SELECT d.id, d.title, d.stage, d.value_amount, d.value_currency, d.company_id,
-                      co.name as company_name
-               FROM campaign_deals cd
-               JOIN deals d ON cd.deal_id = d.id
-               LEFT JOIN companies co ON d.company_id = co.id
-               WHERE cd.campaign_id=?
-               ORDER BY d.created_at DESC""", [campaign_id]
-        ).fetchall()
-        deals = [{"id":r[0],"title":r[1],"stage":r[2],"value_amount":float(r[3] or 0),
-                  "currency":r[4],"company_id":r[5],"company_name":r[6]} for r in rows]
-        return _ok(deals)
-
-
-@app.post("/api/campaigns/{campaign_id}/deals")
-async def link_deal_to_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
-    data = await request.json()
-    deal_id = data.get("deal_id")
-    if not deal_id:
-        _err("deal_id required", 400)
-    with get_db() as conn:
-        try:
-            conn.execute("INSERT INTO campaign_deals (campaign_id, deal_id) VALUES (?,?)", [campaign_id, deal_id])
-        except Exception:
-            _err("Deal already linked", 409)
-    log_audit(user["user_id"], "link_campaign_deal", "campaign", campaign_id,
-              new_value={"deal_id": deal_id}, ip=_get_ip(request))
-    return _ok({"linked": True})
-
-
-@app.delete("/api/campaigns/{campaign_id}/deals/{deal_id}")
-async def unlink_deal_from_campaign(campaign_id: int, deal_id: int, user=Depends(require_auth)):
-    with get_db() as conn:
-        conn.execute("DELETE FROM campaign_deals WHERE campaign_id=? AND deal_id=?", [campaign_id, deal_id])
-    return _ok({"unlinked": True})
-
-
 @app.get("/api/campaigns/roi-summary")
 async def campaigns_roi_summary(user=Depends(require_auth)):
-    """Summary ROI across all campaigns."""
+    """Summary ROI across all campaigns based on cost, leads and conversions."""
     with get_db() as conn:
         rows = conn.execute("""
             SELECT c.id, c.name, c.status, c.sent_count,
-                   COUNT(cd.deal_id) as deal_count,
-                   COALESCE(SUM(CASE WHEN d.stage='WON' THEN d.value_amount ELSE 0 END), 0) as won_value,
-                   COALESCE(SUM(d.value_amount), 0) as total_pipeline
+                   c.cost, c.lead_count, c.conversion_count,
+                   c.open_count, c.click_count
             FROM campaigns c
-            LEFT JOIN campaign_deals cd ON c.id = cd.campaign_id
-            LEFT JOIN deals d ON cd.deal_id = d.id
-            GROUP BY c.id
-            ORDER BY won_value DESC
+            ORDER BY c.created_at DESC
         """).fetchall()
         result = []
         for r in rows:
+            cost = float(r[4] or 0)
             result.append({
-                "id": r[0], "name": r[1], "status": r[2], "sent_count": r[3],
-                "deal_count": r[4], "won_value": float(r[5]),
-                "total_pipeline": float(r[6])
+                "id": r[0], "name": r[1], "status": r[2], "sent_count": r[3] or 0,
+                "cost": cost, "lead_count": r[5] or 0, "conversion_count": r[6] or 0,
+                "open_count": r[7] or 0, "click_count": r[8] or 0,
+                "revenue": 0
             })
         return _ok(result)
 

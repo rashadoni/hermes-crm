@@ -5711,15 +5711,22 @@ def _compute_cost_model(conn):
         if target_svc:
             svc_tech_costs[target_svc] = svc_tech_costs.get(target_svc, 0.0) + oh["monthly_amount"]
 
+    # Subtract tech items that go to specific departments from admin allocation
+    # to avoid double-counting (they're already in svc_tech_costs)
+    tech_in_admin = 0.0
+    for oh in overhead_breakdown:
+        if oh.get("is_admin", 1) and TECH_DEPT_MAP.get(oh["category"]):
+            tech_in_admin += oh["monthly_amount"]
+    admin_for_g_adjusted = admin_for_g - tech_in_admin
+
     service_costs = {}
     for svc, depts in SERVICE_DEPT_MAP.items():
         direct_labor = sum(dept_costs.get(d, 0.0) for d in depts)
-        # GRC direct labor included (Excel includes it as Birbaşa Xərc)
-        if svc == "grc":
-            direct_labor = grc_direct_cost
+        # GRC overhead employees are already in admin_for_g allocation,
+        # so only use dept_costs["GRC"] (non-overhead GRC staff) as direct labor
         dept_headcount = sum(e["count"] for e in all_dept_employees if e["department"] in depts)
         ratio = dept_headcount / total_headcount if total_headcount > 0 else 0
-        admin_share = admin_for_g * ratio
+        admin_share = admin_for_g_adjusted * ratio
         tech_direct = svc_tech_costs.get(svc, 0.0)
         service_costs[svc] = round(direct_labor + admin_share + tech_direct, 2)
 

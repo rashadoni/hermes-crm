@@ -5936,8 +5936,12 @@ async function renderCompanyList(el, mode) {
           <button class="btn btn-sm ${window._leadsSort==='cold'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='cold';renderCompanyList(document.getElementById('app'),'client')">❄️→🔥</button>
           ${window._leadsSort ? '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="window._leadsSort=null;renderCompanyList(document.getElementById(\'app\'),\'client\')">✕</button>' : ''}
         </div>
+        <div style="display:flex;gap:2px;align-items:center;border-left:1px solid #334155;padding-left:8px;margin-left:4px;">
+          <button title="${currentLang==='ru'?'Карточки':'Cards'}" style="padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;background:${window._leadsView!=='kanban'?'rgba(99,102,241,0.2)':'transparent'};color:${window._leadsView!=='kanban'?'#818cf8':'#64748b'}" onclick="window._leadsView='cards';renderCompanyList(document.getElementById('app'),'client')">▦</button>
+          <button title="${currentLang==='ru'?'Канбан':'Kanban'}" style="padding:5px 8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;background:${window._leadsView==='kanban'?'rgba(99,102,241,0.2)':'transparent'};color:${window._leadsView==='kanban'?'#818cf8':'#64748b'}" onclick="window._leadsView='kanban';renderCompanyList(document.getElementById('app'),'client')">☰</button>
+        </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="companyCardsGrid">
+      ${window._leadsView === 'kanban' ? _renderLeadsKanban(filtered) : `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="companyCardsGrid">
         ${filtered.length === 0 ? `<div class="col-span-full text-center text-slate-500 py-8">${t('nothing_found')}</div>` : ''}
         ${(()=>{
           let sorted = [...filtered];
@@ -5956,7 +5960,7 @@ async function renderCompanyList(el, mode) {
           }
           return sorted.map(item => _renderCompanyCard(item, 'client')).join('');
         })()}
-      </div>
+      </div>`}
     `;
     return;
   }

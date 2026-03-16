@@ -54,15 +54,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LeadDrive CRM", version="1.0.0")
 
-# TEMP: Global exception handler for debugging
-import traceback as _tb
-from starlette.requests import Request as _SRequest
-from starlette.responses import JSONResponse as _SJResponse
-@app.exception_handler(Exception)
-async def _debug_exc_handler(request: _SRequest, exc: Exception):
-    logger.error("Unhandled: %s\n%s", exc, _tb.format_exc())
-    return _SJResponse(status_code=500, content={"detail": str(exc), "trace": _tb.format_exc()[-500:]})
-
 # Include external API v1 router
 app.include_router(external_api_router)
 
@@ -174,7 +165,7 @@ def _ok(data=None, total=None):
 def _err(message, status_code=400):
     if status_code == 500:
         logger.error("Internal error: %s", message)
-        raise HTTPException(status_code=500, detail=str(message))  # TEMP: show details
+        raise HTTPException(status_code=500, detail="Internal server error")
     raise HTTPException(status_code=status_code, detail=message)
 
 
@@ -7698,24 +7689,36 @@ def _check_sla_breach(conn, ticket_id):
     sla = conn.execute("SELECT first_response_hours, resolution_hours FROM sla_policies WHERE id=?", [row[0]]).fetchone()
     if not sla:
         return False
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
+
+    def _parse_dt(val):
+        """Parse datetime from PG TIMESTAMP (datetime obj) or TEXT string."""
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            # Make naive if timezone-aware for consistent comparison
+            return val.replace(tzinfo=None) if val.tzinfo else val
+        # String fallback
+        return datetime.fromisoformat(str(val).replace("Z", "+00:00")).replace(tzinfo=None)
+
     now = datetime.utcnow()
-    created = datetime.fromisoformat(row[1].replace("Z", ""))
+    created = _parse_dt(row[1])
+    if not created:
+        return False
     breached = 0
     status = row[4] or "open"
     # First response breach: responded late OR no response and deadline passed
     if row[2]:  # first_response_at exists
-        fr = datetime.fromisoformat(row[2].replace("Z", ""))
-        if (fr - created).total_seconds() > sla[0] * 3600:
+        fr = _parse_dt(row[2])
+        if fr and (fr - created).total_seconds() > sla[0] * 3600:
             breached = 1
     elif status not in ("closed", "resolved"):
-        # No response yet — check if deadline passed
         if (now - created).total_seconds() > sla[0] * 3600:
             breached = 1
     # Resolution breach: resolved late OR not resolved and deadline passed
     if row[3]:  # resolved_at exists
-        res = datetime.fromisoformat(row[3].replace("Z", ""))
-        if (res - created).total_seconds() > sla[1] * 3600:
+        res = _parse_dt(row[3])
+        if res and (res - created).total_seconds() > sla[1] * 3600:
             breached = 1
     elif status not in ("closed", "resolved"):
         if (now - created).total_seconds() > sla[1] * 3600:

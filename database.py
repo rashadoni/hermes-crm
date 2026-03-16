@@ -1,18 +1,447 @@
 """
-CRM Database — SQLite setup & schema
-=====================================
+CRM Database — PostgreSQL with SQLite compatibility layer
+==========================================================
+Transparently converts SQLite-style SQL to PostgreSQL so that
+the 14,000+ lines in api.py require minimal changes.
 """
 
-import sqlite3
 import os
+import re
 import logging
 from contextlib import contextmanager
 
+import psycopg2
+import psycopg2.extras
+
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.getenv("CRM_DB_PATH", "crm.db")
+# ─── Connection config ────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://hermes:hermes@localhost:5432/hermes_crm")
+DB_PATH = os.getenv("CRM_DB_PATH", "crm.db")  # kept for migration script reference
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # bumped for PostgreSQL migration
+
+
+# ─── SQL Rewriter ─────────────────────────────────────────────
+
+# Pre-compiled regex patterns for performance
+_RE_DATETIME_NOW_OFFSET = re.compile(
+    r"datetime\s*\(\s*'now'\s*,\s*'([+-])(\d+)\s+(day|days|hour|hours|minute|minutes|month|months|year|years)'\s*\)",
+    re.IGNORECASE,
+)
+_RE_DATETIME_NOW_CONCAT = re.compile(
+    r"datetime\s*\(\s*'now'\s*,\s*'([+-])'\s*\|\|\s*\?\s*\|\|\s*'\s*(hour|hours|day|days|minute|minutes)'\s*\)",
+    re.IGNORECASE,
+)
+_RE_DATETIME_NOW = re.compile(r"datetime\s*\(\s*'now'\s*\)", re.IGNORECASE)
+_RE_AUTOINCREMENT = re.compile(r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", re.IGNORECASE)
+_RE_INSERT_OR_IGNORE = re.compile(r"INSERT\s+OR\s+IGNORE\s+INTO", re.IGNORECASE)
+_RE_INSERT_OR_REPLACE = re.compile(r"INSERT\s+OR\s+REPLACE\s+INTO", re.IGNORECASE)
+_RE_REPLACE_INTO = re.compile(r"REPLACE\s+INTO", re.IGNORECASE)
+_RE_GROUP_CONCAT = re.compile(
+    r"GROUP_CONCAT\s*\((.+?),\s*'([^']*)'\s*\)",
+    re.IGNORECASE,
+)
+_RE_GROUP_CONCAT_SIMPLE = re.compile(
+    r"GROUP_CONCAT\s*\((.+?)\)",
+    re.IGNORECASE,
+)
+_RE_PRAGMA_TABLE_INFO = re.compile(r"PRAGMA\s+table_info\s*\(\s*(\w+)\s*\)", re.IGNORECASE)
+_RE_PLACEHOLDER = re.compile(r"\?")
+
+
+def rewrite_sql(sql, params=None):
+    """
+    Rewrite SQLite-flavored SQL to PostgreSQL.
+    Returns (new_sql, new_params).
+    """
+    if not sql or not sql.strip():
+        return sql, params
+
+    original_sql = sql
+
+    # ── datetime('now', '+' || ? || ' hours') → NOW() + ? * INTERVAL '1 hour'
+    # This pattern uses a ? param for the offset value
+    def _replace_datetime_concat(m):
+        sign = m.group(1)
+        unit = m.group(2).rstrip('s')  # normalize: hours→hour
+        op = '+' if sign == '+' else '-'
+        return f"NOW() {op} (%s * INTERVAL '1 {unit}')"
+
+    sql = _RE_DATETIME_NOW_CONCAT.sub(_replace_datetime_concat, sql)
+
+    # ── datetime('now', '-7 days') → NOW() - INTERVAL '7 days'
+    def _replace_datetime_offset(m):
+        sign = m.group(1)
+        num = m.group(2)
+        unit = m.group(3)
+        op = '+' if sign == '+' else '-'
+        return f"NOW() {op} INTERVAL '{num} {unit}'"
+
+    sql = _RE_DATETIME_NOW_OFFSET.sub(_replace_datetime_offset, sql)
+
+    # ── datetime('now') → NOW()
+    sql = _RE_DATETIME_NOW.sub("NOW()", sql)
+
+    # ── INTEGER PRIMARY KEY AUTOINCREMENT → SERIAL PRIMARY KEY
+    sql = _RE_AUTOINCREMENT.sub("SERIAL PRIMARY KEY", sql)
+
+    # ── INSERT OR REPLACE INTO → INSERT ... ON CONFLICT
+    # For INSERT OR REPLACE, we need to extract the table and handle upsert
+    # Since this is complex and only used once (notification_preferences),
+    # we convert to a simpler pattern
+    def _replace_insert_or_replace(m):
+        return "INSERT INTO"
+
+    # Handle INSERT OR REPLACE specially — caller must add ON CONFLICT clause
+    # We mark it so the wrapper can detect and handle
+    if _RE_INSERT_OR_REPLACE.search(sql) or _RE_REPLACE_INTO.search(sql):
+        sql = _RE_INSERT_OR_REPLACE.sub("INSERT INTO", sql)
+        sql = _RE_REPLACE_INTO.sub("INSERT INTO", sql)
+        # Add ON CONFLICT DO UPDATE for known upsert patterns
+        if "notification_preferences" in sql.lower():
+            sql = sql.rstrip().rstrip(';')
+            sql += " ON CONFLICT (user_id, event_type) DO UPDATE SET channel_web=EXCLUDED.channel_web, channel_email=EXCLUDED.channel_email, channel_telegram=EXCLUDED.channel_telegram"
+        elif "crm_metadata" in sql.lower():
+            sql = sql.rstrip().rstrip(';')
+            sql += " ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value"
+
+    # ── INSERT OR IGNORE INTO → INSERT INTO ... ON CONFLICT DO NOTHING
+    if _RE_INSERT_OR_IGNORE.search(sql):
+        sql = _RE_INSERT_OR_IGNORE.sub("INSERT INTO", sql)
+        # Add ON CONFLICT DO NOTHING at end (before trailing semicolon)
+        sql = sql.rstrip().rstrip(';')
+        sql += " ON CONFLICT DO NOTHING"
+
+    # ── GROUP_CONCAT(expr, sep) → STRING_AGG(expr::TEXT, sep)
+    def _replace_group_concat(m):
+        expr = m.group(1).strip()
+        sep = m.group(2)
+        return f"STRING_AGG({expr}::TEXT, '{sep}')"
+
+    sql = _RE_GROUP_CONCAT.sub(_replace_group_concat, sql)
+
+    def _replace_group_concat_simple(m):
+        expr = m.group(1).strip()
+        return f"STRING_AGG({expr}::TEXT, ',')"
+
+    sql = _RE_GROUP_CONCAT_SIMPLE.sub(_replace_group_concat_simple, sql)
+
+    # ── PRAGMA table_info(table) → information_schema query
+    pragma_match = _RE_PRAGMA_TABLE_INFO.search(sql)
+    if pragma_match:
+        table_name = pragma_match.group(1)
+        sql = f"""SELECT ordinal_position - 1 as cid, column_name as name,
+                         data_type as type,
+                         CASE WHEN is_nullable = 'NO' THEN 1 ELSE 0 END as notnull,
+                         column_default as dflt_value,
+                         0 as pk
+                  FROM information_schema.columns
+                  WHERE table_name = '{table_name}'
+                  ORDER BY ordinal_position"""
+        # PRAGMA doesn't use params
+        return sql, params
+
+    # ── TEXT DEFAULT (datetime('now')) already handled by datetime rewrite
+    # But we need to handle the parenthesized version in CREATE TABLE
+    sql = sql.replace("DEFAULT (NOW())", "DEFAULT NOW()")
+
+    # ── Convert ? placeholders to %s
+    if params is not None and '?' in sql:
+        sql = _RE_PLACEHOLDER.sub('%s', sql)
+
+    # ── Boolean-safe: PostgreSQL is fine with INTEGER 0/1 for boolean-like columns
+    # No conversion needed — we keep INTEGER columns as-is for compatibility
+
+    return sql, params
+
+
+# ─── DictRow — sqlite3.Row-compatible dict wrapper ────────────
+
+class DictRow(dict):
+    """
+    A dict subclass that also supports integer index access,
+    mimicking sqlite3.Row behavior.
+    """
+    def __init__(self, cursor_description, values):
+        cols = [desc[0] for desc in cursor_description]
+        super().__init__(zip(cols, values))
+        self._cols = cols
+        self._values = list(values)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self):
+        return len(self._values)
+
+    def keys(self):
+        return self._cols
+
+    def values(self):
+        return self._values
+
+    def items(self):
+        return zip(self._cols, self._values)
+
+
+# ─── Cursor Wrapper ──────────────────────────────────────────
+
+class PgCursorWrapper:
+    """
+    Wraps a psycopg2 cursor to provide SQLite-compatible API:
+    - Auto-converts ? → %s
+    - Rewrites SQLite SQL to PostgreSQL
+    - Returns DictRow objects
+    """
+    def __init__(self, cursor, conn):
+        self._cursor = cursor
+        self._conn = conn
+        self.description = cursor.description
+        self.lastrowid = None
+        self.rowcount = cursor.rowcount
+        self._returning_consumed = False
+
+    def execute(self, sql, params=None):
+        sql, params = rewrite_sql(sql, params)
+        # Convert list params to tuple for psycopg2
+        if isinstance(params, list):
+            params = tuple(params)
+
+        # Auto-add RETURNING id for INSERT statements (for lastrowid support)
+        is_insert = sql.strip().upper().startswith("INSERT")
+        returning_added = False
+        if is_insert and "RETURNING" not in sql.upper():
+            # Only add RETURNING id if the table likely has an id column
+            sql_clean = sql.rstrip().rstrip(';')
+            sql = sql_clean + " RETURNING id"
+            returning_added = True
+
+        # Use savepoint for graceful error recovery
+        sp_name = "sp_exec"
+        try:
+            self._cursor.execute(f"SAVEPOINT {sp_name}")
+            self._cursor.execute(sql, params)
+            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+        except psycopg2.errors.UndefinedColumn:
+            # RETURNING id failed — table has no 'id' column, retry without
+            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            if returning_added:
+                sql = sql.rsplit(" RETURNING id", 1)[0]
+                returning_added = False
+                self._cursor.execute(f"SAVEPOINT {sp_name}")
+                self._cursor.execute(sql, params)
+                self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            else:
+                raise
+        except psycopg2.errors.DuplicateTable:
+            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            return self
+        except psycopg2.errors.DuplicateObject:
+            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            return self
+        except psycopg2.errors.UniqueViolation:
+            # For ON CONFLICT DO NOTHING cases where conflict still raises
+            self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+            self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            self.lastrowid = None
+            return self
+
+        self.description = self._cursor.description
+        self.rowcount = self._cursor.rowcount
+
+        # Get lastrowid from RETURNING clause
+        if is_insert and returning_added and self._cursor.description:
+            try:
+                row = self._cursor.fetchone()
+                self.lastrowid = row[0] if row else None
+                self._returning_consumed = True
+            except Exception:
+                self.lastrowid = None
+                self._returning_consumed = True
+        elif is_insert:
+            try:
+                self._cursor.execute("SELECT lastval()")
+                row = self._cursor.fetchone()
+                self.lastrowid = row[0] if row else None
+            except Exception:
+                self.lastrowid = None
+
+        return self
+
+    def executemany(self, sql, params_list):
+        sql, _ = rewrite_sql(sql, [])  # just rewrite SQL, params handled per-row
+        for params in params_list:
+            if isinstance(params, list):
+                params = tuple(params)
+            self._cursor.execute(sql, params)
+        self.description = self._cursor.description
+        self.rowcount = self._cursor.rowcount
+        return self
+
+    def executescript(self, sql_script):
+        """
+        Execute multiple SQL statements (SQLite executescript equivalent).
+        Split on semicolons and execute each statement.
+        Uses SAVEPOINTs so individual statement failures don't kill the transaction.
+        """
+        statements = [s.strip() for s in sql_script.split(';') if s.strip()]
+        for i, stmt in enumerate(statements):
+            if not stmt:
+                continue
+            rewritten, _ = rewrite_sql(stmt, None)
+            sp_name = f"sp_execscript_{i}"
+            try:
+                self._cursor.execute(f"SAVEPOINT {sp_name}")
+                self._cursor.execute(rewritten)
+                self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            except (psycopg2.errors.DuplicateTable,
+                    psycopg2.errors.DuplicateObject,
+                    psycopg2.errors.DuplicateColumn):
+                self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+            except Exception as e:
+                logger.warning("executescript statement failed: %s — %s", stmt[:80], e)
+                try:
+                    self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+                except Exception:
+                    pass
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        if self._cursor.description:
+            return DictRow(self._cursor.description, row)
+        return row
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        if not rows or not self._cursor.description:
+            return rows
+        return [DictRow(self._cursor.description, r) for r in rows]
+
+    def close(self):
+        self._cursor.close()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            raise StopIteration
+        if self._cursor.description:
+            return DictRow(self._cursor.description, row)
+        return row
+
+
+# ─── Connection Wrapper ──────────────────────────────────────
+
+class PgConnectionWrapper:
+    """
+    Wraps a psycopg2 connection to provide SQLite-compatible API.
+    """
+    def __init__(self, conn):
+        self._conn = conn
+        # Set autocommit off — we manage transactions ourselves
+        self._conn.autocommit = False
+
+    def execute(self, sql, params=None):
+        cursor = self._conn.cursor()
+        wrapper = PgCursorWrapper(cursor, self._conn)
+        return wrapper.execute(sql, params)
+
+    def executemany(self, sql, params_list):
+        cursor = self._conn.cursor()
+        wrapper = PgCursorWrapper(cursor, self._conn)
+        return wrapper.executemany(sql, params_list)
+
+    def executescript(self, sql_script):
+        cursor = self._conn.cursor()
+        wrapper = PgCursorWrapper(cursor, self._conn)
+        return wrapper.executescript(sql_script)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+    def cursor(self):
+        cursor = self._conn.cursor()
+        return PgCursorWrapper(cursor, self._conn)
+
+    @property
+    def row_factory(self):
+        return None
+
+    @row_factory.setter
+    def row_factory(self, value):
+        # Ignored — we always return DictRow
+        pass
+
+
+# ─── Connection functions ────────────────────────────────────
+
+def get_db_path():
+    """Return the database path (for backward compat / migration scripts)."""
+    if os.path.isabs(DB_PATH):
+        return DB_PATH
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, DB_PATH)
+
+
+def get_connection():
+    """Create a new PostgreSQL connection with SQLite-compatible wrapper."""
+    conn = psycopg2.connect(DATABASE_URL)
+    return PgConnectionWrapper(conn)
+
+
+def get_raw_connection():
+    """Get a raw psycopg2 connection (for migration/admin tasks)."""
+    return psycopg2.connect(DATABASE_URL)
+
+
+@contextmanager
+def get_db():
+    """Context manager for database connections."""
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ─── Read-only connection (for AI analytics) ─────────────────
+
+def get_readonly_connection():
+    """
+    Get a read-only PostgreSQL connection.
+    Used by AI analytics to safely run generated SQL.
+    """
+    conn = psycopg2.connect(DATABASE_URL, options="-c default_transaction_read_only=on")
+    return PgConnectionWrapper(conn)
+
+
+# ─── Schema ──────────────────────────────────────────────────
 
 SCHEMA_SQL = """
 -- Metadata table for tracking schema version
@@ -23,19 +452,19 @@ CREATE TABLE IF NOT EXISTS crm_metadata (
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL,
     full_name TEXT DEFAULT '',
     role TEXT DEFAULT 'manager',
     is_active INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TIMESTAMP DEFAULT NOW(),
     role_id INTEGER,
     department TEXT DEFAULT '',
     phone TEXT DEFAULT '',
     avatar_url TEXT DEFAULT '',
-    last_login TEXT,
+    last_login TIMESTAMP,
     login_count INTEGER DEFAULT 0,
     totp_secret TEXT DEFAULT '',
     totp_enabled INTEGER DEFAULT 0,
@@ -46,7 +475,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Companies
 CREATE TABLE IF NOT EXISTS companies (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              SERIAL PRIMARY KEY,
     name            TEXT NOT NULL,
     domain          TEXT UNIQUE,
     industry        TEXT DEFAULT '',
@@ -54,13 +483,13 @@ CREATE TABLE IF NOT EXISTS companies (
     notes           TEXT DEFAULT '',
     category        TEXT DEFAULT '',
     contacts_count  INTEGER DEFAULT 0,
-    created_at      TEXT DEFAULT (datetime('now')),
-    last_activity   TEXT DEFAULT (datetime('now'))
+    created_at      TIMESTAMP DEFAULT NOW(),
+    last_activity   TIMESTAMP DEFAULT NOW()
 );
 
 -- Contacts
 CREATE TABLE IF NOT EXISTS contacts (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              SERIAL PRIMARY KEY,
     email           TEXT UNIQUE NOT NULL,
     name            TEXT DEFAULT '',
     phone           TEXT DEFAULT '',
@@ -71,14 +500,14 @@ CREATE TABLE IF NOT EXISTS contacts (
     tags            TEXT DEFAULT '[]',
     notes           TEXT DEFAULT '',
     email_count     INTEGER DEFAULT 0,
-    last_contact    TEXT,
-    created_at      TEXT DEFAULT (datetime('now')),
-    updated_at      TEXT DEFAULT (datetime('now'))
+    last_contact    TIMESTAMP,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW()
 );
 
 -- Deals / Pipeline
 CREATE TABLE IF NOT EXISTS deals (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              SERIAL PRIMARY KEY,
     title           TEXT NOT NULL,
     company_id      INTEGER REFERENCES companies(id),
     contact_id      INTEGER REFERENCES contacts(id),
@@ -91,13 +520,13 @@ CREATE TABLE IF NOT EXISTS deals (
     won_date        TEXT,
     lost_reason     TEXT DEFAULT '',
     notes           TEXT DEFAULT '',
-    created_at      TEXT DEFAULT (datetime('now')),
-    updated_at      TEXT DEFAULT (datetime('now'))
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW()
 );
 
--- Activities (emails, calls, notes, tasks)
+-- Activities
 CREATE TABLE IF NOT EXISTS activities (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              SERIAL PRIMARY KEY,
     contact_id      INTEGER REFERENCES contacts(id),
     deal_id         INTEGER REFERENCES deals(id),
     activity_type   TEXT DEFAULT 'NOTE',
@@ -106,20 +535,10 @@ CREATE TABLE IF NOT EXISTS activities (
     content         TEXT DEFAULT '',
     metadata        TEXT DEFAULT '{}',
     status          TEXT DEFAULT 'completed',
-    timestamp       TEXT DEFAULT (datetime('now'))
+    timestamp       TIMESTAMP DEFAULT NOW()
 );
 
--- Email sync tracking (avoid re-processing)
--- Removed: email_sync_log no longer needed
--- CREATE TABLE IF NOT EXISTS email_sync_log (
---     id              INTEGER PRIMARY KEY AUTOINCREMENT,
---     message_id      TEXT UNIQUE,
---     from_addr       TEXT,
---     subject         TEXT,
---     synced_at       TEXT DEFAULT (datetime('now'))
--- );
-
--- Indexes for performance
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
 CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company_id);
 CREATE INDEX IF NOT EXISTS idx_deals_stage ON deals(stage);
@@ -128,71 +547,68 @@ CREATE INDEX IF NOT EXISTS idx_deals_contact ON deals(contact_id);
 CREATE INDEX IF NOT EXISTS idx_activities_contact ON activities(contact_id);
 CREATE INDEX IF NOT EXISTS idx_activities_deal ON activities(deal_id);
 CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(activity_type);
--- CREATE INDEX IF NOT EXISTS idx_email_sync_msgid ON email_sync_log(message_id);
 
 -- Audit log
 CREATE TABLE IF NOT EXISTS audit_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER,
     action TEXT NOT NULL,
     entity_type TEXT,
     entity_id INTEGER,
     details TEXT DEFAULT '',
     ip_address TEXT DEFAULT '',
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 
 -- Commercial Offers
 CREATE TABLE IF NOT EXISTS offers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     offer_number TEXT NOT NULL,
-    offer_type TEXT DEFAULT 'services',  -- 'services' or 'equipment'
-    currency TEXT DEFAULT 'AZN',          -- 'AZN' or 'USD'
+    offer_type TEXT DEFAULT 'services',
+    currency TEXT DEFAULT 'AZN',
     show_vat INTEGER DEFAULT 0,
     vat_pct REAL DEFAULT 18,
-    view_mode TEXT DEFAULT 'detailed',    -- 'detailed' or 'category'
+    view_mode TEXT DEFAULT 'detailed',
     company_id INTEGER REFERENCES companies(id),
     client_name TEXT DEFAULT '',
     client_voen TEXT DEFAULT '',
     client_contact TEXT DEFAULT '',
     client_contract TEXT DEFAULT '',
     notes TEXT DEFAULT '',
-    status TEXT DEFAULT 'draft',          -- 'draft', 'sent', 'accepted', 'rejected'
-    items TEXT DEFAULT '[]',              -- JSON array of line items
+    status TEXT DEFAULT 'draft',
+    items TEXT DEFAULT '[]',
     valid_until TEXT DEFAULT '',
     created_by INTEGER REFERENCES users(id),
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_offers_status ON offers(status);
 CREATE INDEX IF NOT EXISTS idx_offers_company ON offers(company_id);
 
--- Price changes (pending approval workflow)
+-- Price changes
 CREATE TABLE IF NOT EXISTS price_changes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     company_code TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',  -- 'pending', 'approved', 'rejected'
-    old_prices TEXT DEFAULT '{}',   -- JSON snapshot of old pricing
-    new_prices TEXT DEFAULT '{}',   -- JSON with changed pricing
+    status TEXT DEFAULT 'pending',
+    old_prices TEXT DEFAULT '{}',
+    new_prices TEXT DEFAULT '{}',
     notes TEXT DEFAULT '',
-    effective_date TEXT DEFAULT NULL, -- date from which new prices apply (YYYY-MM-DD)
+    effective_date TEXT DEFAULT NULL,
     created_by INTEGER REFERENCES users(id),
     approved_by INTEGER REFERENCES users(id),
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_price_changes_status ON price_changes(status);
 CREATE INDEX IF NOT EXISTS idx_price_changes_company ON price_changes(company_code);
 
--- ─── Cost Model Module ────────────────────────────────────────
-
--- Global pricing parameters (one row)
+-- Pricing parameters
 CREATE TABLE IF NOT EXISTS pricing_parameters (
     id INTEGER PRIMARY KEY DEFAULT 1,
     total_users INTEGER DEFAULT 4500,
-    total_users_manual INTEGER DEFAULT 0,  -- 1 = override auto-calc
+    total_users_manual INTEGER DEFAULT 0,
     total_employees INTEGER DEFAULT 137,
     technical_staff INTEGER DEFAULT 107,
     back_office_staff INTEGER DEFAULT 30,
@@ -202,41 +618,41 @@ CREATE TABLE IF NOT EXISTS pricing_parameters (
     risk_rate REAL DEFAULT 0.05,
     misc_expense_rate REAL DEFAULT 0.01,
     fixed_overhead_ratio REAL DEFAULT 0.25,
-    updated_at TEXT DEFAULT (datetime('now')),
+    updated_at TIMESTAMP DEFAULT NOW(),
     updated_by INTEGER REFERENCES users(id)
 );
 
--- Overhead costs (one row per category)
+-- Overhead costs
 CREATE TABLE IF NOT EXISTS overhead_costs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT NOT NULL,          -- e.g. 'cloud_servers'
-    label TEXT NOT NULL,             -- display name
-    amount REAL DEFAULT 0,           -- AZN/month (raw input)
-    is_annual INTEGER DEFAULT 0,     -- 1 = divide by 12
-    has_vat INTEGER DEFAULT 0,       -- 1 = multiply by (1+vat_rate)
+    id SERIAL PRIMARY KEY,
+    category TEXT NOT NULL,
+    label TEXT NOT NULL,
+    amount REAL DEFAULT 0,
+    is_annual INTEGER DEFAULT 0,
+    has_vat INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
     notes TEXT DEFAULT ''
 );
 
--- Employees / staffing table
+-- Employees / staffing
 CREATE TABLE IF NOT EXISTS cost_employees (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    department TEXT NOT NULL,        -- 'IT','InfoSec','ERP','GRC','PM','HelpDesk','BackOffice'
+    id SERIAL PRIMARY KEY,
+    department TEXT NOT NULL,
     position TEXT NOT NULL,
     count INTEGER DEFAULT 1,
-    net_salary REAL DEFAULT 0,       -- AZN/month per person
-    gross_salary REAL DEFAULT 0,     -- net / (1 - income_tax_rate) — calculated
-    super_gross REAL DEFAULT 0,      -- gross * (1 + social_rate) — calculated
-    in_overhead INTEGER DEFAULT 0,   -- 1 = goes to overhead not direct cost (GRC)
+    net_salary REAL DEFAULT 0,
+    gross_salary REAL DEFAULT 0,
+    super_gross REAL DEFAULT 0,
+    in_overhead INTEGER DEFAULT 0,
     notes TEXT DEFAULT ''
 );
 
--- Client services (revenue breakdown per client per service)
+-- Client services
 CREATE TABLE IF NOT EXISTS client_services (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-    company_code TEXT NOT NULL,      -- matches pricing_data.json key / CRM code
-    service_type TEXT NOT NULL,      -- 'permanent_it','infosec','erp','grc','projects','helpdesk'
+    company_code TEXT NOT NULL,
+    service_type TEXT NOT NULL,
     monthly_revenue REAL DEFAULT 0,
     is_active INTEGER DEFAULT 1,
     notes TEXT DEFAULT ''
@@ -244,51 +660,51 @@ CREATE TABLE IF NOT EXISTS client_services (
 CREATE INDEX IF NOT EXISTS idx_client_services_company ON client_services(company_id);
 CREATE INDEX IF NOT EXISTS idx_client_services_type ON client_services(service_type);
 
--- Leads (potential customers before conversion)
+-- Leads
 CREATE TABLE IF NOT EXISTS leads (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     company_name TEXT NOT NULL,
     contact_name TEXT,
     email TEXT,
     phone TEXT,
-    source TEXT DEFAULT '',              -- website, linkedin, referral, cold_call, exhibition, other
-    status TEXT DEFAULT 'new',           -- new, contacted, qualified, unqualified, converted
-    priority TEXT DEFAULT 'medium',      -- low, medium, high
+    source TEXT DEFAULT '',
+    status TEXT DEFAULT 'new',
+    priority TEXT DEFAULT 'medium',
     estimated_value REAL DEFAULT 0,
     estimated_users INTEGER DEFAULT 0,
     industry TEXT DEFAULT '',
     website TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     assigned_to INTEGER REFERENCES users(id),
-    converted_at TEXT,
+    converted_at TIMESTAMP,
     converted_company_id INTEGER REFERENCES companies(id),
     converted_contact_id INTEGER REFERENCES contacts(id),
     converted_deal_id INTEGER REFERENCES deals(id),
     created_by INTEGER REFERENCES users(id),
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Tasks / Calendar
+-- Tasks
 CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
-    status TEXT DEFAULT 'todo',             -- todo, in_progress, done, cancelled
-    priority TEXT DEFAULT 'medium',         -- low, medium, high, urgent
-    due_date TEXT,                          -- YYYY-MM-DD
-    due_time TEXT,                          -- HH:MM (optional)
-    reminder_at TEXT,                       -- datetime for reminder
-    category TEXT DEFAULT 'general',        -- general, call, meeting, email, follow_up, deadline
+    status TEXT DEFAULT 'todo',
+    priority TEXT DEFAULT 'medium',
+    due_date TEXT,
+    due_time TEXT,
+    reminder_at TIMESTAMP,
+    category TEXT DEFAULT 'general',
     company_id INTEGER REFERENCES companies(id),
     contact_id INTEGER REFERENCES contacts(id),
     deal_id INTEGER REFERENCES deals(id),
     lead_id INTEGER REFERENCES leads(id),
     assigned_to INTEGER REFERENCES users(id),
     created_by INTEGER REFERENCES users(id),
-    completed_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date);
@@ -298,7 +714,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_deal ON tasks(deal_id);
 
 -- Contracts
 CREATE TABLE IF NOT EXISTS contracts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     contract_name TEXT,
     counterparty TEXT,
     contract_type TEXT DEFAULT 'other',
@@ -316,136 +732,77 @@ CREATE INDEX IF NOT EXISTS idx_contracts_end_date ON contracts(end_date);
 
 -- Cost model audit log
 CREATE TABLE IF NOT EXISTS cost_model_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     table_name TEXT NOT NULL,
     record_id INTEGER,
-    action TEXT NOT NULL,            -- 'update','insert','delete'
+    action TEXT NOT NULL,
     old_value TEXT,
     new_value TEXT,
     changed_by INTEGER REFERENCES users(id),
-    changed_at TEXT DEFAULT (datetime('now'))
+    changed_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Lead Assignment Rules
 CREATE TABLE IF NOT EXISTS lead_assignment_rules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     conditions TEXT DEFAULT '{}',
     assign_to INTEGER REFERENCES users(id),
     assign_method TEXT DEFAULT 'direct',
     priority INTEGER DEFAULT 0,
     is_active INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Deal Team Members
 CREATE TABLE IF NOT EXISTS deal_team_members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     deal_id INTEGER REFERENCES deals(id),
     user_id INTEGER REFERENCES users(id),
     role TEXT DEFAULT 'member',
-    added_at TEXT DEFAULT (datetime('now')),
+    added_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(deal_id, user_id)
+);
+
+-- Token blacklist
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    token TEXT PRIMARY KEY,
+    blacklisted_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP
 );
 """
 
 
-def get_db_path():
-    """Return absolute path to the database."""
-    if os.path.isabs(DB_PATH):
-        return DB_PATH
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, DB_PATH)
-
-
-def get_connection():
-    """Create a new SQLite connection with WAL mode."""
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path, timeout=10)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-@contextmanager
-def get_db():
-    """Context manager for database connections."""
-    conn = get_connection()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
 def init_db():
     """Initialize database schema."""
-    db_path = get_db_path()
-    logger.info("Initializing CRM database at %s", db_path)
+    logger.info("Initializing CRM database (PostgreSQL)")
 
     with get_db() as conn:
+        # Execute schema — use executescript which handles savepoints
         conn.executescript(SCHEMA_SQL)
 
-        # Migrations — add missing columns safely
-        try:
-            conn.execute("SELECT category FROM companies LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE companies ADD COLUMN category TEXT DEFAULT ''")
-            logger.info("Migration: added 'category' column to companies")
+        # Migrations — add missing columns safely using savepoints
+        def safe_add_column(table, column, col_type):
+            cursor = conn._conn.cursor()
+            try:
+                cursor.execute(f"SAVEPOINT sp_col_{table}_{column}")
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                cursor.execute(f"RELEASE SAVEPOINT sp_col_{table}_{column}")
+                logger.info("Migration: added '%s' column to %s", column, table)
+            except Exception as e:
+                cursor.execute(f"ROLLBACK TO SAVEPOINT sp_col_{table}_{column}")
+                cursor.execute(f"RELEASE SAVEPOINT sp_col_{table}_{column}")
+                if 'already exists' not in str(e).lower() and 'duplicate' not in str(e).lower():
+                    logger.debug("Column %s.%s already exists or skipped: %s", table, column, e)
 
-        # Migration: add user fields to deals table
-        try:
-            conn.execute("SELECT assigned_to FROM deals LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE deals ADD COLUMN assigned_to INTEGER DEFAULT NULL REFERENCES users(id)")
-            logger.info("Migration: added 'assigned_to' column to deals")
-
-        try:
-            conn.execute("SELECT created_by FROM deals LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE deals ADD COLUMN created_by INTEGER DEFAULT NULL REFERENCES users(id)")
-            logger.info("Migration: added 'created_by' column to deals")
-
-        # Migration: add email column to users
-        try:
-            conn.execute("SELECT email FROM users LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
-            # Set email = username for existing users as fallback
-            conn.execute("UPDATE users SET email = username WHERE email = '' OR email IS NULL")
-            logger.info("Migration: added 'email' column to users")
-
-        # Migration: add effective_date to price_changes
-        try:
-            conn.execute("SELECT effective_date FROM price_changes LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE price_changes ADD COLUMN effective_date TEXT DEFAULT NULL")
-            logger.info("Migration: added 'effective_date' column to price_changes")
-
-        # Migration: add user_count to companies
-        try:
-            conn.execute("SELECT user_count FROM companies LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE companies ADD COLUMN user_count INTEGER DEFAULT 0")
-            logger.info("Migration: added 'user_count' column to companies")
-
-        # Migration: add cost_code to companies (short code matching pricing_data.json)
-        try:
-            conn.execute("SELECT cost_code FROM companies LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE companies ADD COLUMN cost_code TEXT DEFAULT ''")
-            logger.info("Migration: added 'cost_code' column to companies")
-
-        # Migration: add calendar_token to users (for ICS feed)
-        try:
-            conn.execute("SELECT calendar_token FROM users LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE users ADD COLUMN calendar_token TEXT DEFAULT NULL")
-            logger.info("Migration: added 'calendar_token' column to users")
+        safe_add_column("companies", "category", "TEXT DEFAULT ''")
+        safe_add_column("deals", "assigned_to", "INTEGER DEFAULT NULL REFERENCES users(id)")
+        safe_add_column("deals", "created_by", "INTEGER DEFAULT NULL REFERENCES users(id)")
+        safe_add_column("users", "email", "TEXT DEFAULT ''")
+        safe_add_column("price_changes", "effective_date", "TEXT DEFAULT NULL")
+        safe_add_column("companies", "user_count", "INTEGER DEFAULT 0")
+        safe_add_column("companies", "cost_code", "TEXT DEFAULT ''")
+        safe_add_column("users", "calendar_token", "TEXT DEFAULT NULL")
 
         # Seed pricing_parameters if empty
         params_count = conn.execute("SELECT COUNT(*) FROM pricing_parameters").fetchone()[0]
@@ -490,7 +847,6 @@ def init_db():
         # Seed employees if empty
         emp_count = conn.execute("SELECT COUNT(*) FROM cost_employees").fetchone()[0]
         if emp_count == 0:
-            # gross = net / (1-0.14), super_gross = gross * 1.175
             employees = [
                 ('IT', 'SysAdmin', 8, 2992.19, 0),
                 ('IT', 'NetAdmin', 8, 3538.82, 0),
@@ -515,7 +871,6 @@ def init_db():
         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if user_count == 0:
             import bcrypt, secrets as _sec
-            # Generate a random initial password instead of hardcoded default
             default_password = _sec.token_urlsafe(12)
             password_hash = bcrypt.hashpw(default_password.encode(), bcrypt.gensalt()).decode()
             conn.execute(
@@ -529,140 +884,28 @@ def init_db():
             logger.info("  CHANGE THIS PASSWORD IMMEDIATELY!")
             logger.info("=" * 50)
 
-        # Migration: create token_blacklist table for persistent logout
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS token_blacklist (
-                token TEXT PRIMARY KEY,
-                blacklisted_at TEXT DEFAULT (datetime('now')),
-                expires_at TEXT
-            )
-        """)
-
-        # Migration: create indexes for contracts table
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_contracts_counterparty ON contracts(counterparty)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_contracts_end_date ON contracts(end_date)")
-
-        # Migration: create offers table if missing
-        try:
-            conn.execute("SELECT id FROM offers LIMIT 1")
-        except Exception:
-            logger.info("Migration: creating offers table")
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS offers (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    offer_number TEXT NOT NULL,
-                    offer_type TEXT DEFAULT 'services',
-                    currency TEXT DEFAULT 'AZN',
-                    show_vat INTEGER DEFAULT 0,
-                    vat_pct REAL DEFAULT 18,
-                    view_mode TEXT DEFAULT 'detailed',
-                    company_id INTEGER REFERENCES companies(id),
-                    client_name TEXT DEFAULT '',
-                    client_voen TEXT DEFAULT '',
-                    client_contact TEXT DEFAULT '',
-                    client_contract TEXT DEFAULT '',
-                    notes TEXT DEFAULT '',
-                    status TEXT DEFAULT 'draft',
-                    items TEXT DEFAULT '[]',
-                    valid_until TEXT DEFAULT '',
-                    created_by INTEGER REFERENCES users(id),
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_offers_status ON offers(status);
-                CREATE INDEX IF NOT EXISTS idx_offers_company ON offers(company_id);
-            """)
-
-        # Migration: create leads table if missing
-        try:
-            conn.execute("SELECT id FROM leads LIMIT 1")
-        except Exception:
-            logger.info("Migration: creating leads table")
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS leads (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    company_name TEXT NOT NULL,
-                    contact_name TEXT,
-                    email TEXT,
-                    phone TEXT,
-                    source TEXT DEFAULT '',
-                    status TEXT DEFAULT 'new',
-                    priority TEXT DEFAULT 'medium',
-                    estimated_value REAL DEFAULT 0,
-                    estimated_users INTEGER DEFAULT 0,
-                    industry TEXT DEFAULT '',
-                    website TEXT DEFAULT '',
-                    notes TEXT DEFAULT '',
-                    assigned_to INTEGER REFERENCES users(id),
-                    converted_at TEXT,
-                    converted_company_id INTEGER REFERENCES companies(id),
-                    converted_contact_id INTEGER REFERENCES contacts(id),
-                    converted_deal_id INTEGER REFERENCES deals(id),
-                    created_by INTEGER REFERENCES users(id),
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
-                CREATE INDEX IF NOT EXISTS idx_leads_source ON leads(source);
-                CREATE INDEX IF NOT EXISTS idx_leads_assigned ON leads(assigned_to);
-            """)
-
-        # Migration: create tasks table if missing
-        try:
-            conn.execute("SELECT id FROM tasks LIMIT 1")
-        except Exception:
-            logger.info("Migration: creating tasks table")
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    description TEXT DEFAULT '',
-                    status TEXT DEFAULT 'todo',
-                    priority TEXT DEFAULT 'medium',
-                    due_date TEXT,
-                    due_time TEXT,
-                    reminder_at TEXT,
-                    category TEXT DEFAULT 'general',
-                    company_id INTEGER REFERENCES companies(id),
-                    contact_id INTEGER REFERENCES contacts(id),
-                    deal_id INTEGER REFERENCES deals(id),
-                    lead_id INTEGER REFERENCES leads(id),
-                    assigned_to INTEGER REFERENCES users(id),
-                    created_by INTEGER REFERENCES users(id),
-                    completed_at TEXT,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-                CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date);
-                CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON tasks(assigned_to);
-                CREATE INDEX IF NOT EXISTS idx_tasks_company ON tasks(company_id);
-                CREATE INDEX IF NOT EXISTS idx_tasks_deal ON tasks(deal_id);
-            """)
-
         # Track schema version
         conn.execute(
-            "INSERT OR REPLACE INTO crm_metadata (key, value) VALUES (?, ?)",
+            "INSERT INTO crm_metadata (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
             ("schema_version", str(SCHEMA_VERSION)),
         )
 
-    logger.info("CRM database initialized (v%d)", SCHEMA_VERSION)
+    logger.info("CRM database initialized (v%d) — PostgreSQL", SCHEMA_VERSION)
 
 
 def dict_from_row(row):
-    """Convert sqlite3.Row to dict."""
+    """Convert row to dict."""
     if row is None:
         return None
     return dict(row)
 
 
 def rows_to_dicts(rows):
-    """Convert list of sqlite3.Row to list of dicts."""
+    """Convert list of rows to list of dicts."""
     return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     init_db()
-    print("Database created at:", get_db_path())
+    print("Database initialized:", DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else DATABASE_URL)

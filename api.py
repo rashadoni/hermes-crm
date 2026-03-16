@@ -1068,6 +1068,17 @@ def _check_resource_access(user: dict, row: dict, owner_fields=("assigned_to", "
 
 # ─── Auth Endpoints ──────────────────────────────────────────
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for deployment verification."""
+    try:
+        with get_db() as conn:
+            conn.execute("SELECT 1")
+        return {"status": "ok", "database": "postgresql"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "error", "detail": str(e)})
+
+
 @app.post("/api/auth/login")
 async def login(request: Request):
     """Login endpoint with optional 2FA support."""
@@ -13785,10 +13796,8 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_
                       not any(_re.search(r'\b' + t + r'\b', sql_upper) for t in sensitive_tables)
             if is_safe:
                 try:
-                    import sqlite3 as _sqlite3
-                    # Use read-only connection to prevent any write operations
-                    ro_conn = _sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-                    ro_conn.row_factory = _sqlite3.Row
+                    from database import get_readonly_connection
+                    ro_conn = get_readonly_connection()
                     try:
                         rows = ro_conn.execute(sql).fetchall()
                         query_result = [dict(r) for r in rows[:100]]

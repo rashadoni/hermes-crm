@@ -15190,8 +15190,17 @@ async function saveNewCampaign() {
 async function sendCampaign(id) {
   if (!confirm(t('campaign_send_confirm'))) return;
   try {
-    await api.post('/api/campaigns/' + id + '/send', {});
-    showToast(t('campaign_sent'),'success');
+    const res = await api.post('/api/campaigns/' + id + '/send', {});
+    const data = res.data || res;
+    const count = data.count || 0;
+    const failed = data.failed || [];
+    const L = currentLang;
+    const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+    if (failed.length > 0) {
+      showToast(_t('Sent: '+count+', Failed: '+failed.join(', '), 'Отправлено: '+count+', Ошибка: '+failed.join(', '), 'Göndərildi: '+count+', Xəta: '+failed.join(', ')), 'warning');
+    } else {
+      showToast(_t('Campaign sent! Emails delivered: '+count, 'Кампания отправлена! Писем доставлено: '+count, 'Kampaniya göndərildi! Email sayı: '+count), 'success');
+    }
     closeModal();
     renderCampaigns(document.getElementById('app'));
   } catch(e) { showToast(e.message,'error'); }

@@ -8111,11 +8111,15 @@ async def delete_campaign(campaign_id: int, user=Depends(require_admin)):
 
 @app.post("/api/campaigns/{campaign_id}/send")
 async def send_campaign(campaign_id: int, request: Request, user=Depends(require_auth)):
-    """Simulated campaign send - marks recipients as sent with timestamps."""
+    """Send campaign emails to all recipients via SMTP."""
     with get_db() as conn:
         campaign = conn.execute("SELECT * FROM campaigns WHERE id=?", [campaign_id]).fetchone()
         if not campaign:
             _err("Campaign not found", 404)
+
+        campaign_name = campaign["name"] or "Campaign"
+        campaign_desc = campaign["description"] or ""
+        campaign_type = campaign["type"] or "email"
 
         # Populate recipients based on target_type
         if not conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]:
@@ -8124,14 +8128,13 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
             now = datetime.utcnow().isoformat() + "Z"
 
             if target_type == "custom":
-                # Use manually selected recipients from target_filter
                 try:
                     tf = _json.loads(campaign["target_filter"]) if campaign["target_filter"] else {}
                     selected = tf.get("selected_ids", [])
                     for r in selected:
                         conn.execute(
                             "INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at) VALUES (?,?,?,?,?,?)",
-                            [campaign_id, r.get("type","contact"), r.get("id",0), r.get("email",""), "sent", now]
+                            [campaign_id, r.get("type","contact"), r.get("id",0), r.get("email",""), "pending", now]
                         )
                 except Exception:
                     pass
@@ -8146,19 +8149,77 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
                 for rtype, rid, email in recipients:
                     conn.execute(
                         "INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at) VALUES (?,?,?,?,?,?)",
-                        [campaign_id, rtype, rid, email, "sent", now]
+                        [campaign_id, rtype, rid, email, "pending", now]
                     )
 
-        # Mark as sent
+        # Build email subject & body
+        subject = f"LeadDrive CRM: {campaign_name}"
+        body_html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:#1e1b4b;color:#fff;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+                <h1 style="margin:0;font-size:22px;">LeadDrive CRM</h1>
+            </div>
+            <div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;">
+                <h2 style="color:#1e1b4b;margin-top:0;">{campaign_name}</h2>
+                <p style="color:#475569;line-height:1.6;">{campaign_desc}</p>
+                <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+                <p style="color:#64748b;font-size:13px;">This email was sent via LeadDrive CRM campaign system.</p>
+            </div>
+            <div style="text-align:center;padding:12px;color:#94a3b8;font-size:11px;">
+                &copy; LeadDrive CRM &mdash; leaddrivecrm.org
+            </div>
+        </div>
+        """
+
+        # Actually send emails to each recipient
+        pending = conn.execute(
+            "SELECT id, email FROM campaign_recipients WHERE campaign_id=? AND (status='pending' OR status='sent')",
+            [campaign_id]
+        ).fetchall()
+
+        sent_count = 0
+        failed_emails = []
         now = datetime.utcnow().isoformat() + "Z"
+
+        for recip in pending:
+            recip_id = recip["id"]
+            recip_email = recip["email"]
+            if not recip_email:
+                continue
+            try:
+                success = await send_email(recip_email, subject, body_html)
+                if success:
+                    conn.execute(
+                        "UPDATE campaign_recipients SET status='sent', sent_at=? WHERE id=?",
+                        [now, recip_id]
+                    )
+                    sent_count += 1
+                else:
+                    conn.execute(
+                        "UPDATE campaign_recipients SET status='failed' WHERE id=?",
+                        [recip_id]
+                    )
+                    failed_emails.append(recip_email)
+            except Exception as e:
+                logger.error(f"Campaign {campaign_id}: failed to send to {recip_email}: {e}")
+                conn.execute(
+                    "UPDATE campaign_recipients SET status='failed' WHERE id=?",
+                    [recip_id]
+                )
+                failed_emails.append(recip_email)
+
+        # Mark campaign as sent
         total_recipients = conn.execute("SELECT COUNT(*) FROM campaign_recipients WHERE campaign_id=?", [campaign_id]).fetchone()[0]
         conn.execute(
-            """UPDATE campaigns SET status='sent', sent_at=?, sent_count=? WHERE id=?""",
-            [now, total_recipients, campaign_id]
+            """UPDATE campaigns SET status='sent', sent_at=?, sent_count=?, total_recipients=? WHERE id=?""",
+            [now, sent_count, total_recipients, campaign_id]
         )
 
     log_audit(user["user_id"], "send_campaign", "campaign", campaign_id, ip=_get_ip(request))
-    return _ok({"sent": True, "count": total_recipients})
+    result = {"sent": True, "count": sent_count, "total": total_recipients}
+    if failed_emails:
+        result["failed"] = failed_emails
+    return _ok(result)
 
 
 # ─── Workflow Automation ──────────────────────────────────────────

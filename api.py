@@ -11092,29 +11092,29 @@ async def toggle_portal_user(portal_user_id: int, user=Depends(require_admin)):
 # ─── AI Chat Agent for Portal (with Smart Actions + Session Tracking) ────
 
 def _ensure_ai_tables(conn):
-    """Create AI chat tables if they don't exist."""
+    """Create AI chat tables if they don't exist (PostgreSQL-native)."""
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS ai_chat_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             portal_user_id INTEGER,
             company_id INTEGER,
             messages_count INTEGER DEFAULT 0,
             tools_used TEXT DEFAULT '[]',
             resolved_without_human INTEGER DEFAULT 1,
             satisfaction INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             session_id INTEGER,
             role TEXT DEFAULT 'user',
             content TEXT DEFAULT '',
             tool_name TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_interaction_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             session_id INTEGER,
             message_index INTEGER DEFAULT 0,
             user_message TEXT DEFAULT '',
@@ -11134,10 +11134,10 @@ def _ensure_ai_tables(conn):
             root_cause TEXT DEFAULT '',
             root_cause_detail TEXT DEFAULT '',
             is_copilot INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             type TEXT DEFAULT '',
             severity TEXT DEFAULT 'warning',
             message TEXT DEFAULT '',
@@ -11145,10 +11145,10 @@ def _ensure_ai_tables(conn):
             log_id INTEGER,
             metadata TEXT DEFAULT '{}',
             is_read INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_agent_configs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             config_name TEXT DEFAULT 'default',
             is_active INTEGER DEFAULT 0,
             model TEXT DEFAULT 'claude-haiku-4-5-20251001',
@@ -11166,36 +11166,48 @@ def _ensure_ai_tables(conn):
             version INTEGER DEFAULT 1,
             notes TEXT DEFAULT '',
             created_by TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_agent_config_versions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             config_id INTEGER,
             version INTEGER,
             snapshot_json TEXT DEFAULT '{}',
             changed_by TEXT DEFAULT '',
             change_note TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_guardrails (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             rule_name TEXT DEFAULT '',
             rule_type TEXT DEFAULT 'restriction',
             description TEXT DEFAULT '',
             prompt_injection TEXT DEFAULT '',
             is_active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS ai_kb_topics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT DEFAULT '',
             description TEXT DEFAULT '',
             keywords TEXT DEFAULT '',
             is_active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
     """)
+    # Migrate TEXT date columns to TIMESTAMP if needed (one-time)
+    for tbl in ['ai_chat_sessions', 'ai_chat_messages', 'ai_interaction_logs',
+                'ai_alerts', 'ai_agent_configs', 'ai_agent_config_versions',
+                'ai_guardrails', 'ai_kb_topics']:
+        for col in ['created_at', 'updated_at']:
+            try:
+                conn.execute(f"""
+                    ALTER TABLE {tbl} ALTER COLUMN {col}
+                    TYPE TIMESTAMP USING {col}::TIMESTAMP
+                """)
+            except Exception:
+                pass  # Already TIMESTAMP or column doesn't exist
 
 
 def _migrate_ai_tables(conn):

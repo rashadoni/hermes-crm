@@ -43,8 +43,8 @@ jobs:
             echo "═══════════════════════════════════════════════"
             if ! command -v psql &> /dev/null; then
               echo "Installing PostgreSQL..."
-              apt-get update -qq
-              apt-get install -y -qq postgresql postgresql-contrib libpq-dev > /dev/null 2>&1
+              apt-get update -qq || true
+              apt-get install -y -qq postgresql postgresql-contrib libpq-dev || apt-get install -y postgresql postgresql-contrib libpq-dev
               systemctl enable postgresql
               systemctl start postgresql
               echo "✅ PostgreSQL installed"
@@ -54,11 +54,11 @@ jobs:
             fi
 
             # Create database and user (idempotent)
-            su - postgres -c "psql -tc \"SELECT 1 FROM pg_roles WHERE rolname='hermes'\" | grep -q 1 || psql -c \"CREATE ROLE hermes WITH LOGIN PASSWORD 'hermes';\"" 2>/dev/null
-            su - postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname='hermes_crm'\" | grep -q 1 || psql -c \"CREATE DATABASE hermes_crm OWNER hermes;\"" 2>/dev/null
-            su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE hermes_crm TO hermes;\"" 2>/dev/null
+            su - postgres -c "psql -tc \"SELECT 1 FROM pg_roles WHERE rolname='hermes'\" | grep -q 1 || psql -c \"CREATE ROLE hermes WITH LOGIN PASSWORD 'hermes';\"" 2>/dev/null || true
+            su - postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname='hermes_crm'\" | grep -q 1 || psql -c \"CREATE DATABASE hermes_crm OWNER hermes;\"" 2>/dev/null || true
+            su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE hermes_crm TO hermes;\"" 2>/dev/null || true
             # Grant schema permissions
-            su - postgres -c "psql -d hermes_crm -c \"GRANT ALL ON SCHEMA public TO hermes; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO hermes; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO hermes;\"" 2>/dev/null
+            su - postgres -c "psql -d hermes_crm -c \"GRANT ALL ON SCHEMA public TO hermes; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO hermes; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO hermes;\"" 2>/dev/null || true
             echo "✅ Database 'hermes_crm' and user 'hermes' ready"
 
             echo ""

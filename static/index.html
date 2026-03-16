@@ -5890,12 +5890,6 @@ async function renderCompanyList(el, mode) {
       return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900':''}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._leadsFilter='${key}';renderCompanyList(document.getElementById('app'),'client')">${label} <span class="opacity-70">(${count})</span></button>`;
     };
 
-    // Calculate source stats for mini-analytics
-    const srcStats = {};
-    leads.forEach(l => { const s = l.source || 'other'; srcStats[s] = (srcStats[s]||0)+1; });
-    const srcTotal = leads.length || 1;
-    const srcColors = {website:'#3b82f6',linkedin:'#0077b5',referral:'#22c55e',cold_call:'#f59e0b',exhibition:'#a855f7',partner:'#ec4899',other:'#64748b'};
-
     el.innerHTML = `
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">${t('nav_clients')} <span class="text-slate-500 text-lg font-normal">(${filtered.length})</span></h1>
@@ -5904,18 +5898,6 @@ async function renderCompanyList(el, mode) {
           <button class="btn btn-sm ${window._leadsView!=='kanban'?'btn-primary':'btn-secondary'}" onclick="window._leadsView='cards';renderCompanyList(document.getElementById('app'),'client')">▦ ${_i._g('ld_cards')}</button>
           <button class="btn btn-sm" style="background:#92400e;color:#fcd34d" onclick="openLeadModal()">+ ${t('leads_new')}</button>
           <button class="btn btn-sm" style="background:#1e3a5f;color:#60a5fa" onclick="openCreateGroupModal()">+ Qrup yarat</button>
-        </div>
-      </div>
-      <!-- Source mini-analytics bar -->
-      <div class="card mb-4 p-3">
-        <div class="flex items-center gap-3 text-xs">
-          <span class="text-slate-500 font-medium">${_i._g('ld_sources')}:</span>
-          <div class="flex-1 flex rounded overflow-hidden h-5">
-            ${Object.entries(srcStats).sort((a,b)=>b[1]-a[1]).map(([src,cnt]) =>
-              `<div style="width:${Math.max((cnt/srcTotal)*100,3)}%;background:${srcColors[src]||'#64748b'}" class="flex items-center justify-center text-white font-bold" title="${_leadSourceLabel(src)}: ${cnt}">${cnt>0?cnt:''}</div>`
-            ).join('')}
-          </div>
-          <span class="text-slate-600">${leads.length} ${_i._g('ld_total_leads')}</span>
         </div>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">

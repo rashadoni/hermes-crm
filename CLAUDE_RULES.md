@@ -1,4 +1,4 @@
-# Hermes CRM — Development Rules
+# LeadDrive CRM — Development Rules
 
 ## Deployment
 - **ALWAYS deploy via GitHub**: commit changes → `git push origin main` → GitHub Actions auto-deploys to server

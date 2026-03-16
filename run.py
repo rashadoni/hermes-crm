@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hermes CRM — Entry Point
+LeadDrive CRM — Entry Point
 ==========================
 Starts the CRM web server with database initialization.
 
@@ -28,7 +28,7 @@ logger = logging.getLogger("hermes-crm")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Hermes CRM Server")
+    parser = argparse.ArgumentParser(description="LeadDrive CRM Server")
     parser.add_argument("--port", type=int, default=int(os.getenv("CRM_PORT", "8766")))
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--sync", action="store_true", help="Run email sync only")
@@ -50,7 +50,7 @@ def main():
 
     # Start web server
     logger.info("=" * 50)
-    logger.info("  Hermes CRM starting on port %d", args.port)
+    logger.info("  LeadDrive CRM starting on port %d", args.port)
     logger.info("  Dashboard: http://localhost:%d", args.port)
     logger.info("=" * 50)
 

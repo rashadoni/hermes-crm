@@ -1,7 +1,7 @@
 """
 External REST API v1 — API Key Authentication + Webhooks
 ==========================================================
-Provides external access to Hermes CRM data via API keys.
+Provides external access to LeadDrive CRM data via API keys.
 Mount this router in the main api.py.
 """
 
@@ -879,7 +879,7 @@ async def v1_search(q: str = Query(..., min_length=2), api_key=Depends(require_s
 async def v1_info():
     """API information and available endpoints."""
     return _ok({
-        "api": "Hermes CRM External API",
+        "api": "LeadDrive CRM External API",
         "version": "v1",
         "auth": "X-API-Key header",
         "docs": "https://hermescrm.xyz/api/v1/docs",

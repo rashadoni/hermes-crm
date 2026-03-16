@@ -9,7 +9,7 @@ NOREPLY_EMAIL="noreply@hermescrm.xyz"
 SERVER_IP="178.156.249.177"
 
 echo "========================================"
-echo "Hermes CRM Mail Setup"
+echo "LeadDrive CRM Mail Setup"
 echo "Domain: $DOMAIN"
 echo "Server IP: $SERVER_IP"
 echo "========================================"
@@ -86,9 +86,9 @@ echo ""
 # Test send email
 TEST_EMAIL_FILE="/tmp/test_email_$$.txt"
 cat > "$TEST_EMAIL_FILE" <<EOF
-Subject: Hermes CRM Mail Test
+Subject: LeadDrive CRM Mail Test
 
-This is a test email from Hermes CRM mail setup on $DOMAIN.
+This is a test email from LeadDrive CRM mail setup on $DOMAIN.
 If you received this, your mail server is working correctly.
 
 ---
@@ -104,7 +104,7 @@ else
     echo "To test email sending, run:"
     echo "  echo 'Test' | sendmail -v your-email@example.com"
     echo ""
-    echo "Or use the Hermes CRM API endpoint:"
+    echo "Or use the LeadDrive CRM API endpoint:"
     echo "  POST /api/channels/test-email"
     echo "  Body: {\"to\": \"your-email@example.com\", \"subject\": \"Test\", \"body\": \"Test message\"}"
 fi
@@ -117,7 +117,7 @@ echo "Setup Complete!"
 echo "========================================"
 echo ""
 echo "Postfix is running and configured for $DOMAIN"
-echo "You can now send emails via the Hermes CRM API:"
+echo "You can now send emails via the LeadDrive CRM API:"
 echo ""
 echo "Environment variables needed in .env:"
 echo "  SMTP_HOST=localhost"

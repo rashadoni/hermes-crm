@@ -52,7 +52,7 @@ from models import Contact, Company, Deal, Activity, EmailSyncLog, PIPELINE_STAG
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Hermes CRM", version="1.0.0")
+app = FastAPI(title="LeadDrive CRM", version="1.0.0")
 
 # Include external API v1 router
 app.include_router(external_api_router)
@@ -519,7 +519,7 @@ async def startup_event():
 
                 # Insert steps for Welcome Series
                 conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
-                    (seq_id_1, 1, 0, 'email', 'Welcome to Hermes CRM'))
+                    (seq_id_1, 1, 0, 'email', 'Welcome to LeadDrive CRM'))
                 conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
                     (seq_id_1, 2, 3, 'email', 'Getting started guide'))
                 conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
@@ -1157,7 +1157,7 @@ async def setup_2fa(user=Depends(require_auth)):
         conn.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (secret, uid))
         email = row["email"] if row else "user"
         totp = pyotp.TOTP(secret)
-        uri = totp.provisioning_uri(name=email, issuer_name="Hermes CRM")
+        uri = totp.provisioning_uri(name=email, issuer_name="LeadDrive CRM")
         # Generate QR code as base64
         img = qrcode.make(uri)
         buf = io.BytesIO()
@@ -1463,7 +1463,7 @@ async def dashboard():
     index_path = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return HTMLResponse("<h1>Hermes CRM</h1><p>Dashboard loading...</p>")
+    return HTMLResponse("<h1>LeadDrive CRM</h1><p>Dashboard loading...</p>")
 
 
 # ─── Contacts ────────────────────────────────────────────────
@@ -2561,7 +2561,7 @@ async def calendar_ics_feed(token: str):
     cal_lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//Hermes CRM//Tasks//EN",
+        "PRODID:-//LeadDrive CRM//Tasks//EN",
         "CALSCALE:GREGORIAN",
     ]
 
@@ -4479,7 +4479,7 @@ async def _handle_send_email(conn, enrollment, config):
             logger.warning(f"No email address for {table} {entity_id}")
             return
 
-        subject = config.get("subject") or config.get("email_subject", "Message from Hermes CRM")
+        subject = config.get("subject") or config.get("email_subject", "Message from LeadDrive CRM")
         body = config.get("body") or config.get("email_body", "Hello!")
 
         # Template substitution with multiple formats
@@ -4523,7 +4523,7 @@ async def _handle_send_sms(conn, enrollment, config):
             logger.warning(f"No phone number for {table} {entity_id}")
             return
 
-        message = config.get("message") or config.get("sms_message", "Hello from Hermes CRM!")
+        message = config.get("message") or config.get("sms_message", "Hello from LeadDrive CRM!")
 
         # Template substitution
         name = entity_dict.get("full_name") or entity_dict.get("contact_name", "")
@@ -7484,7 +7484,7 @@ async def web_lead_form_config():
             {"name": "message", "label": "Message", "type": "textarea", "required": False}
         ],
         "submit_url": f"{BASE_URL}/api/public/leads",
-        "branding": "Hermes CRM"
+        "branding": "LeadDrive CRM"
     })
 
 
@@ -8465,7 +8465,7 @@ async def sync_cbar_rates(user=Depends(require_admin)):
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
-            req = urllib.request.Request(url, headers={"User-Agent": "HermesCRM/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "LeadDriveCRM/1.0"})
             with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
                 xml_text = r.read().decode("utf-8")
         except Exception as e2:
@@ -8521,7 +8521,7 @@ async def send_email_from_crm(request: Request, user=Depends(require_auth)):
         _err("SMTP not configured", 400)
 
     from_addr = smtp["sender_email"] or smtp["smtp_user"]
-    from_name = smtp["sender_name"] or "Hermes CRM"
+    from_name = smtp["sender_name"] or "LeadDrive CRM"
     status = "sent"
 
     try:
@@ -8992,7 +8992,7 @@ async def send_channel_message(request: Request, user=Depends(require_auth)):
             delivery_error = None
 
             if channel_type == "email" and recipient_email:
-                subj = subject or "Сообщение от Hermes CRM"
+                subj = subject or "Сообщение от LeadDrive CRM"
                 body_html = content if "<" in content else f"<html><body><p>{content}</p></body></html>"
                 success = await send_email(recipient_email, subj, body_html)
                 delivery_status = "sent" if success else "failed"
@@ -9048,14 +9048,14 @@ async def test_email(request: Request, user=Depends(require_auth)):
     try:
         data = await request.json()
         to_email = data.get("to", "").strip()
-        subject = data.get("subject", "Test Email from Hermes CRM").strip()
-        body_text = data.get("body", "This is a test email from Hermes CRM.").strip()
+        subject = data.get("subject", "Test Email from LeadDrive CRM").strip()
+        body_text = data.get("body", "This is a test email from LeadDrive CRM.").strip()
 
         if not to_email or not _validate_email(to_email):
             return _err("Valid email address required", 400)
 
         # Send HTML email
-        body_html = f"<html><body><h2>Test Email</h2><p>{body_text}</p><hr><p>Sent from Hermes CRM</p></body></html>"
+        body_html = f"<html><body><h2>Test Email</h2><p>{body_text}</p><hr><p>Sent from LeadDrive CRM</p></body></html>"
         success = await send_email(to_email, subject, body_html)
 
         if success:
@@ -9092,7 +9092,7 @@ async def debug_email(request: Request, user=Depends(require_auth)):
         smtp_from = os.getenv("SMTP_FROM", "NOT_SET")
         env_info = {"host": smtp_host, "port": smtp_port, "user": smtp_user, "pass_set": bool(smtp_pass and smtp_pass != "NOT_SET"), "from": smtp_from}
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Debug Test from Hermes CRM"
+        msg["Subject"] = "Debug Test from LeadDrive CRM"
         msg["From"] = smtp_from
         msg["To"] = to
         msg.attach(MIMEText("<html><body><p>Debug email test</p></body></html>", "html"))
@@ -9121,7 +9121,7 @@ async def test_sms(request: Request, user=Depends(require_auth)):
     try:
         data = await request.json()
         to_number = data.get("to", "").strip()
-        message = data.get("message", "Test SMS from Hermes CRM").strip()
+        message = data.get("message", "Test SMS from LeadDrive CRM").strip()
 
         if not to_number or not to_number.startswith("+"):
             return _err("Valid phone number with + prefix required", 400)
@@ -9182,7 +9182,7 @@ async def telegram_webhook(bot_token: str, request: Request):
             # Handle /start command with deep-link for auto-linking lead/contact
             if text_content.startswith("/start"):
                 parts = text_content.split()
-                link_msg = "Добро пожаловать! Вы подключены к Hermes CRM."
+                link_msg = "Добро пожаловать! Вы подключены к LeadDrive CRM."
                 if len(parts) > 1:
                     payload = parts[1]  # e.g. "lead_38" or "contact_5"
                     if payload.startswith("lead_"):
@@ -9205,7 +9205,7 @@ async def telegram_webhook(bot_token: str, request: Request):
                                         [lid, str(chat_id), sender_name]
                                     )
                                 conn.commit()
-                                link_msg = f"Привет, {lead[0]}! Ваш Telegram привязан к Hermes CRM. Теперь вы будете получать сообщения здесь."
+                                link_msg = f"Привет, {lead[0]}! Ваш Telegram привязан к LeadDrive CRM. Теперь вы будете получать сообщения здесь."
                         except (ValueError, TypeError):
                             pass
                     elif payload.startswith("contact_"):
@@ -9227,7 +9227,7 @@ async def telegram_webhook(bot_token: str, request: Request):
                                         [cid, str(chat_id), sender_name]
                                     )
                                 conn.commit()
-                                link_msg = f"Привет, {contact[0]}! Ваш Telegram привязан к Hermes CRM."
+                                link_msg = f"Привет, {contact[0]}! Ваш Telegram привязан к LeadDrive CRM."
                         except (ValueError, TypeError):
                             pass
                 else:
@@ -9343,7 +9343,7 @@ async def telegram_quick_setup(request: Request, user=Depends(require_admin)):
     try:
         data = await request.json()
         bot_token = data.get("bot_token", "").strip()
-        config_name = data.get("config_name", "Hermes CRM Bot").strip()
+        config_name = data.get("config_name", "LeadDrive CRM Bot").strip()
 
         if not bot_token:
             return _err("bot_token required", 400)
@@ -10220,21 +10220,21 @@ async def test_smtp_settings(request: Request, user=Depends(require_auth)):
         password = row["smtp_password"]
         use_tls = bool(row["smtp_use_tls"])
         sender_email = row["sender_email"] or username
-        sender_name = row["sender_name"] or "Hermes CRM"
+        sender_name = row["sender_name"] or "LeadDrive CRM"
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Hermes CRM — Test Email"
+        msg["Subject"] = "LeadDrive CRM — Test Email"
         msg["From"] = f"{sender_name} <{sender_email}>"
         msg["To"] = test_to
 
         html_body = """
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
             <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
-                <h1 style="color:#fff;margin:0;">Hermes CRM</h1>
+                <h1 style="color:#fff;margin:0;">LeadDrive CRM</h1>
             </div>
             <div style="background:#1e293b;padding:30px;border-radius:0 0 12px 12px;color:#e2e8f0;">
-                <p>This is a test email from Hermes CRM.</p>
+                <p>This is a test email from LeadDrive CRM.</p>
                 <p>If you received this message, your SMTP settings are configured correctly!</p>
                 <p style="color:#94a3b8;font-size:12px;margin-top:20px;">Sent at: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC") + """</p>
             </div>
@@ -11231,7 +11231,7 @@ AI_TOOLS = [
 ]
 
 # Default system prompt template (used when no custom template configured)
-DEFAULT_SYSTEM_PROMPT_TEMPLATE = """You are Hermes AI Assistant — a helpful, professional support agent for the Hermes CRM client portal.
+DEFAULT_SYSTEM_PROMPT_TEMPLATE = """You are LeadDrive AI Assistant — a helpful, professional support agent for the LeadDrive CRM client portal.
 
 CAPABILITIES (use tools when appropriate):
 - get_tickets: Look up user's support tickets, check status
@@ -13558,7 +13558,7 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_
   "metadata": {{
     "date": "{datetime.now().strftime('%Y-%m-%d')}",
     "prepared_for": "Client name",
-    "prepared_by": "Hermes CRM"
+    "prepared_by": "LeadDrive CRM"
   }}
 }}
 

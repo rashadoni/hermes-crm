@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hermes CRM</title>
+<title>LeadDrive CRM</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
@@ -203,7 +203,7 @@
 <nav role="navigation" class="fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-700">
   <div class="max-w-7xl mx-auto px-4 flex items-center h-14">
     <div class="flex items-center gap-2 mr-6">
-      <span class="text-xl font-bold text-indigo-400">Hermes</span>
+      <span class="text-xl font-bold text-indigo-400">LeadDrive</span>
       <span class="text-sm text-slate-400">CRM</span>
     </div>
     <button class="hamburger p-2 rounded-lg hover:bg-slate-800" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">
@@ -323,7 +323,7 @@
 const translations = {
   en: {
     // Auth
-    login_title: 'Hermes CRM Login',
+    login_title: 'LeadDrive CRM Login',
     login_username: 'Email',
     login_password: 'Password',
     change_password: 'Change Password',
@@ -1106,7 +1106,7 @@ const translations = {
 },
   ru: {
     // Auth
-    login_title: 'Вход в Hermes CRM',
+    login_title: 'Вход в LeadDrive CRM',
     login_username: 'Email',
     login_password: 'Пароль',
     change_password: 'Сменить пароль',
@@ -1887,7 +1887,7 @@ const translations = {
 },
   az: {
     // Auth
-    login_title: 'Hermes CRM Girişi',
+    login_title: 'LeadDrive CRM Girişi',
     login_username: 'Email',
     login_password: 'Parol',
     change_password: 'Parolu dəyiş',
@@ -2900,7 +2900,7 @@ function renderLoginPage() {
     <div class="flex items-center justify-center min-h-screen">
       <div class="card p-8 w-full max-w-md">
         <h1 class="text-3xl font-bold text-center mb-2 text-indigo-400">${t('login_title')}</h1>
-        <p class="text-slate-500 text-center mb-6 text-sm">Hermes CRM</p>
+        <p class="text-slate-500 text-center mb-6 text-sm">LeadDrive CRM</p>
         <form onsubmit="onLoginSubmit(event)">
           <div class="mb-4">
             <label class="block text-sm text-slate-400 mb-2">${t('login_username')}</label>
@@ -16712,7 +16712,7 @@ async function renderSmtpSettings(el) {
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_email') + '</label>';
   html += '<input id="smtpSenderEmail" class="form-input w-full" placeholder="your@gmail.com"></div>';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_name') + '</label>';
-  html += '<input id="smtpSenderName" class="form-input w-full" placeholder="Hermes CRM"></div>';
+  html += '<input id="smtpSenderName" class="form-input w-full" placeholder="LeadDrive CRM"></div>';
   html += '</div>';
   
   // Save button
@@ -19065,12 +19065,12 @@ async function onLeadDrop(e, newStatus) {
         let h='';
         if(type==='send_email'){
             h+=`<label style="color:#94a3b8;font-size:12px">Тема письма</label>`;
-            h+=`<input id="stepEmailSubject" placeholder="Добро пожаловать в Hermes CRM!" style="${_jbx.inp}">`;
+            h+=`<input id="stepEmailSubject" placeholder="Добро пожаловать в LeadDrive CRM!" style="${_jbx.inp}">`;
             h+=`<label style="color:#94a3b8;font-size:12px">Текст письма · Переменные: {{contact_name}}, {{company_name}}</label>`;
             h+=_richEditor('stepEmailBody','Здравствуйте, {{contact_name}}!\n\nМы рады приветствовать вас...');
         } else if(type==='send_sms'){
             h+=`<label style="color:#94a3b8;font-size:12px">Текст SMS · Переменные: {{contact_name}}, {{company_name}}</label>`;
-            h+=`<textarea id="stepSmsMsg" rows="3" placeholder="{{contact_name}}, спасибо за интерес к Hermes CRM!" style="${_jbx.inp};resize:vertical"></textarea>`;
+            h+=`<textarea id="stepSmsMsg" rows="3" placeholder="{{contact_name}}, спасибо за интерес к LeadDrive CRM!" style="${_jbx.inp};resize:vertical"></textarea>`;
             h+=`<div style="color:#64748b;font-size:11px">Макс. 160 символов для 1 SMS. Отправка через Twilio.</div>`;
         } else if(type==='wait'){
             h+=`<label style="color:#94a3b8;font-size:12px">Длительность ожидания</label>`;

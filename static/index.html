@@ -15791,55 +15791,113 @@ async function showNurtureForm(seqId) {
   if (seqId) {
     try { const r = await api.get('/api/nurture-sequences/'+seqId); seq = r.data||r; } catch(e){}
   }
-  // Get templates for dropdown
   let templates = [];
   try { const r = await api.get('/api/email-templates'); templates = r.data||r||[]; } catch(e){}
 
+  const triggerLabels = {
+    lead_created: {icon:'⚡',en:'Lead Created',ru:'Лид создан',az:'Lid yaradıldı'},
+    lead_status_changed: {icon:'🔄',en:'Status Changed',ru:'Статус изменён',az:'Status dəyişdi'},
+    form_submitted: {icon:'📋',en:'Form Submitted',ru:'Форма отправлена',az:'Forma göndərildi'}
+  };
+
   const app = document.getElementById('app');
   app.innerHTML = `
-    <div class="p-6 max-w-3xl">
+    <style>
+      .nur-timeline { position: relative; padding-left: 40px; }
+      .nur-timeline::before { content:''; position:absolute; left:18px; top:24px; bottom:24px; width:2px; background: linear-gradient(to bottom, #6366f1, #6366f1 60%, #334155 60%); border-radius:2px; }
+      .nur-step-card { position:relative; margin-bottom:16px; transition: all .2s; }
+      .nur-step-card:hover { transform: translateX(4px); }
+      .nur-step-dot { position:absolute; left:-31px; top:18px; width:14px; height:14px; border-radius:50%; border:2px solid #6366f1; background:#0f172a; z-index:1; display:flex; align-items:center; justify-content:center; }
+      .nur-step-dot-inner { width:6px; height:6px; border-radius:50%; background:#6366f1; }
+      .nur-day-badge { position:absolute; left:-70px; top:14px; background:#1e1b4b; color:#a5b4fc; font-size:11px; font-weight:600; padding:2px 8px; border-radius:12px; white-space:nowrap; }
+      .nur-action-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+      .nur-action-email { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+      .nur-action-task { background: linear-gradient(135deg, #065f46, #10b981); }
+      .nur-action-notification { background: linear-gradient(135deg, #92400e, #f59e0b); }
+      .nur-toggle { position:relative; width:44px; height:24px; border-radius:12px; cursor:pointer; transition:background .2s; }
+      .nur-toggle input { display:none; }
+      .nur-toggle-slider { position:absolute; inset:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .2s; }
+      .nur-toggle input:checked ~ .nur-toggle-slider { transform:translateX(20px); }
+      .nur-toggle.active { background:#22c55e; }
+      .nur-toggle.inactive { background:#475569; }
+    </style>
+    <div class="p-6 max-w-4xl mx-auto">
       <div class="flex items-center gap-3 mb-6">
-        <button class="text-slate-400 hover:text-white" onclick="navigate('nurturing')">← ${t('nur_title')}</button>
-        <h1 class="text-xl font-bold">${seqId ? _t('Edit Sequence','Ред. цепочку','Zənciri redaktə et') : t('nur_new')}</h1>
+        <button class="text-slate-400 hover:text-white flex items-center gap-1 text-sm" onclick="navigate('nurturing')">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          ${t('nur_title')}
+        </button>
       </div>
-      <form onsubmit="saveNurtureSeq(event, ${seqId||'null'})" class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label>
-            <input type="text" id="nurName" value="${esc(seq.name)}" required class="w-full">
+
+      <form onsubmit="saveNurtureSeq(event, ${seqId||'null'})">
+        <!-- Header card -->
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 mb-6">
+          <div class="flex items-start justify-between mb-5">
+            <h1 class="text-xl font-bold">${seqId ? _t('Edit Sequence','Редактировать цепочку','Zənciri redaktə et') : t('nur_new')}</h1>
+            <label class="nur-toggle ${seq.is_active?'active':'inactive'}" title="${_t('Active','Активна','Aktiv')}">
+              <input type="checkbox" id="nurActive" ${seq.is_active?'checked':''} onchange="this.parentElement.className='nur-toggle '+(this.checked?'active':'inactive')">
+              <div class="nur-toggle-slider"></div>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">${_t('Sequence name','Название цепочки','Zəncir adı')} *</label>
+              <input type="text" id="nurName" value="${esc(seq.name)}" required class="w-full" placeholder="${_t('e.g. New lead onboarding','Например: Онбординг нового лида','Məs: Yeni lid onboarding')}">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 mb-1 block">${_t('Trigger event','Событие-триггер','Tetikleyici hadisə')}</label>
+              <select id="nurTrigger" class="w-full">
+                ${Object.entries(triggerLabels).map(([k,v])=>'<option value="'+k+'" '+(seq.trigger_event===k?'selected':'')+'>'+v.icon+' '+(L==='ru'?v.ru:L==='az'?v.az:v.en)+'</option>').join('')}
+              </select>
+            </div>
           </div>
           <div>
-            <label class="text-xs text-slate-500">${t('nur_trigger')}</label>
-            <select id="nurTrigger" class="w-full text-sm">
-              <option value="lead_created" ${seq.trigger_event==='lead_created'?'selected':''}>${_t('Lead Created','Лид создан','Lid yaradıldı')}</option>
-              <option value="lead_status_changed" ${seq.trigger_event==='lead_status_changed'?'selected':''}>${_t('Status Changed','Статус изменён','Status dəyişdi')}</option>
-              <option value="form_submitted" ${seq.trigger_event==='form_submitted'?'selected':''}>${_t('Form Submitted','Форма отправлена','Forma göndərildi')}</option>
-            </select>
+            <label class="text-xs text-slate-500 mb-1 block">${_t('Description','Описание','Təsvir')}</label>
+            <textarea id="nurDesc" rows="2" class="w-full" placeholder="${_t('What this sequence does...','Что делает эта цепочка...','Bu zəncir nə edir...')}">${esc(seq.description||'')}</textarea>
           </div>
         </div>
-        <div>
-          <label class="text-xs text-slate-500">${_t('Description','Описание','Təsvir')}</label>
-          <textarea id="nurDesc" rows="2" class="w-full">${esc(seq.description||'')}</textarea>
-        </div>
-        <div class="bg-slate-800/50 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold">${t('nur_steps')}</h3>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="addNurtureStep()">+ ${_t('Add Step','Добавить шаг','Addım əlavə et')}</button>
+
+        <!-- Steps timeline -->
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 mb-6">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <h2 class="text-base font-semibold">${_t('Steps','Шаги цепочки','Addımlar')}</h2>
+              <p class="text-xs text-slate-500 mt-1">${_t('Each step runs after the specified number of days from the trigger','Каждый шаг выполняется через указанное число дней после триггера','Hər addım tetikleyicidən göstərilən gün sonra işləyir')}</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary flex items-center gap-1" onclick="addNurtureStep()">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/></svg>
+              ${_t('Add Step','Добавить шаг','Addım əlavə et')}
+            </button>
           </div>
-          <div id="nurtureStepsContainer">
+
+          <!-- Trigger start point -->
+          <div style="padding-left:40px;position:relative;margin-bottom:8px;">
+            <div style="position:absolute;left:15px;top:8px;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;">
+              <span style="font-size:10px">⚡</span>
+            </div>
+            <div class="text-xs text-indigo-400 font-semibold py-1">${_t('Trigger fires','Триггер срабатывает','Tetikleyici işləyir')}</div>
+          </div>
+
+          <div class="nur-timeline" id="nurtureStepsContainer">
             ${(seq.steps||[]).map((s,i) => _renderNurtureStepRow(i, s, templates)).join('')}
           </div>
+
+          ${(seq.steps||[]).length === 0 ? `
+            <div class="text-center py-8 text-slate-500">
+              <div style="font-size:32px;margin-bottom:8px">📬</div>
+              <p class="text-sm">${_t('No steps yet. Add your first step to start the sequence.','Шагов пока нет. Добавьте первый шаг.','Hələ addım yoxdur. İlk addımı əlavə edin.')}</p>
+            </div>
+          ` : ''}
         </div>
+
+        <!-- Save bar -->
         <div class="flex items-center gap-3">
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="nurActive" ${seq.is_active?'checked':''} class="accent-green-500"> ${t('nur_active')}</label>
-        </div>
-        <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Yadda saxla')}</button>
+          <button type="submit" class="btn btn-primary px-8">${_t('Save Sequence','Сохранить цепочку','Zənciri yadda saxla')}</button>
           <button type="button" class="btn btn-secondary" onclick="navigate('nurturing')">${_t('Cancel','Отмена','Ləğv et')}</button>
+          ${seqId ? `<button type="button" class="btn btn-sm ml-auto" style="color:#ef4444;border-color:#ef4444" onclick="deleteNurtureSeq(${seqId})">${_t('Delete','Удалить','Sil')}</button>` : ''}
         </div>
       </form>
     </div>`;
-  // Store templates globally for addNurtureStep
   window._nurtureTemplates = templates;
   window._nurtureStepIdx = (seq.steps||[]).length;
 }
@@ -15847,35 +15905,63 @@ async function showNurtureForm(seqId) {
 function _renderNurtureStepRow(idx, step, templates) {
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+  const actionType = step.action_type || 'email';
+  const actionIcons = {email:'✉️', task:'✅', notification:'🔔'};
+  const actionColors = {email:'nur-action-email', task:'nur-action-task', notification:'nur-action-notification'};
+  const actionLabels = {
+    email:{en:'Send Email',ru:'Отправить Email',az:'Email göndər'},
+    task:{en:'Create Task',ru:'Создать задачу',az:'Tapşırıq yarat'},
+    notification:{en:'Send Notification',ru:'Отправить уведомление',az:'Bildiriş göndər'}
+  };
+  const delayDays = step.delay_days || 0;
+  const dayLabel = L==='ru' ? (delayDays===0?'Сразу':'День '+delayDays) : L==='az' ? (delayDays===0?'Dərhal':'Gün '+delayDays) : (delayDays===0?'Immediately':'Day '+delayDays);
+
   return `
-    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-900 rounded" id="nurtureStep${idx}">
-      <span class="text-xs text-slate-500 w-6">#${idx+1}</span>
-      <div class="flex-1 grid grid-cols-4 gap-2" style="font-size:12px">
-        <div>
-          <label class="text-xs text-slate-600">${_t('Delay','Задержка','Gecikmə')}</label>
-          <input type="number" name="ns_delay_${idx}" value="${step.delay_days||0}" min="0" class="w-full text-xs"> 
-        </div>
-        <div>
-          <label class="text-xs text-slate-600">${t('nur_action')}</label>
-          <select name="ns_action_${idx}" class="w-full text-xs">
-            <option value="email" ${step.action_type==='email'?'selected':''}>Email</option>
-            <option value="task" ${step.action_type==='task'?'selected':''}>${_t('Task','Задача','Tapşırıq')}</option>
-            <option value="notification" ${step.action_type==='notification'?'selected':''}>${_t('Notification','Уведомление','Bildiriş')}</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-slate-600">${_t('Template','Шаблон','Şablon')}</label>
-          <select name="ns_template_${idx}" class="w-full text-xs">
-            <option value="">—</option>
-            ${templates.map(t => '<option value="'+t.id+'" '+(step.template_id==t.id?'selected':'')+'>'+esc(t.name)+'</option>').join('')}
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-slate-600">${_t('Task title','Заголовок','Başlıq')}</label>
-          <input type="text" name="ns_task_${idx}" value="${esc(step.task_title||'')}" class="w-full text-xs">
+    <div class="nur-step-card" id="nurtureStep${idx}">
+      <div class="nur-step-dot"><div class="nur-step-dot-inner"></div></div>
+      <div class="bg-slate-900/80 border border-slate-700/40 rounded-xl p-4 hover:border-indigo-500/30 transition-all">
+        <div class="flex items-start gap-3">
+          <div class="nur-action-icon ${actionColors[actionType]}">
+            ${actionIcons[actionType]}
+          </div>
+          <div class="flex-1 min-w-0">
+            <!-- Row 1: Day badge + Action type -->
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-bold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-full">${dayLabel}</span>
+              <span class="text-xs text-slate-500">#${idx+1}</span>
+            </div>
+            <!-- Row 2: Settings -->
+            <div class="grid gap-3" style="grid-template-columns: 80px 140px 1fr 1fr;">
+              <div>
+                <label class="text-[10px] text-slate-500 block mb-1">${_t('Delay (days)','Задержка (дни)','Gecikmə (gün)')}</label>
+                <input type="number" name="ns_delay_${idx}" value="${delayDays}" min="0" class="w-full text-sm" onchange="updateNurDayBadge(this,${idx})">
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-500 block mb-1">${_t('Action','Действие','Fəaliyyət')}</label>
+                <select name="ns_action_${idx}" class="w-full text-sm" onchange="updateNurActionIcon(this,${idx})">
+                  <option value="email" ${actionType==='email'?'selected':''}>✉️ Email</option>
+                  <option value="task" ${actionType==='task'?'selected':''}>✅ ${_t('Task','Задача','Tapşırıq')}</option>
+                  <option value="notification" ${actionType==='notification'?'selected':''}>🔔 ${_t('Notification','Уведомление','Bildiriş')}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-500 block mb-1">${_t('Email template','Шаблон письма','Email şablonu')}</label>
+                <select name="ns_template_${idx}" class="w-full text-sm">
+                  <option value="">${_t('— Select template —','— Выберите шаблон —','— Şablon seçin —')}</option>
+                  ${templates.map(t => '<option value="'+t.id+'" '+(step.template_id==t.id?'selected':'')+'>'+esc(t.name)+'</option>').join('')}
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-500 block mb-1">${_t('Subject / Title','Тема / Заголовок','Mövzu / Başlıq')}</label>
+                <input type="text" name="ns_task_${idx}" value="${esc(step.task_title||'')}" class="w-full text-sm" placeholder="${_t('Auto from template','Авто из шаблона','Şablondan avtomatik')}">
+              </div>
+            </div>
+          </div>
+          <button type="button" class="text-slate-600 hover:text-red-400 transition p-1 mt-1" onclick="document.getElementById('nurtureStep${idx}').remove()" title="${_t('Remove step','Удалить шаг','Addımı sil')}">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
-      <button type="button" class="text-red-400 text-xs" onclick="document.getElementById('nurtureStep${idx}').remove()">✕</button>
     </div>`;
 }
 
@@ -15886,6 +15972,30 @@ function addNurtureStep() {
   const div = document.createElement('div');
   div.innerHTML = _renderNurtureStepRow(idx, {}, window._nurtureTemplates || []);
   container.appendChild(div.firstElementChild);
+  // Remove empty state if present
+  const emptyState = container.parentElement.querySelector('.text-center.py-8');
+  if (emptyState) emptyState.remove();
+}
+
+function updateNurDayBadge(input, idx) {
+  const card = document.getElementById('nurtureStep'+idx);
+  if (!card) return;
+  const badge = card.querySelector('.text-indigo-300');
+  if (!badge) return;
+  const d = parseInt(input.value)||0;
+  const L = currentLang;
+  badge.textContent = L==='ru'?(d===0?'Сразу':'День '+d):L==='az'?(d===0?'Dərhal':'Gün '+d):(d===0?'Immediately':'Day '+d);
+}
+
+function updateNurActionIcon(select, idx) {
+  const card = document.getElementById('nurtureStep'+idx);
+  if (!card) return;
+  const iconEl = card.querySelector('.nur-action-icon');
+  if (!iconEl) return;
+  const icons = {email:'✉️', task:'✅', notification:'🔔'};
+  const colors = {email:'nur-action-email', task:'nur-action-task', notification:'nur-action-notification'};
+  iconEl.className = 'nur-action-icon ' + (colors[select.value]||colors.email);
+  iconEl.textContent = icons[select.value]||icons.email;
 }
 
 async function saveNurtureSeq(e, seqId) {

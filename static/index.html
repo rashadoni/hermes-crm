@@ -12300,13 +12300,21 @@ function _renderCostAnalytics(d) {
       .cost-detail-v2 { overflow:hidden; transition:max-height 0.3s ease; max-height:0; }
       .cost-detail-v2.open { max-height:600px; }
       .svc-bar-card {
-        padding:12px 14px; border-radius:10px; margin-bottom:6px;
-        background:rgba(30,41,59,0.4); border:1px solid rgba(51,65,85,0.3);
-        transition:all 0.25s ease; cursor:default;
+        padding:16px 18px; border-radius:12px; margin-bottom:10px;
+        background:rgba(30,41,59,0.5); border:1px solid rgba(51,65,85,0.35);
+        transition:all 0.3s ease; cursor:default; position:relative; overflow:hidden;
       }
-      .svc-bar-card:hover { background:rgba(51,65,85,0.3); border-color:rgba(99,102,241,0.3); }
-      .svc-bar-track { height:6px; border-radius:3px; background:rgba(30,41,59,0.8); overflow:hidden; }
-      .svc-bar-fill { height:100%; border-radius:3px; transition:width 0.8s ease; }
+      .svc-bar-card::before {
+        content:''; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:12px 0 0 12px;
+      }
+      .svc-bar-card.profitable::before { background:linear-gradient(180deg,#4ade80,#22c55e); }
+      .svc-bar-card.loss::before { background:linear-gradient(180deg,#f87171,#ef4444); }
+      .svc-bar-card:hover { background:rgba(51,65,85,0.4); border-color:rgba(99,102,241,0.35); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+      .svc-bar-track { height:8px; border-radius:4px; background:rgba(15,23,42,0.6); overflow:hidden; position:relative; }
+      .svc-bar-fill { height:100%; border-radius:4px; transition:width 0.8s ease; }
+      .svc-metric { display:flex; flex-direction:column; align-items:center; min-width:70px; }
+      .svc-metric-label { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+      .svc-metric-value { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:#e2e8f0; }
       .donut-chart { width:150px; height:150px; border-radius:50%; position:relative; }
       .donut-hole { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:90px; height:90px; border-radius:50%; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; }
       .legend-item { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 0; }
@@ -12522,46 +12530,71 @@ function _renderCostAnalytics(d) {
 }
 
 function _renderCostServices(d) {
-  const cards = (d.service_analytics || []).map(sa => {
+  const allSvc = d.service_analytics || [];
+  const totalCost = allSvc.reduce((s,x) => s + (x.cost||0), 0);
+  const totalRev = allSvc.reduce((s,x) => s + (x.revenue||0), 0);
+  const totalBal = totalRev - totalCost;
+  const profCount = allSvc.filter(x => x.balance >= 0).length;
+  const lossCount = allSvc.length - profCount;
+  const maxCost = Math.max(...allSvc.map(x => x.cost||0), 1);
+
+  const cards = allSvc.map(sa => {
     const isProfitable = sa.balance >= 0;
     const statusColor = isProfitable ? '#4ade80' : '#f87171';
-    const statusBg = isProfitable ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    const statusBg = isProfitable ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
     const statusLabel = isProfitable ? 'Mənfəət' : 'Zərər';
-    const barWidth = sa.revenue > 0 ? Math.min((sa.revenue / (sa.revenue + sa.cost)) * 100, 100) : 0;
+    const costBarW = Math.round((sa.cost / maxCost) * 100);
+    const revBarW = sa.revenue > 0 ? Math.round((sa.revenue / maxCost) * 100) : 0;
+    const pctAbs = Math.abs(sa.balance_pct || 0).toFixed(1);
+    const pctSign = isProfitable ? '+' : '-';
 
     return `
-      <div class="svc-bar-card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:13px;font-weight:600;color:#e2e8f0;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
-          <span style="font-size:11px;font-weight:700;color:${statusColor};padding:2px 8px;border-radius:5px;background:${statusBg};">${statusLabel}</span>
+      <div class="svc-bar-card ${isProfitable ? 'profitable' : 'loss'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:14px;font-weight:600;color:#f1f5f9;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
+            <span style="font-size:10px;font-weight:700;color:${statusColor};padding:3px 10px;border-radius:20px;background:${statusBg};border:1px solid ${statusColor}30;">${statusLabel}</span>
+          </div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:${statusColor};">${isProfitable?'+':''}${_fmtAZN(sa.balance)}</span>
         </div>
-        <div class="svc-bar-track" style="margin-bottom:8px;">
-          <div class="svc-bar-fill" style="width:${barWidth}%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
+
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;color:#f87171;text-transform:uppercase;letter-spacing:0.5px;">Maya</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;">${_fmtAZN(sa.cost)}</span>
+            </div>
+            <div class="svc-bar-track">
+              <div class="svc-bar-fill" style="width:${costBarW}%;background:linear-gradient(90deg,#f87171,#ef4444);"></div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;color:#4ade80;text-transform:uppercase;letter-spacing:0.5px;">Gəlir</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;">${_fmtAZN(sa.revenue)}</span>
+            </div>
+            <div class="svc-bar-track">
+              <div class="svc-bar-fill" style="width:${revBarW}%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;align-items:flex-start;gap:16px;font-size:11px;">
-          <div style="flex:1;">
-            <div style="color:#94a3b8;margin-bottom:4px;">Maya</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${_fmtAZN(sa.cost)}</div>
+
+        <div style="display:flex;gap:8px;border-top:1px solid rgba(51,65,85,0.3);padding-top:10px;">
+          <div class="svc-metric">
+            <span class="svc-metric-label">Marja</span>
+            <span class="svc-metric-value" style="color:${statusColor};">${pctSign}${pctAbs}%</span>
           </div>
-          <div style="flex:1;">
-            <div style="color:#94a3b8;margin-bottom:4px;">Gəlir</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${_fmtAZN(sa.revenue)}</div>
+          <div class="svc-metric">
+            <span class="svc-metric-label">İşçi</span>
+            <span class="svc-metric-value">${sa.employee_count}</span>
           </div>
-          <div style="flex:1;">
-            <div style="color:#94a3b8;margin-bottom:4px;">Balans</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${isProfitable?'+':''}${_fmtAZN(sa.balance)}</div>
+          <div class="svc-metric">
+            <span class="svc-metric-label">Müştəri</span>
+            <span class="svc-metric-value">${sa.client_count}</span>
           </div>
-          <div style="flex:0.6;">
-            <div style="color:#94a3b8;margin-bottom:4px;">%</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${sa.balance_pct?.toFixed(1)}%</div>
-          </div>
-          <div style="flex:0.5;text-align:center;">
-            <div style="color:#94a3b8;margin-bottom:4px;">İşçi</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.employee_count}</div>
-          </div>
-          <div style="flex:0.5;text-align:center;">
-            <div style="color:#94a3b8;margin-bottom:4px;">Müş.</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.client_count}</div>
+          <div class="svc-metric">
+            <span class="svc-metric-label">Maya/İşçi</span>
+            <span class="svc-metric-value">${sa.employee_count > 0 ? _fmtAZN(sa.cost / sa.employee_count) : '—'}</span>
           </div>
         </div>
       </div>
@@ -12571,8 +12604,28 @@ function _renderCostServices(d) {
   return `
     ${_aiBlockHTML('services')}
     <div class="card p-5">
-      <h3 class="font-semibold mb-4">Xidmət İstiqamətləri — Maya vs Gəlir</h3>
-      <div style="display:flex;flex-direction:column;gap:2px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 class="font-semibold" style="margin:0;">Xidmət İstiqamətləri — Maya vs Gəlir</h3>
+        <div style="display:flex;gap:12px;font-size:11px;">
+          <span style="color:#4ade80;">&#9679; Mənfəətli: ${profCount}</span>
+          <span style="color:#f87171;">&#9679; Zərərli: ${lossCount}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+        <div style="background:rgba(30,41,59,0.5);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(51,65,85,0.3);">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Cəm Maya</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#f87171;">${_fmtAZN(totalCost)}</div>
+        </div>
+        <div style="background:rgba(30,41,59,0.5);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(51,65,85,0.3);">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Cəm Gəlir</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#4ade80;">${_fmtAZN(totalRev)}</div>
+        </div>
+        <div style="background:rgba(30,41,59,0.5);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(51,65,85,0.3);">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Cəm Balans</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:${totalBal>=0?'#4ade80':'#f87171'};">${totalBal>=0?'+':''}${_fmtAZN(totalBal)}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
         ${cards.join('')}
       </div>
       <p class="text-xs text-slate-500 mt-4">

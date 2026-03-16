@@ -218,8 +218,9 @@ class PgCursorWrapper:
         is_ddl = sql_upper.startswith(("CREATE", "ALTER", "DROP"))
 
         # Auto-add RETURNING id for INSERT statements (for lastrowid support)
+        # Skip for ON CONFLICT (upsert) and tables without 'id' column
         returning_added = False
-        if is_insert and "RETURNING" not in sql.upper():
+        if is_insert and "RETURNING" not in sql.upper() and "ON CONFLICT" not in sql.upper():
             sql_clean = sql.rstrip().rstrip(';')
             sql = sql_clean + " RETURNING id"
             returning_added = True
@@ -245,22 +246,37 @@ class PgCursorWrapper:
                     pass
                 raise
         else:
-            # DML/SELECT — execute directly, no savepoint wrapper
-            try:
-                self._cursor.execute(sql, params)
-            except psycopg2.errors.UndefinedColumn:
-                if returning_added:
+            # DML/SELECT — use savepoint only when RETURNING id might fail
+            if returning_added:
+                sp_name = "sp_ret"
+                try:
+                    self._cursor.execute(f"SAVEPOINT {sp_name}")
+                    self._cursor.execute(sql, params)
+                    # Fetch RETURNING result BEFORE releasing savepoint
+                    self.description = self._cursor.description
+                    self.rowcount = self._cursor.rowcount
+                    if self._cursor.description and self._cursor.rowcount and self._cursor.rowcount > 0:
+                        row = self._cursor.fetchone()
+                        self.lastrowid = row[0] if row else None
+                    else:
+                        self.lastrowid = None
+                    self._returning_consumed = True
+                    self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+                    return self
+                except psycopg2.errors.UndefinedColumn:
                     # RETURNING id failed — table has no 'id' column, retry without
-                    self._conn.rollback()
+                    self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
                     sql = sql.rsplit(" RETURNING id", 1)[0]
                     returning_added = False
                     self._cursor.execute(sql, params)
-                else:
-                    raise
-            except psycopg2.errors.UniqueViolation:
-                self._conn.rollback()
-                self.lastrowid = None
-                return self
+                except psycopg2.errors.UniqueViolation:
+                    self._cursor.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    self._cursor.execute(f"RELEASE SAVEPOINT {sp_name}")
+                    self.lastrowid = None
+                    return self
+            else:
+                self._cursor.execute(sql, params)
 
         self.description = self._cursor.description
         self.rowcount = self._cursor.rowcount

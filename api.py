@@ -6003,6 +6003,13 @@ def _ensure_cost_model_tables(conn):
     )""")
     # One-time cleanup: remove duplicate BackOffice/Back-office Staff (30 ppl) row
     conn.execute("DELETE FROM cost_employees WHERE department='BackOffice' AND position='Back-office Staff' AND count=30")
+    # One-time cleanup: remove duplicate overhead cost items
+    for dup_id in [19, 20, 24, 18, 21, 22]:
+        conn.execute("DELETE FROM overhead_costs WHERE id=?", [dup_id])
+    # Fix tech items: set is_admin=0 for infrastructure items (should be Tech, not Admin)
+    tech_categories = ['cloud_servers', 'cortex', 'ms_license', 'service_desk', 'palo_alto', 'pam', 'firewall_amort']
+    for cat in tech_categories:
+        conn.execute("UPDATE overhead_costs SET is_admin=0 WHERE category=?", [cat])
     conn.execute("""CREATE TABLE IF NOT EXISTS client_services (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,

@@ -15286,51 +15286,145 @@ function getEmailEditorContent() {
   return editor ? editor.innerHTML : '';
 }
 
+// Global filter state for email templates
+var _etFilterLang = 'all';
+var _etFilterCat = 'all';
+var _etFilterSearch = '';
+var _etAllTemplates = [];
+
 async function renderEmailTemplates(el) {
   const {data: templates} = await api.get('/api/email-templates');
+  _etAllTemplates = templates || [];
+  _etFilterLang = 'all'; _etFilterCat = 'all'; _etFilterSearch = '';
   const L = currentLang;
   const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
 
-  el.innerHTML = `
-    <div class="p-6 max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold">${t('email_templates_title')}</h1>
-            <p class="text-sm text-slate-400">${_t('Manage your email templates','Управление шаблонами писем','E-poçt şablonlarını idarə edin')}</p>
-          </div>
-        </div>
-        <button class="btn btn-primary flex items-center gap-2" onclick="showCreateEmailTemplateModal()">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          ${t('email_template_new')}
-        </button>
-      </div>
-    ${!templates || templates.length === 0 ? `<div class="card p-8 text-center text-slate-500">${t('nothing_found')}</div>` :
-      `<div class="grid gap-4">
-        ${templates.map(tpl => `
-          <div class="card p-4 hover:border-indigo-500 transition cursor-pointer" onclick="showEditEmailTemplateModal(${tpl.id},'${escapeAttr(tpl.name)}','${escapeAttr(tpl.subject)}','${tpl.category}','${tpl.lang}',${tpl.is_active})">
-            <div class="flex justify-between items-start">
-              <div class="flex-1">
-                <div class="font-semibold">${esc(tpl.name)}</div>
-                <div class="text-xs text-slate-400 mt-1">${esc(tpl.subject)}</div>
-                <div class="text-xs text-slate-500 mt-2">
-                  <span class="bg-indigo-900/30 px-2 py-1 rounded">${({general:_t('General','Общее','Ümumi'),welcome:_t('Welcome','Приветствие','Xoş gəldiniz'),follow_up:_t('Follow-up','Последующее','Təqib'),proposal:_t('Proposal','Предложение','Təklif'),newsletter:_t('Newsletter','Рассылка','Xəbər bülleteni')})[tpl.category]||tpl.category}</span>
-                  <span class="ml-2">${tpl.lang.toUpperCase()}</span>
-                </div>
-              </div>
-              <div class="text-right">
-                <span style="color:${tpl.is_active ? '#4ade80' : '#64748b'}">${tpl.is_active ? _t('Active','Активен','Aktiv') : _t('Inactive','Неактивен','Deaktiv')}</span>
-                <div class="text-xs text-slate-500 mt-1">${tpl.creator_name || _t('Unknown','Неизвестно','Naməlum')}</div>
-              </div>
-            </div>
-          </div>
-        `).join('')}
-      </div>`}
-    </div>
-  `;
+  var catIcons = {general:'📋',welcome:'👋',follow_up:'🔄',proposal:'💼',newsletter:'📰'};
+  var catLabels = {
+    general:_t('General','Общее','Ümumi'), welcome:_t('Welcome','Приветствие','Xoş gəldiniz'),
+    follow_up:_t('Follow-up','Последующее','Təqib'), proposal:_t('Proposal','Предложение','Təklif'),
+    newsletter:_t('Newsletter','Рассылка','Xəbər bülleteni')
+  };
+
+  // Count templates per language and category
+  var langCounts = {all:_etAllTemplates.length, az:0, ru:0, en:0};
+  var catCounts = {all:_etAllTemplates.length};
+  _etAllTemplates.forEach(function(t) {
+    langCounts[t.lang] = (langCounts[t.lang]||0) + 1;
+    catCounts[t.category] = (catCounts[t.category]||0) + 1;
+  });
+
+  el.innerHTML = '<div class="p-6 max-w-7xl mx-auto">' +
+    // Header
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">' +
+      '<div style="display:flex;align-items:center;gap:12px;">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#ec4899,#f43f5e);display:flex;align-items:center;justify-content:center;font-size:22px;">✉️</div>' +
+        '<div><h1 style="font-size:22px;font-weight:700;margin:0;">' + _t('Email Templates','Шаблоны писем','E-poçt Şablonları') + '</h1>' +
+        '<p style="font-size:13px;color:#64748b;margin:0;">' + _etAllTemplates.length + ' ' + _t('templates','шаблонов','şablon') + '</p></div>' +
+      '</div>' +
+      '<button onclick="showCreateEmailTemplateModal()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 15px rgba(99,102,241,0.3);" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">➕ ' + _t('New Template','Новый шаблон','Yeni Şablon') + '</button>' +
+    '</div>' +
+
+    // Filters bar
+    '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(51,65,85,0.4);border-radius:14px;padding:16px;margin-bottom:20px;">' +
+
+      // Search
+      '<div style="margin-bottom:14px;">' +
+        '<input type="text" id="etSearchInput" placeholder="🔍 ' + _t('Search templates...','Поиск шаблонов...','Şablon axtar...') + '" oninput="_etFilterSearch=this.value.toLowerCase();_etRenderCards();" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;transition:all 0.2s;" onfocus="this.style.borderColor=\'#6366f1\';this.style.boxShadow=\'0 0 0 3px rgba(99,102,241,0.1)\'" onblur="this.style.borderColor=\'#334155\';this.style.boxShadow=\'none\'">' +
+      '</div>' +
+
+      // Language tabs
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+        '<span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">' + _t('Lang:','Язык:','Dil:') + '</span>' +
+        '<button onclick="_etFilterLang=\'all\';_etRenderCards();_etUpdateFilterBtns();" class="et-lang-btn" data-lang="all" style="padding:6px 14px;border-radius:20px;border:1px solid #475569;background:' + (_etFilterLang==='all'?'#6366f1':'transparent') + ';color:white;font-size:12px;cursor:pointer;font-weight:500;transition:all 0.2s;">' + _t('All','Все','Hamısı') + ' <span style="opacity:0.7;">(' + langCounts.all + ')</span></button>' +
+        '<button onclick="_etFilterLang=\'az\';_etRenderCards();_etUpdateFilterBtns();" class="et-lang-btn" data-lang="az" style="padding:6px 14px;border-radius:20px;border:1px solid #475569;background:transparent;color:white;font-size:12px;cursor:pointer;font-weight:500;transition:all 0.2s;">🇦🇿 AZ <span style="opacity:0.7;">(' + (langCounts.az||0) + ')</span></button>' +
+        '<button onclick="_etFilterLang=\'ru\';_etRenderCards();_etUpdateFilterBtns();" class="et-lang-btn" data-lang="ru" style="padding:6px 14px;border-radius:20px;border:1px solid #475569;background:transparent;color:white;font-size:12px;cursor:pointer;font-weight:500;transition:all 0.2s;">🇷🇺 RU <span style="opacity:0.7;">(' + (langCounts.ru||0) + ')</span></button>' +
+        '<button onclick="_etFilterLang=\'en\';_etRenderCards();_etUpdateFilterBtns();" class="et-lang-btn" data-lang="en" style="padding:6px 14px;border-radius:20px;border:1px solid #475569;background:transparent;color:white;font-size:12px;cursor:pointer;font-weight:500;transition:all 0.2s;">🇬🇧 EN <span style="opacity:0.7;">(' + (langCounts.en||0) + ')</span></button>' +
+      '</div>' +
+
+      // Category tabs
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">' + _t('Type:','Тип:','Tip:') + '</span>' +
+        '<button onclick="_etFilterCat=\'all\';_etRenderCards();_etUpdateFilterBtns();" class="et-cat-btn" data-cat="all" style="padding:5px 12px;border-radius:8px;border:1px solid #475569;background:#6366f1;color:white;font-size:11px;cursor:pointer;font-weight:500;transition:all 0.2s;">' + _t('All','Все','Hamısı') + '</button>' +
+        Object.keys(catLabels).map(function(k) {
+          return '<button onclick="_etFilterCat=\'' + k + '\';_etRenderCards();_etUpdateFilterBtns();" class="et-cat-btn" data-cat="' + k + '" style="padding:5px 12px;border-radius:8px;border:1px solid #475569;background:transparent;color:#cbd5e1;font-size:11px;cursor:pointer;font-weight:500;transition:all 0.2s;">' + catIcons[k] + ' ' + catLabels[k] + (catCounts[k] ? ' (' + catCounts[k] + ')' : '') + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+
+    // Cards container
+    '<div id="etCardsContainer"></div>' +
+  '</div>';
+
+  _etRenderCards();
+}
+
+function _etUpdateFilterBtns() {
+  document.querySelectorAll('.et-lang-btn').forEach(function(b) {
+    b.style.background = b.dataset.lang === _etFilterLang ? '#6366f1' : 'transparent';
+  });
+  document.querySelectorAll('.et-cat-btn').forEach(function(b) {
+    b.style.background = b.dataset.cat === _etFilterCat ? '#6366f1' : 'transparent';
+    b.style.color = b.dataset.cat === _etFilterCat ? 'white' : '#cbd5e1';
+  });
+}
+
+function _etRenderCards() {
+  var L = currentLang;
+  var _t = function(en,ru,az){ return L==='ru'?ru:L==='az'?az:en; };
+  var catIcons = {general:'📋',welcome:'👋',follow_up:'🔄',proposal:'💼',newsletter:'📰'};
+  var catLabels = {
+    general:_t('General','Общее','Ümumi'), welcome:_t('Welcome','Приветствие','Xoş gəldiniz'),
+    follow_up:_t('Follow-up','Последующее','Təqib'), proposal:_t('Proposal','Предложение','Təklif'),
+    newsletter:_t('Newsletter','Рассылка','Xəbər bülleteni')
+  };
+  var catColors = {general:'#64748b',welcome:'#22c55e',follow_up:'#f59e0b',proposal:'#6366f1',newsletter:'#ec4899'};
+  var langFlags = {az:'🇦🇿',ru:'🇷🇺',en:'🇬🇧'};
+
+  var filtered = _etAllTemplates.filter(function(t) {
+    if (_etFilterLang !== 'all' && t.lang !== _etFilterLang) return false;
+    if (_etFilterCat !== 'all' && t.category !== _etFilterCat) return false;
+    if (_etFilterSearch && !(t.name||'').toLowerCase().includes(_etFilterSearch) && !(t.subject||'').toLowerCase().includes(_etFilterSearch)) return false;
+    return true;
+  });
+
+  var container = document.getElementById('etCardsContainer');
+  if (!container) return;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><div style="font-size:40px;margin-bottom:12px;">📭</div><div style="font-size:14px;">' + _t('No templates found','Шаблоны не найдены','Şablon tapılmadı') + '</div></div>';
+    return;
+  }
+
+  container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;">' +
+    filtered.map(function(tpl) {
+      var cc = catColors[tpl.category] || '#64748b';
+      var statusDot = tpl.is_active ? '<span style="width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;"></span>' : '<span style="width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;"></span>';
+      // Strip HTML tags for preview
+      var preview = (tpl.body_html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
+
+      return '<div onclick="showEditEmailTemplateModal(' + tpl.id + ',\'' + escapeAttr(tpl.name) + '\',\'' + escapeAttr(tpl.subject) + '\',\'' + tpl.category + '\',\'' + tpl.lang + '\',' + tpl.is_active + ')" style="background:rgba(30,41,59,0.5);border:1px solid rgba(51,65,85,0.4);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.25s;border-left:4px solid ' + cc + ';" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 25px rgba(0,0,0,0.2)\';this.style.borderColor=\'rgba(99,102,241,0.5)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\';this.style.borderColor=\'rgba(51,65,85,0.4)\'">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="font-size:20px;">' + (catIcons[tpl.category]||'📋') + '</span>' +
+            '<div>' +
+              '<div style="font-size:14px;font-weight:600;color:#f1f5f9;">' + esc(tpl.name) + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + esc(tpl.subject).substring(0, 50) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            statusDot +
+            '<span style="font-size:16px;">' + (langFlags[tpl.lang]||'') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#64748b;line-height:1.5;margin-bottom:10px;min-height:32px;">' + (preview ? esc(preview) + '...' : '<em>' + _t('Empty','Пусто','Boş') + '</em>') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<span style="font-size:10px;padding:3px 10px;border-radius:20px;background:' + cc + '18;color:' + cc + ';border:1px solid ' + cc + '30;font-weight:600;">' + (catLabels[tpl.category]||tpl.category) + '</span>' +
+          '<span style="font-size:10px;color:#475569;">' + _t('Click to edit','Нажмите для изменения','Dəyişmək üçün basın') + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
 }
 
 function showCreateEmailTemplateModal() {

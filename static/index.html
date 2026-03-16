@@ -4361,9 +4361,10 @@ function sortSelect(current, onChange, options) {
 
 async function renderContacts(el) {
   showLoading(el);
+  if (!window._sortState.contacts) window._sortState.contacts = {field:'id',dir:'desc'};
   const offset = state.contactsPage * PAGE_SIZE;
   const {data:rawContacts, total} = await api.get(`/api/contacts?limit=${PAGE_SIZE}&offset=${offset}&q=`+encodeURIComponent(state.searchQuery));
-  const contacts = sortData(rawContacts, contactsSort);
+  const contacts = _sortItems(rawContacts, 'contacts');
 
   const sortOpts = [
     ['name_asc', t('sort_name_asc')], ['name_desc', t('sort_name_desc')],
@@ -4527,11 +4528,16 @@ async function renderContacts(el) {
         <!-- Table Header -->
         <div style="display:grid;grid-template-columns:52px 1.6fr 1fr 180px 140px 70px;gap:16px;align-items:center;padding:16px 30px;background:linear-gradient(180deg, #151d2e, #111827);border-bottom:1px solid #1e293b">
           <div></div>
-          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_name')}</div>
-          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_company')}</div>
-          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_phone')}</div>
-          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px">${t('contacts_col_last')}</div>
-          <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px;text-align:center">${t('contacts_col_emails')}</div>
+          ${(()=>{
+            const _cSt = window._sortState.contacts||{};
+            const _cH = (field,label) => {
+              const isA = _cSt.field===field;
+              const arr = isA?(_cSt.dir==='asc'?' ▲':' ▼'):'';
+              const clr = isA?'#c4b5fd':'#475569';
+              return '<div onclick="_toggleSort(\'contacts\',\''+field+'\');renderContacts(document.getElementById(\'app\'))" style="font-size:10px;font-weight:700;color:'+clr+';text-transform:uppercase;letter-spacing:1.2px;cursor:pointer;user-select:none;transition:color 0.2s" onmouseover="this.style.color=\'#e2e8f0\'" onmouseout="this.style.color=\''+clr+'\'">'+label+'<span style="font-size:9px;margin-left:2px">'+arr+'</span></div>';
+            };
+            return _cH('name',t('contacts_col_name'))+_cH('company_name',t('contacts_col_company'))+_cH('phone',t('contacts_col_phone'))+_cH('last_contact',t('contacts_col_last'))+'<div onclick="_toggleSort(\'contacts\',\'activity_count\');renderContacts(document.getElementById(\'app\'))" style="font-size:10px;font-weight:700;color:'+(_cSt.field==='activity_count'?'#c4b5fd':'#475569')+';text-transform:uppercase;letter-spacing:1.2px;text-align:center;cursor:pointer;user-select:none;transition:color 0.2s" onmouseover="this.style.color=\'#e2e8f0\'" onmouseout="this.style.color=\''+(_cSt.field==='activity_count'?'#c4b5fd':'#475569')+'\'">' + t('contacts_col_emails') + '<span style="font-size:9px;margin-left:2px">' + (_cSt.field==='activity_count'?(_cSt.dir==='asc'?' ▲':' ▼'):'') + '</span></div>';
+          })()}
         </div>
         <!-- Rows -->
         <div id="contactsRowsContainer" style="padding:4px 0">
@@ -5857,6 +5863,7 @@ async function renderCompanyList(el, mode) {
 
   if (mode === 'client') {
     // ─── UNIFIED LEADS PIPELINE VIEW ───
+    if (!window._leadsSort) window._leadsSort = 'new';
     const _lf = window._leadsFilter || 'new';
     const [{data:companies}, costRes, {data:leadsRes}, {data:leadStats}, {data:actCounts}] = await Promise.all([
       api.get(`/api/companies?limit=500&q=`+encodeURIComponent(state.companiesQuery)),
@@ -5943,9 +5950,11 @@ async function renderCompanyList(el, mode) {
       <div class="card mb-4 p-3 flex gap-3 flex-wrap items-center">
         <input type="text" id="companiesSearch" placeholder="${t('companies_search')}" value="${esc(state.companiesQuery)}" oninput="onCompaniesSearch(this.value)" class="flex-1 min-w-[200px]">
         <div style="display:flex;gap:4px;align-items:center;">
-          <span style="font-size:11px;color:#64748b;white-space:nowrap;">${currentLang==='ru'?'Теплота':currentLang==='az'?'İstilik':'Temp'}:</span>
+          <button class="btn btn-sm ${window._leadsSort==='new'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='new';renderCompanyList(document.getElementById('app'),'client')">🆕 ${currentLang==='ru'?'Новые':'Newest'}</button>
           <button class="btn btn-sm ${window._leadsSort==='hot'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='hot';renderCompanyList(document.getElementById('app'),'client')">🔥→❄️</button>
           <button class="btn btn-sm ${window._leadsSort==='cold'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='cold';renderCompanyList(document.getElementById('app'),'client')">❄️→🔥</button>
+          <button class="btn btn-sm ${window._leadsSort==='name'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='name';renderCompanyList(document.getElementById('app'),'client')">${currentLang==='ru'?'Имя':'Name'}</button>
+          <button class="btn btn-sm ${window._leadsSort==='priority'?'btn-primary':'btn-secondary'}" style="font-size:11px;padding:4px 10px;" onclick="window._leadsSort='priority';renderCompanyList(document.getElementById('app'),'client')">${currentLang==='ru'?'Приоритет':'Priority'}</button>
           ${window._leadsSort ? '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="window._leadsSort=null;renderCompanyList(document.getElementById(\'app\'),\'client\')">✕</button>' : ''}
         </div>
         <div style="display:flex;gap:2px;align-items:center;border-left:1px solid #334155;padding-left:8px;margin-left:4px;">
@@ -5957,7 +5966,9 @@ async function renderCompanyList(el, mode) {
         ${filtered.length === 0 ? `<div class="col-span-full text-center text-slate-500 py-8">${t('nothing_found')}</div>` : ''}
         ${(()=>{
           let sorted = [...filtered];
-          if (window._leadsSort === 'hot') {
+          if (window._leadsSort === 'new') {
+            sorted.sort((a,b) => (b.id||0) - (a.id||0));
+          } else if (window._leadsSort === 'hot') {
             sorted.sort((a,b) => {
               const sa = a.type==='lead' ? _leadCalcScore(a) : _companyTempScore(a);
               const sb = b.type==='lead' ? _leadCalcScore(b) : _companyTempScore(b);
@@ -5969,6 +5980,11 @@ async function renderCompanyList(el, mode) {
               const sb = b.type==='lead' ? _leadCalcScore(b) : _companyTempScore(b);
               return sa - sb;
             });
+          } else if (window._leadsSort === 'name') {
+            sorted.sort((a,b) => ((a.name||a.company_name||'').toLowerCase()).localeCompare((b.name||b.company_name||'').toLowerCase()));
+          } else if (window._leadsSort === 'priority') {
+            const po = {urgent:0,high:1,medium:2,low:3};
+            sorted.sort((a,b) => (po[a.priority]??4) - (po[b.priority]??4));
           }
           return sorted.map(item => _renderCompanyCard(item, 'client')).join('');
         })()}
@@ -5978,6 +5994,7 @@ async function renderCompanyList(el, mode) {
   }
 
   // ─── PARTNERS MODE ───
+  if (!window._sortState.partners) window._sortState.partners = {field:'id',dir:'desc'};
   const L = currentLang;
   const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
   const [{data:companies}] = await Promise.all([
@@ -5986,7 +6003,7 @@ async function renderCompanyList(el, mode) {
   let filtered = companies.filter(c => c.category === mode);
   if (companiesContractFilter === 'yes') filtered = filtered.filter(c => c.has_contracts);
   if (companiesContractFilter === 'no') filtered = filtered.filter(c => !c.has_contracts);
-  filtered = sortData(filtered, companiesSort);
+  filtered = _sortItems(filtered, 'partners');
   const sortOpts = [
     ['name_asc', t('sort_name_asc')], ['name_desc', t('sort_name_desc')],
     ['contacts_desc', t('sort_contacts_desc')], ['contacts_asc', t('sort_contacts_asc')],
@@ -6037,9 +6054,18 @@ async function renderCompanyList(el, mode) {
   _pHTML += '<button onclick="filterCompanyContract(\'yes\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (_pfYes ? 'rgba(16,185,129,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (_pfYes ? 'rgba(16,185,129,0.15)' : 'transparent') + ';color:' + (_pfYes ? '#6ee7b7' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + String.fromCodePoint(128196) + ' ' + t('company_has_contract') + '</button>';
   _pHTML += '<button onclick="filterCompanyContract(\'no\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (_pfNo ? 'rgba(245,158,11,0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (_pfNo ? 'rgba(245,158,11,0.15)' : 'transparent') + ';color:' + (_pfNo ? '#fcd34d' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + String.fromCodePoint(9888) + ' ' + t('company_no_contract') + '</button>';
   _pHTML += '</div>';
-  _pHTML += '<div style="display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid rgba(71,85,105,0.3)">';
-  _pHTML += '<span style="color:#64748b;font-size:12px;font-weight:500">' + t('sort_by') + ':</span>';
-  _pHTML += sortSelect(companiesSort, 'onCompaniesSort', sortOpts);
+  _pHTML += '<div style="display:flex;align-items:center;gap:4px;padding-left:8px;border-left:1px solid rgba(71,85,105,0.3)">';
+  var _pSortBtns = [
+    {k:'id',l:_t('Newest','Новые','Yeni')},
+    {k:'name',l:_t('Name','Имя','Ad')},
+    {k:'contacts_count',l:_t('Contacts','Контакты','Əlaqələr')},
+    {k:'contracts_count',l:_t('Contracts','Контракты','Müqavilələr')}
+  ];
+  _pSortBtns.forEach(function(s) {
+    var isActive = (window._sortState.partners||{}).field===s.k;
+    var arrow = isActive ? ((window._sortState.partners||{}).dir==='asc'?' ▲':' ▼') : '';
+    _pHTML += '<button onclick="_toggleSort(\'partners\',\''+s.k+'\');renderCompanyList(document.getElementById(\'app\'),\''+mode+'\')" style="padding:6px 12px;border-radius:8px;border:1px solid '+(isActive?'rgba(139,92,246,0.4)':'rgba(71,85,105,0.3)')+';background:'+(isActive?'rgba(139,92,246,0.15)':'transparent')+';color:'+(isActive?'#c4b5fd':'#94a3b8')+';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s">'+s.l+'<span style="font-size:9px;margin-left:2px">'+arrow+'</span></button>';
+  });
   _pHTML += '</div>';
   _pHTML += '</div>';
 
@@ -6979,12 +7005,55 @@ async function deleteContract(id) {
   } catch(e) { showToast(esc(e.message), 'error'); }
 }
 
+// ─── Generic Sortable Column Helper ──────────────────────────
+// Usage: _sortItems(items, section) — sort array by current section sort state
+// _sortHeader(section, field, label) — render clickable <th> with arrow
+window._sortState = window._sortState || {};
+function _sortItems(items, section) {
+  const st = window._sortState[section];
+  if (!st || !st.field) return items;
+  const f = st.field, dir = st.dir || 'asc';
+  const priorityOrder = {urgent:0,high:1,medium:2,low:3,'':4};
+  const statusOrder = {todo:0,in_progress:1,done:2,cancelled:3,'':4};
+  return [...items].sort((a, b) => {
+    let va = a[f], vb = b[f];
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    // Priority special sort
+    if (f === 'priority') { va = priorityOrder[va] ?? 4; vb = priorityOrder[vb] ?? 4; }
+    else if (f === 'status' || f === 'stage') { va = statusOrder[va] ?? 4; vb = statusOrder[vb] ?? 4; }
+    else if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb+'').toLowerCase(); }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+function _sortHeader(section, field, label, rerender) {
+  const st = window._sortState[section] || {};
+  const isActive = st.field === field;
+  const arrow = isActive ? (st.dir === 'asc' ? ' ▲' : ' ▼') : '';
+  const activeColor = isActive ? '#c4b5fd' : '#64748b';
+  return '<th onclick="' + rerender + '" style="padding:14px 16px;text-align:left;color:' + activeColor + ';font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;user-select:none;transition:color 0.2s;white-space:nowrap" onmouseover="this.style.color=\'#e2e8f0\'" onmouseout="this.style.color=\'' + activeColor + '\'">' + label + '<span style="font-size:10px;margin-left:2px">' + arrow + '</span></th>';
+}
+function _toggleSort(section, field) {
+  const st = window._sortState[section] || {};
+  if (st.field === field) {
+    st.dir = st.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    st.field = field;
+    st.dir = 'asc';
+  }
+  window._sortState[section] = st;
+}
+
 // ─── Tasks ────────────────────────────────────────────────────
 window._taskView = window._taskView || 'list';
 window._taskFilter = window._taskFilter || 'all';
 window._taskCalMonth = window._taskCalMonth || new Date().getMonth();
 window._taskCalYear = window._taskCalYear || new Date().getFullYear();
 window._taskDetailCache = {};
+// Default sort: newest first
+if (!window._sortState.tasks) window._sortState.tasks = {field:'id',dir:'desc'};
 
 async function renderTasks(el) {
   try {
@@ -7049,6 +7118,9 @@ function renderTasksList(el, tasks) {
     return '<button onclick="filterTasks(\'' + f + '\')" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (isActive ? 'rgba(' + fc + ',0.4)' : 'rgba(71,85,105,0.3)') + ';background:' + (isActive ? 'rgba(' + fc + ',0.15)' : 'transparent') + ';color:' + (isActive ? 'rgba(' + fc + ',1)' : '#94a3b8') + ';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">' + t('task_' + (f === 'all' ? 'all' : 'status_' + f)) + '</button>';
   }).join('');
 
+  // Apply sorting
+  filtered = _sortItems(filtered, 'tasks');
+
   if (!filtered.length) {
     el.innerHTML = `<div class="flex gap-2 mb-4">${filterBtns}</div><div class="card p-8 text-center text-slate-400">${t('task_no_tasks')}</div>`;
     return;
@@ -7074,13 +7146,14 @@ function renderTasksList(el, tasks) {
   let _tListHTML = '<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">' + filterBtns + '</div>';
   _tListHTML += '<div style="background:linear-gradient(135deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));border:1px solid rgba(71,85,105,0.15);border-radius:16px;overflow:hidden">';
   _tListHTML += '<table style="width:100%;font-size:14px;border-collapse:collapse">';
+  var _tSortFn = function(f){return '_toggleSort(\"tasks\",\"'+f+'\");renderTasks(document.getElementById(\"app\"))';};
   _tListHTML += '<thead><tr style="border-bottom:1px solid rgba(71,85,105,0.2)">';
   _tListHTML += '<th style="padding:14px 16px;width:32px"></th>';
-  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_title') + '</th>';
-  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_status') + '</th>';
-  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_priority') + '</th>';
-  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_due_date') + '</th>';
-  _tListHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('task_category') + '</th>';
+  _tListHTML += _sortHeader('tasks','title',t('task_title'),_tSortFn('title'));
+  _tListHTML += _sortHeader('tasks','status',t('task_status'),_tSortFn('status'));
+  _tListHTML += _sortHeader('tasks','priority',t('task_priority'),_tSortFn('priority'));
+  _tListHTML += _sortHeader('tasks','due_date',t('task_due_date'),_tSortFn('due_date'));
+  _tListHTML += _sortHeader('tasks','category',t('task_category'),_tSortFn('category'));
   _tListHTML += '</tr></thead>';
   _tListHTML += '<tbody>' + rows + '</tbody></table></div>';
   el.innerHTML = _tListHTML;
@@ -7436,13 +7509,42 @@ async function renderDeals(el) {
   _dHTML += '<div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px"><div style="font-size:22px;font-weight:800;color:#f87171">' + _lostDeals + '</div><div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Lost','Проиграно','İtirildi') + '</div></div>';
   _dHTML += '</div>';
 
+  // Sort controls for deals
+  if (!window._dealsSortField) window._dealsSortField = 'id';
+  if (!window._dealsSortDir) window._dealsSortDir = 'desc';
+  var _dSortBtns = [
+    {k:'id',l:_t('Newest','Новые','Yeni')},
+    {k:'value_amount',l:_t('Value','Сумма','Məbləğ')},
+    {k:'title',l:_t('Name','Имя','Ad')}
+  ];
+  _dHTML += '<div style="display:flex;gap:4px;align-items:center;margin-bottom:16px">';
+  _dHTML += '<span style="color:#64748b;font-size:12px;font-weight:500;margin-right:6px">' + _t('Sort cards:','Сортировка:','Sıralama:') + '</span>';
+  _dSortBtns.forEach(function(s) {
+    var isA = window._dealsSortField===s.k;
+    var arr = isA?(window._dealsSortDir==='asc'?' ▲':' ▼'):'';
+    _dHTML += '<button onclick="if(window._dealsSortField===\''+s.k+'\'){window._dealsSortDir=window._dealsSortDir===\'asc\'?\'desc\':\'asc\'}else{window._dealsSortField=\''+s.k+'\';window._dealsSortDir=\'asc\'};renderDeals(document.getElementById(\'app\'))" style="padding:6px 12px;border-radius:8px;border:1px solid '+(isA?'rgba(99,102,241,0.4)':'rgba(71,85,105,0.3)')+';background:'+(isA?'rgba(99,102,241,0.15)':'transparent')+';color:'+(isA?'#c4b5fd':'#94a3b8')+';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s">'+s.l+'<span style="font-size:9px;margin-left:2px">'+arr+'</span></button>';
+  });
+  _dHTML += '</div>';
+
   // Kanban columns
   var _stageColors = {'LEAD':'#6366f1','QUALIFIED':'#3b82f6','PROPOSAL':'#f59e0b','NEGOTIATION':'#8b5cf6','WON':'#10b981','LOST':'#ef4444'};
   var _stageDefault = '#6366f1';
   _dHTML += '<div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:16px">';
   stages.forEach(function(stage, idx) {
     var sc = _stageColors[stage] || _stageDefault;
-    var stageDeals = columns[idx];
+    var stageDeals = [...columns[idx]];
+    // Sort deals within column
+    var _dsf = window._dealsSortField || 'id';
+    var _dsd = window._dealsSortDir || 'desc';
+    stageDeals.sort(function(a,b) {
+      var va = a[_dsf], vb = b[_dsf];
+      if (va == null) va = '';
+      if (vb == null) vb = '';
+      if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb+'').toLowerCase(); }
+      if (va < vb) return _dsd === 'asc' ? -1 : 1;
+      if (va > vb) return _dsd === 'asc' ? 1 : -1;
+      return 0;
+    });
     var stageValue = stageDeals.reduce(function(s, d) { return s + (d.value_amount || 0); }, 0);
 
     _dHTML += '<div data-stage="' + stage + '" style="min-width:260px;flex:1;background:linear-gradient(180deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));border:1px solid rgba(71,85,105,0.2);border-radius:16px;padding:0;overflow:hidden">';
@@ -11163,6 +11265,7 @@ async function exportPriceChangeQRP(pcId) {
 }
 
 // ── Offers list page ─────────────────────────────────────
+if (!window._sortState.offers) window._sortState.offers = {field:'id',dir:'desc'};
 async function renderOffers(el) {
   el.innerHTML = `<div class="flex justify-between items-center mb-4">
     <h1 class="text-2xl font-bold">${t('offers_title')}</h1>
@@ -11200,26 +11303,33 @@ async function loadOffersList() {
     if (q) params.set('q', q);
     if (status) params.set('status', status);
     const res = await apiFetch('/api/offers?' + params);
-    const offers = res.data || [];
+    let offers = res.data || [];
     if (!offers.length) {
       container.innerHTML = `<p class="text-slate-500 text-sm text-center py-8">${t('nothing_found')}</p>`;
       return;
     }
+    // Pre-compute totals for sorting
+    offers.forEach(o => {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items||'[]') : (o.items||[]);
+      o._total = items.reduce((s,i) => s + (i.qty||0)*(i.price||0)*(1-(i.discount||0)/100), 0);
+      o._clientName = o.client_name || o.company_name || '—';
+    });
+    offers = _sortItems(offers, 'offers');
+    const _oSfn = f => '_toggleSort("offers","'+f+'");loadOffersList()';
     container.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="text-left text-slate-500 border-b border-slate-700">
-        <th class="pb-2 px-2">№</th>
-        <th class="pb-2 px-2">${t('offer_type')}</th>
-        <th class="pb-2 px-2">${t('offer_client_name')}</th>
-        <th class="pb-2 px-2">${t('offer_currency')}</th>
-        <th class="pb-2 px-2">${t('offer_total')}</th>
-        <th class="pb-2 px-2">Status</th>
+        ${_sortHeader('offers','offer_number','№',_oSfn('offer_number'))}
+        ${_sortHeader('offers','offer_type',t('offer_type'),_oSfn('offer_type'))}
+        ${_sortHeader('offers','_clientName',t('offer_client_name'),_oSfn('_clientName'))}
+        ${_sortHeader('offers','currency',t('offer_currency'),_oSfn('currency'))}
+        ${_sortHeader('offers','_total',t('offer_total'),_oSfn('_total'))}
+        ${_sortHeader('offers','status','Status',_oSfn('status'))}
         <th class="pb-2 px-2"></th>
       </tr></thead>
       <tbody>${offers.map(o => {
-        const items = typeof o.items === 'string' ? JSON.parse(o.items||'[]') : (o.items||[]);
         const cur = o.currency || 'AZN';
-        const total = items.reduce((s,i) => s + (i.qty||0)*(i.price||0)*(1-(i.discount||0)/100), 0);
-        const clientName = o.client_name || o.company_name || '—';
+        const total = o._total;
+        const clientName = o._clientName;
         return `<tr class="border-b border-slate-700/50 hover:bg-slate-800/50 cursor-pointer" onclick="showOfferDetail(${o.id})">
           <td class="py-2 px-2 font-mono text-xs">${esc(o.offer_number)}</td>
           <td class="py-2 px-2">${t('offer_type_'+o.offer_type)}</td>
@@ -13893,6 +14003,7 @@ async function saveUserProfile() {
 }
 
 // ─── Phase 3: Tickets Page ──────────────────────────────────
+if (!window._sortState.tickets) window._sortState.tickets = {field:'id',dir:'desc'};
 async function renderTicketsPage(el) {
   const _tf = window._ticketFilter || 'all';
   const [{data:tickets}, {data:stats}] = await Promise.all([
@@ -13941,12 +14052,33 @@ async function renderTicketsPage(el) {
   _tkHTML += tabBtn('closed', statusLabels.closed, stats.closed||0);
   _tkHTML += '</div>';
 
+  // Sort controls
+  const _tkSortOpts = [
+    {f:'id',l:_t('Newest','Новые','Yenilər')},
+    {f:'priority',l:_t('Priority','Приоритет','Prioritet')},
+    {f:'status',l:_t('Status','Статус','Status')},
+    {f:'subject',l:_t('Subject','Тема','Mövzu')},
+    {f:'created_at',l:_t('Date','Дата','Tarix')}
+  ];
+  _tkHTML += '<div style="display:flex;gap:6px;margin-bottom:16px;align-items:center">';
+  _tkHTML += '<span style="font-size:12px;color:#64748b;margin-right:4px">' + _t('Sort:','Сорт:','Sırala:') + '</span>';
+  _tkSortOpts.forEach(o => {
+    const isActive = (window._sortState.tickets||{}).field === o.f;
+    const dir = isActive ? ((window._sortState.tickets||{}).dir || 'asc') : '';
+    const arrow = isActive ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+    _tkHTML += '<button onclick="_toggleSort(\'tickets\',\'' + o.f + '\');renderTicketsPage(document.getElementById(\'app\'))" style="padding:4px 10px;border-radius:8px;border:1px solid ' + (isActive ? 'rgba(99,102,241,0.4)' : 'rgba(71,85,105,0.2)') + ';background:' + (isActive ? 'rgba(99,102,241,0.12)' : 'transparent') + ';color:' + (isActive ? '#c4b5fd' : '#64748b') + ';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s">' + o.l + arrow + '</button>';
+  });
+  _tkHTML += '</div>';
+
+  // Apply sort
+  var sortedTickets = _sortItems(tickets, 'tickets');
+
   // Ticket list
-  if (tickets.length === 0) {
+  if (sortedTickets.length === 0) {
     _tkHTML += '<div style="text-align:center;color:#64748b;padding:60px 20px;font-size:15px"><div style="font-size:48px;margin-bottom:16px;opacity:0.5">' + String.fromCodePoint(127915) + '</div>' + _t('No tickets yet','Тикетов нет','Tiket yoxdur') + '</div>';
   } else {
     _tkHTML += '<div style="display:flex;flex-direction:column;gap:8px">';
-    tickets.forEach(function(tk) {
+    sortedTickets.forEach(function(tk) {
       var sc = statusColors[tk.status] || '#64748b';
       _tkHTML += '<div onclick="showTicketDetail(' + tk.id + ')" style="background:linear-gradient(135deg,rgba(30,41,59,0.7),' + sc + '05);border:1px solid rgba(71,85,105,0.2);border-radius:14px;padding:16px 20px;cursor:pointer;transition:all 0.25s ease;display:flex;align-items:center;gap:16px" ';
       _tkHTML += 'onmouseover="this.style.borderColor=\'' + sc + '40\';this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 15px ' + sc + '10\'" ';

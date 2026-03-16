@@ -48,6 +48,12 @@ _RE_GROUP_CONCAT_SIMPLE = re.compile(
 )
 _RE_PRAGMA_TABLE_INFO = re.compile(r"PRAGMA\s+table_info\s*\(\s*(\w+)\s*\)", re.IGNORECASE)
 _RE_PLACEHOLDER = re.compile(r"\?")
+_RE_DATE_NOW = re.compile(r"date\s*\(\s*'now'\s*\)", re.IGNORECASE)
+_RE_DATE_NOW_OFFSET = re.compile(
+    r"date\s*\(\s*'now'\s*,\s*'([+-])(\d+)\s+(day|days|month|months|year|years)'\s*\)",
+    re.IGNORECASE,
+)
+_RE_JULIANDAY = re.compile(r"julianday\s*\(", re.IGNORECASE)
 
 
 def rewrite_sql(sql, params=None):
@@ -82,6 +88,56 @@ def rewrite_sql(sql, params=None):
 
     # ── datetime('now') → NOW()
     sql = _RE_DATETIME_NOW.sub("NOW()", sql)
+
+    # ── date('now', '-30 days') → CURRENT_DATE - INTERVAL '30 days'
+    def _replace_date_offset(m):
+        sign = m.group(1)
+        num = m.group(2)
+        unit = m.group(3)
+        op = '+' if sign == '+' else '-'
+        return f"CURRENT_DATE {op} INTERVAL '{num} {unit}'"
+
+    sql = _RE_DATE_NOW_OFFSET.sub(_replace_date_offset, sql)
+
+    # ── date('now') → CURRENT_DATE
+    sql = _RE_DATE_NOW.sub("CURRENT_DATE", sql)
+
+    # ── julianday(expr) → (EXTRACT(EPOCH FROM (expr)::TIMESTAMP) / 86400.0)
+    # Simple regex replacement: julianday(X) → (EXTRACT(EPOCH FROM (X)::TIMESTAMP) / 86400.0)
+    def _replace_julianday(sql_str):
+        result = []
+        i = 0
+        lower = sql_str.lower()
+        while i < len(sql_str):
+            jd_pos = lower.find('julianday(', i)
+            if jd_pos < 0:
+                result.append(sql_str[i:])
+                break
+            result.append(sql_str[i:jd_pos])
+            # Find matching close paren
+            start = jd_pos + len('julianday(')
+            depth = 1
+            pos = start
+            while pos < len(sql_str) and depth > 0:
+                if sql_str[pos] == '(':
+                    depth += 1
+                elif sql_str[pos] == ')':
+                    depth -= 1
+                pos += 1
+            if depth == 0:
+                inner = sql_str[start:pos-1].strip()
+                # Handle julianday('now') → use NOW()
+                if inner.strip("'\"").lower() == 'now':
+                    inner = 'NOW()'
+                result.append(f"(EXTRACT(EPOCH FROM ({inner})::TIMESTAMP) / 86400.0)")
+                i = pos
+            else:
+                result.append(sql_str[jd_pos:])
+                break
+        return ''.join(result)
+
+    if 'julianday' in sql.lower():
+        sql = _replace_julianday(sql)
 
     # ── INTEGER PRIMARY KEY AUTOINCREMENT → SERIAL PRIMARY KEY
     sql = _RE_AUTOINCREMENT.sub("SERIAL PRIMARY KEY", sql)

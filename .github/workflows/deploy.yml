@@ -70,6 +70,9 @@ jobs:
             cp static/index.html static/index.html.bak
             git pull origin main
 
+            # Ensure DejaVu fonts are installed for PDF generation
+            dpkg -l fonts-dejavu-core >/dev/null 2>&1 || apt-get install -y -qq fonts-dejavu-core || true
+
             if [ -d "/opt/hermes_crm/venv" ]; then
               /opt/hermes_crm/venv/bin/pip install -r requirements.txt --quiet
               /opt/hermes_crm/venv/bin/pip install psycopg2-binary --quiet

@@ -466,6 +466,8 @@ const translations = {
     offer_type_equipment: 'Equipment',
     offer_type_license: 'License',
     offer_type_consulting: 'Consulting',
+    offer_type_commercial: 'Commercial',
+    offer_type_invoice: 'Invoice',
     offer_type_other: 'Other',
     contract_upload_btn: 'Upload legal file',
     contract_upload_title: 'Upload Legal File',
@@ -513,6 +515,7 @@ const translations = {
     offer_status_draft: 'Draft',
     offer_status_sent: 'Sent',
     offer_status_accepted: 'Accepted',
+    offer_status_approved: 'Approved',
     offer_status_rejected: 'Rejected',
     offer_generate_pdf: 'Generate PDF',
     offer_to_deal_title: 'Create Deal from Offer',
@@ -1255,6 +1258,8 @@ const translations = {
     offer_type_equipment: 'Оборудование',
     offer_type_license: 'Лицензии',
     offer_type_consulting: 'Консалтинг',
+    offer_type_commercial: 'Коммерческое',
+    offer_type_invoice: 'Счёт-фактура',
     offer_type_other: 'Прочее',
     contract_upload_btn: 'Загрузить файл юриста',
     contract_upload_title: 'Загрузить файл юриста',
@@ -1302,6 +1307,7 @@ const translations = {
     offer_status_draft: 'Черновик',
     offer_status_sent: 'Отправлено',
     offer_status_accepted: 'Принято',
+    offer_status_approved: 'Утверждено',
     offer_status_rejected: 'Отклонено',
     offer_generate_pdf: 'Сгенерировать PDF',
     offer_to_deal_title: 'Создать сделку из предложения',
@@ -2027,6 +2033,8 @@ const translations = {
     offer_type_equipment: 'Avadanlıq',
     offer_type_license: 'Lisenziyalar',
     offer_type_consulting: 'Konsaltinq',
+    offer_type_commercial: 'Kommersiya',
+    offer_type_invoice: 'Faktura',
     offer_type_other: 'Digər',
     contract_upload_btn: 'Hüquqşünas faylı yüklə',
     contract_upload_title: 'Hüquqşünas faylını yüklə',
@@ -2074,6 +2082,7 @@ const translations = {
     offer_status_draft: 'Qaralama',
     offer_status_sent: 'Göndərildi',
     offer_status_accepted: 'Qəbul edildi',
+    offer_status_approved: 'Təsdiqləndi',
     offer_status_rejected: 'Rədd edildi',
     offer_generate_pdf: 'PDF yarat',
     offer_to_deal_title: 'Təklifdən razılaşma yarat',
@@ -11163,10 +11172,11 @@ async function renderOffers(el) {
     <input id="offerSearch" type="text" placeholder="${t('search')}" class="flex-1 text-sm"
       oninput="onOfferSearch()">
     <select id="offerStatusFilter" class="text-sm" onchange="loadOffersList()" style="width:auto">
-      <option value="">All</option>
+      <option value="">${t('task_all')}</option>
       <option value="draft">${t('offer_status_draft')}</option>
       <option value="sent">${t('offer_status_sent')}</option>
       <option value="accepted">${t('offer_status_accepted')}</option>
+      <option value="approved">${t('offer_status_approved')}</option>
       <option value="rejected">${t('offer_status_rejected')}</option>
     </select>
   </div>
@@ -11531,6 +11541,8 @@ async function showOfferForm(id) {
           <div class="flex items-center gap-1">
             <label class="text-xs text-slate-500 whitespace-nowrap">${t('offer_type')}:</label>
             <select name="offer_type" onchange="offerTypeChanged(this.value)" class="text-xs py-1 px-2" style="width:auto">
+              <option value="commercial" ${o.offer_type==='commercial'?'selected':''}>${t('offer_type_commercial')}</option>
+              <option value="invoice" ${o.offer_type==='invoice'?'selected':''}>${t('offer_type_invoice')}</option>
               <option value="services" ${o.offer_type==='services'?'selected':''}>${t('offer_type_services')}</option>
               <option value="equipment" ${o.offer_type==='equipment'?'selected':''}>${t('offer_type_equipment')}</option>
               <option value="license" ${o.offer_type==='license'?'selected':''}>${t('offer_type_license')}</option>

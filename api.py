@@ -5547,7 +5547,7 @@ async def generate_offer_pdf_endpoint(offer_id: int, request: Request, user=Depe
     with get_db() as conn:
         row = conn.execute("SELECT * FROM offers WHERE id = ?", (offer_id,)).fetchone()
     if not row:
-        _err("Offer not found", 404)
+        return _err("Offer not found", 404)
     offer = dict(row)
     try:
         items = json.loads(offer.get("items", "[]"))
@@ -5571,10 +5571,10 @@ async def generate_offer_pdf_endpoint(offer_id: int, request: Request, user=Depe
             headers={"Content-Disposition": f'attachment; filename="{offer["offer_number"]}.pdf"'}
         )
     except Exception as e:
-        logger.error(f"PDF generation failed for offer {offer_id}: {e}")
         import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail="PDF generation failed")
+        tb = traceback.format_exc()
+        logger.error(f"PDF generation failed for offer {offer_id}: {e}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════

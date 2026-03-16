@@ -6227,7 +6227,6 @@ function openClientDetails(id) {
 
 async function showCompanyDetail(id) {
   try {
-    // Load company + contacts + contracts in parallel
     const [{data:c}, contracts, companyActivities] = await Promise.all([
       api.get('/api/companies/' + id),
       api.get('/api/companies/' + id + '/contracts').then(r=>r.data).catch(()=>[]),
@@ -6242,96 +6241,183 @@ async function showCompanyDetail(id) {
   const lastDays = daysSince(lastActivity);
   const catBadge = c.category === 'client' ? `<span style="background:#14532d;color:#4ade80;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600">${t('lead_status_converted')}</span>`
                  : c.category === 'inactive' ? `<span style="background:#7f1d1d;color:#fca5a5;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600">${t('company_inactive_badge')}</span>`
+                 : c.category === 'prospect' ? `<span style="background:#1e3a5f;color:#60a5fa;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600">${currentLang==='ru'?'Проспект':currentLang==='az'?'Prospekt':'Prospect'}</span>`
                  : c.category === 'partner' ? `<span style="background:#3b2f63;color:#a78bfa;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600">${t('company_cat_partner')}</span>` : '';
 
-  showModal(`
-    <div class="flex justify-between items-start mb-4">
-      <div><h2 class="text-xl font-bold">${esc(c.name)}</h2><p class="text-indigo-400 text-sm">${esc(c.domain)||''} ${catBadge}</p></div>
-      <button onclick="closeModal()" class="text-slate-500 hover:text-slate-300 text-xl">&times;</button>
-    </div>
-    <div class="grid grid-cols-2 gap-3 text-sm mb-4">
-      <div class="info-row"><span class="label">${t('companies_detail_industry')}:</span> <span>${esc(c.industry)||'—'}</span></div>
-      <div class="info-row"><span class="label">${t('companies_detail_website')}:</span> <span>${esc(c.website)||'—'}</span></div>
-      <div class="info-row"><span class="label">${t('companies_detail_contacts')}:</span> <span>${c.contacts_count||0}</span></div>
-      <div class="info-row"><span class="label">${t('companies_detail_last')}:</span> <span>${lastActivity ? esc(lastActivity.substring(0,10)) + (lastDays!==null?' ('+lastDays+'d)':'') : '—'}</span></div>
-      <div class="info-row" style="grid-column:span 2;">
-        <span class="label">Qrup:</span>
-        <span style="display:flex;align-items:center;gap:6px;">
-          ${c.group_name ? '<span style="background:#312e81;color:#a5b4fc;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:500;">'+esc(c.group_name)+'</span>' : '<span class="text-slate-500 text-xs">—</span>'}
-          <button onclick="changeCompanyGroup(${c.id}, '${escapeAttr(c.group_name||'')}')" style="padding:2px 8px;background:#1e293b;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;">dəyiş</button>
-        </span>
-      </div>
-      ${c.category === 'client' ? `
-      <div class="info-row" style="grid-column:span 2;border-top:1px solid #334155;padding-top:8px;margin-top:4px;">
-        <span class="label">İstifadəçilər:</span>
-        <span style="display:flex;align-items:center;gap:4px;">
-          <input type="number" id="userCountInput_${id}" value="${c.user_count||0}" min="0" style="width:60px;padding:1px 4px;background:#1e293b;border:1px solid #475569;border-radius:3px;color:#e2e8f0;text-align:right;font-size:12px;">
-          <button onclick="saveUserCount(${id}, document.getElementById('userCountInput_${id}').value)" style="padding:5px 16px;background:#312e81;color:#a5b4fc;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:500;">Tətbiq et</button>
-        </span>
-      </div>
-      ` : ''}
-    </div>
+  const _ct = (en, ru, az) => currentLang === 'ru' ? ru : currentLang === 'az' ? az : en;
 
-    <h3 class="font-semibold mb-2 text-sm">${t('companies_key_people')}</h3>
-    <div class="space-y-1 mb-4 max-h-40 overflow-y-auto">
-      ${keyPeople.length === 0 ? '<p class="text-slate-500 text-sm">—</p>' : ''}
-      ${keyPeople.map(ct=>`<div class="flex justify-between items-center text-sm py-1 cursor-pointer hover:text-indigo-400" onclick="closeModal();setTimeout(()=>showContactDetail(${ct.id}),100)">
-        <span class="text-slate-300">${esc(ct.name||ct.email)}</span>
-        <div class="flex items-center gap-3"><span class="text-slate-500 text-xs">${esc(ct.role)||''}</span><span class="text-indigo-400 text-xs font-semibold">${ct.activity_count||0} ${t('contacts_col_emails')}</span></div>
-      </div>`).join('')}
-    </div>
-
-    <div class="mb-4" style="border-top:1px solid #334155;padding-top:12px;">
-      <div class="flex justify-between items-center mb-2">
-        <h3 class="font-semibold text-sm">${currentLang==='ru'?'Активность':currentLang==='az'?'Fəaliyyət':'Activity'} (${companyActivities.length})</h3>
-        <button onclick="showCompanyActivityModal(${id})" class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;">+ ${currentLang==='ru'?'Записать':currentLang==='az'?'Qeyd et':'Log'}</button>
+  const html = `<div class="modal-overlay active" onclick="if(event.target===this)this.remove()">
+    <div class="modal-content" style="max-width:600px">
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h2 class="text-xl font-bold">${esc(c.name)}</h2>
+          <div class="flex gap-2 mt-1 items-center"><span class="text-indigo-400 text-sm">${esc(c.domain)||''}</span> ${catBadge}</div>
+        </div>
+        <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
-      <div class="space-y-1 max-h-40 overflow-y-auto" id="companyActivitiesList_${id}">
-        ${companyActivities.length === 0 ? '<p class="text-slate-500 text-sm">'+( currentLang==='ru'?'Нет активностей':currentLang==='az'?'Fəaliyyət yoxdur':'No activities')+'</p>' :
-          companyActivities.slice(0,5).map(a => {
-            const icons = {CALL:'📞',EMAIL:'📧',MEETING:'🤝',NOTE:'📝',DEMO:'🖥️',PROPOSAL_SENT:'📄'};
-            return '<div class="flex justify-between items-center text-sm py-1" style="border-bottom:1px solid #1e293b;">'+
-              '<div><span style="font-size:12px;">'+(icons[a.activity_type]||'📌')+'</span> <span class="text-xs font-semibold text-indigo-400">'+(a.activity_type||'')+'</span> <span class="text-slate-300">'+(esc(a.subject)||'')+'</span></div>'+
-              '<span class="text-slate-500 text-xs">'+(a.timestamp?a.timestamp.substring(0,10):'')+'</span></div>';
-          }).join('')}
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-4 border-b border-slate-700" id="coTabsBar">
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400" onclick="switchCompanyTab('details',this)">${_i._g('ld_tab_details')}</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300" onclick="switchCompanyTab('activity',this)">${_i._g('ld_tab_activity')}</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-purple-400 hover:text-purple-300" onclick="switchCompanyTab('sentiment',this)">🧠 Sentiment</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-amber-400 hover:text-amber-300" onclick="switchCompanyTab('autoTasks',this)">⚡ Tasks</button>
+        <button class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-cyan-400 hover:text-cyan-300" onclick="switchCompanyTab('aiText',this)">✉️ AI Text</button>
+      </div>
+
+      <!-- Tab: Details -->
+      <div id="coTabDetails" class="co-tab">
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span class="text-slate-500">${t('companies_detail_industry')}:</span> <span class="text-slate-200">${esc(c.industry)||'—'}</span></div>
+          <div><span class="text-slate-500">${t('companies_detail_website')}:</span> <span class="text-slate-200">${esc(c.website)||'—'}</span></div>
+          <div><span class="text-slate-500">${t('companies_detail_contacts')}:</span> <span class="text-slate-200">${c.contacts_count||0}</span></div>
+          <div><span class="text-slate-500">${t('companies_detail_last')}:</span> <span class="text-slate-200">${lastActivity ? esc(lastActivity.substring(0,10)) + (lastDays!==null?' ('+lastDays+'d)':'') : '—'}</span></div>
+          <div style="grid-column:span 2"><span class="text-slate-500">Qrup:</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;margin-left:4px;">
+              ${c.group_name ? '<span style="background:#312e81;color:#a5b4fc;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:500;">'+esc(c.group_name)+'</span>' : '<span class="text-slate-500 text-xs">—</span>'}
+              <button onclick="changeCompanyGroup(${c.id}, '${escapeAttr(c.group_name||'')}')" style="padding:2px 8px;background:#1e293b;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;">dəyiş</button>
+            </span>
+          </div>
+          ${c.category === 'client' ? `
+          <div style="grid-column:span 2;border-top:1px solid #334155;padding-top:8px;margin-top:4px;">
+            <span class="text-slate-500">İstifadəçilər:</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px;">
+              <input type="number" id="userCountInput_${id}" value="${c.user_count||0}" min="0" style="width:60px;padding:1px 4px;background:#1e293b;border:1px solid #475569;border-radius:3px;color:#e2e8f0;text-align:right;font-size:12px;">
+              <button onclick="saveUserCount(${id}, document.getElementById('userCountInput_${id}').value)" style="padding:5px 16px;background:#312e81;color:#a5b4fc;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:500;">Tətbiq et</button>
+            </span>
+          </div>` : ''}
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-700">
+          <h3 class="font-semibold mb-2 text-sm">${t('companies_key_people')}</h3>
+          <div class="space-y-1 max-h-32 overflow-y-auto">
+            ${keyPeople.length === 0 ? '<p class="text-slate-500 text-sm">—</p>' : ''}
+            ${keyPeople.map(ct=>`<div class="flex justify-between items-center text-sm py-1 cursor-pointer hover:text-indigo-400" onclick="this.closest('.modal-overlay').remove();setTimeout(()=>showContactDetail(${ct.id}),100)">
+              <span class="text-slate-300">${esc(ct.name||ct.email)}</span>
+              <div class="flex items-center gap-3"><span class="text-slate-500 text-xs">${esc(ct.role)||''}</span><span class="text-indigo-400 text-xs font-semibold">${ct.activity_count||0} ${t('contacts_col_emails')}</span></div>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-700">
+          <h3 class="font-semibold mb-2 text-sm">${t('companies_contracts')} (${contracts.length})</h3>
+          ${contracts.length > 0 ? `<div class="space-y-1 max-h-32 overflow-y-auto">
+            ${contracts.map(ct=>`<div class="flex justify-between items-center text-sm py-1 cursor-pointer hover:text-indigo-400" onclick="this.closest('.modal-overlay').remove();setTimeout(()=>showContractDetail(${ct.id}),100)">
+              <span class="text-slate-300 truncate" style="max-width:250px">${esc(ct.contract_name)}</span>
+              <div class="flex items-center gap-2"><span class="ctype-badge ctype-${ct.contract_type}" style="font-size:10px">${getTypeLabel(ct.contract_type)}</span><span class="text-xs cstatus-${ct.status}">${getStatusLabel(ct.status)}</span></div>
+            </div>`).join('')}
+          </div>` : `<p class="text-slate-500 text-sm">—</p>`}
+        </div>
+
+        ${c.category === 'client' ? `
+        <div class="mt-4 pt-3 border-t border-slate-700">
+          <button class="btn btn-sm" style="background:#312e81;color:#a5b4fc;"
+            onclick="const cc=document.getElementById('clientCostContainer_${id}');if(cc.style.display==='none'){cc.style.display='block';renderClientCostTab(${id},cc);}else{cc.style.display='none';}">
+            🧮 Qiymətləndirmə &amp; Marja
+          </button>
+          <div id="clientCostContainer_${id}" style="display:none;margin-top:8px;"></div>
+        </div>` : ''}
+      </div>
+
+      <!-- Tab: Activity -->
+      <div id="coTabActivity" class="co-tab" style="display:none">
+        <div class="mb-3">
+          <button class="btn btn-sm btn-primary" onclick="showCompanyActivityModal(${id})">+ ${_ct('Log Activity','Записать','Qeyd et')}</button>
+        </div>
+        ${companyActivities.length ? `<div class="space-y-1">${companyActivities.map(a => `
+          <div class="flex gap-3 py-2 border-b border-slate-700/50">
+            <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs flex-shrink-0">${a.activity_type==='CALL'?'📞':a.activity_type==='EMAIL'?'📧':a.activity_type==='MEETING'?'🤝':'📝'}</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2"><span class="text-xs font-semibold px-1.5 py-0.5 rounded bg-slate-700">${a.activity_type||'NOTE'}</span> <span class="text-sm">${esc(a.subject||'')}</span></div>
+              ${a.content ? `<div class="text-sm text-slate-400 mt-1">${esc(a.content)}</div>` : ''}
+              <div class="text-xs text-slate-600 mt-1">${a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        `).join('')}</div>` : `<div class="text-center text-slate-500 py-6">${_ct('No activities','Нет активностей','Fəaliyyət yoxdur')}<br><span class="text-xs">${_ct('Log the first activity','Запишите первую активность','İlk fəaliyyəti qeyd edin')}</span></div>`}
+      </div>
+
+      <!-- Tab: Sentiment -->
+      <div id="coTabSentiment" class="co-tab" style="display:none">
+        <div class="text-center py-4" id="sentimentContent">
+          <button class="btn btn-primary" onclick="runSentimentAnalysis('company',${id})" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)">
+            🧠 ${_ct('Analyze Sentiment','Анализировать тональность','Tonu təhlil et')}
+          </button>
+          <p class="text-xs text-slate-500 mt-2">${_ct('AI will analyze all communications with this company','AI проанализирует все коммуникации с этой компанией','AI bu şirkətlə bütün ünsiyyəti təhlil edəcək')}</p>
+        </div>
+      </div>
+
+      <!-- Tab: Auto Tasks -->
+      <div id="coTabAutoTasks" class="co-tab" style="display:none">
+        <div class="text-center py-4" id="autoTasksContent">
+          <button class="btn btn-primary" onclick="runAutoTasks('company',${id},false)" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+            ⚡ ${_ct('Generate Tasks','Сгенерировать задачи','Tapşırıqlar yarat')}
+          </button>
+          <p class="text-xs text-slate-500 mt-2">${_ct('AI will analyze and suggest tasks','AI проанализирует и предложит задачи','AI təhlil edib tapşırıq təklif edəcək')}</p>
+        </div>
+      </div>
+
+      <!-- Tab: AI Text -->
+      <div id="coTabAiText" class="co-tab" style="display:none">
+        <div id="aiTextContent">
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-500">${_ct('Text Type','Тип текста','Mətn növü')}</label>
+                <select id="aiTextType" class="form-input w-full text-sm" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:6px 10px">
+                  <option value="email">📧 Email</option>
+                  <option value="proposal">📋 ${_ct('Proposal','Коммерческое предложение','Təklif')}</option>
+                  <option value="follow_up">🔄 Follow-up</option>
+                  <option value="meeting_invite">📅 ${_ct('Meeting Invite','Приглашение на встречу','Görüş dəvəti')}</option>
+                  <option value="thank_you">🙏 ${_ct('Thank You','Благодарственное письмо','Təşəkkür məktubu')}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">${_ct('Tone','Тон','Ton')}</label>
+                <select id="aiTextTone" class="form-input w-full text-sm" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:6px 10px">
+                  <option value="professional">💼 ${_ct('Professional','Профессиональный','Professional')}</option>
+                  <option value="friendly">😊 ${_ct('Friendly','Дружелюбный','Mehriban')}</option>
+                  <option value="formal">🏛️ ${_ct('Formal','Официальный','Rəsmi')}</option>
+                  <option value="casual">💬 ${_ct('Casual','Неформальный','Qeyri-rəsmi')}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500">${_ct('Extra instructions (optional)','Дополнительные инструкции (необязательно)','Əlavə təlimatlar (istəyə görə)')}</label>
+              <textarea id="aiTextContext" class="form-input w-full text-sm" rows="2" placeholder="${_ct('E.g. mention 10% discount, offer demo...','Например: упомянуть скидку 10%, предложить демо...','Məsələn: 10% endirim qeyd edin, demo təklif edin...')}" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 10px"></textarea>
+            </div>
+            <button class="btn btn-primary w-full" onclick="runAiTextGeneration('company',${id})" style="background:linear-gradient(135deg,#06b6d4,#0891b2)">
+              ✉️ ${_ct('Generate Text','Сгенерировать текст','Mətn yarat')}
+            </button>
+          </div>
+          <div id="aiTextResult"></div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-700 flex-wrap">
+        <button onclick="showCompanyContracts(${id})" class="btn btn-sm" style="background:#065f46;color:#34d399">📄 ${t('company_view_contracts')}</button>
+        <button onclick="this.closest('.modal-overlay').remove();showCompanyForm(${id})" class="btn btn-primary btn-sm">✏️ ${t('btn_edit')}</button>
+        ${c.category === 'inactive' ? `
+          <button onclick="reactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#065f46;color:#34d399;font-weight:600;">▶ ${t('company_reactivate')}</button>
+        ` : `
+          <button onclick="deactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;font-weight:600;">✖ ${t('company_deactivate')}</button>
+        `}
+        <button onclick="deleteCompany(${id})" class="btn btn-danger btn-sm">🗑️ ${t('btn_delete')}</button>
       </div>
     </div>
-
-    <h3 class="font-semibold mb-2 text-sm">${t('companies_contracts')} (${contracts.length})</h3>
-    ${contracts.length > 0 ? `<div class="space-y-1 mb-4 max-h-40 overflow-y-auto">
-      ${contracts.map(ct=>`<div class="flex justify-between items-center text-sm py-1 cursor-pointer hover:text-indigo-400" onclick="closeModal();setTimeout(()=>showContractDetail(${ct.id}),100)">
-        <span class="text-slate-300 truncate" style="max-width:250px">${esc(ct.contract_name)}</span>
-        <div class="flex items-center gap-2"><span class="ctype-badge ctype-${ct.contract_type}" style="font-size:10px">${getTypeLabel(ct.contract_type)}</span><span class="text-xs cstatus-${ct.status}">${getStatusLabel(ct.status)}</span></div>
-      </div>`).join('')}
-    </div>` : `<p class="text-slate-500 text-sm mb-4">—</p>`}
-
-    ${c.category === 'client' ? `
-    <div class="mt-4">
-      <button class="btn btn-sm" style="background:#312e81;color:#a5b4fc;margin-bottom:8px;"
-        onclick="
-          const costContainer = document.getElementById('clientCostContainer_${id}');
-          if(costContainer.style.display==='none'){costContainer.style.display='block';renderClientCostTab(${id},costContainer);}
-          else{costContainer.style.display='none';}
-        ">
-        🧮 Qiymətləndirmə &amp; Marja
-      </button>
-      <div id="clientCostContainer_${id}" style="display:none;"></div>
-    </div>
-    ` : ''}
-    <div class="flex gap-2 mt-4 flex-wrap">
-      <button onclick="showCompanyContracts(${id})" class="btn btn-sm" style="background:#065f46;color:#34d399">&#128196; ${t('company_view_contracts')}</button>
-      <button onclick="showCompanyForm(${id})" class="btn btn-primary btn-sm">${t('btn_edit')}</button>
-      ${c.category === 'inactive' ? `
-        <button onclick="reactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#065f46;color:#34d399;font-weight:600;">&#9654; ${t('company_reactivate')}</button>
-      ` : `
-        <button onclick="deactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;font-weight:600;">&#10006; ${t('company_deactivate')}</button>
-      `}
-      <button onclick="deleteCompany(${id})" class="btn btn-danger btn-sm">${t('btn_delete')}</button>
-    </div>
-    `);
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
   } catch(e) {
     showToast(e.message || 'Error loading company', 'error');
   }
+}
+
+function switchCompanyTab(tab, btn) {
+  document.querySelectorAll('.co-tab').forEach(t => t.style.display = 'none');
+  document.getElementById('coTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+  document.querySelectorAll('#coTabsBar button').forEach(b => { b.classList.remove('border-indigo-500','text-indigo-400','border-green-500','text-green-400'); b.classList.add('border-transparent','text-slate-400'); });
+  btn.classList.remove('border-transparent','text-slate-400');
+  btn.classList.add('border-indigo-500','text-indigo-400');
 }
 
 // ─── ACCOUNTS (Компании) PAGE — Salesforce-style ───

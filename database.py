@@ -507,6 +507,25 @@ class PgConnectionWrapper:
         pass
 
 
+def safe_add_column(conn, table, column, col_type="TEXT", default="''"):
+    """
+    Safely add a column to a table if it doesn't exist (PostgreSQL-safe).
+    Uses information_schema instead of try/except SELECT which breaks PG transactions.
+    """
+    raw = conn._conn if hasattr(conn, '_conn') else conn
+    cur = raw.cursor()
+    cur.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_name=%s AND column_name=%s",
+        (table, column)
+    )
+    if not cur.fetchone():
+        default_clause = f"DEFAULT {default}" if default is not None else ""
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type} {default_clause}")
+        raw.commit() if hasattr(raw, 'commit') else None
+        logger.info("Added column %s.%s (%s)", table, column, col_type)
+    cur.close()
+
+
 # ─── Connection functions ────────────────────────────────────
 
 def get_db_path():

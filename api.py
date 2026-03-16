@@ -5143,11 +5143,8 @@ async def create_batch_price_changes(request: Request, user=Depends(require_auth
     created = []
     with get_db() as conn:
         # Ensure effective_date column exists (migration may not have run yet)
-        try:
-            conn.execute("SELECT effective_date FROM price_changes LIMIT 1")
-        except Exception:
-            conn.execute("ALTER TABLE price_changes ADD COLUMN effective_date TEXT DEFAULT NULL")
-            logger.info("Batch endpoint: added effective_date column on-demand")
+        from database import safe_add_column
+        safe_add_column(conn, "price_changes", "effective_date", "TEXT", "NULL")
 
         for code in companies:
             if code not in all_pricing:
@@ -5670,10 +5667,8 @@ def _compute_cost_model(conn):
     total_users = portfolio_users if portfolio_users > 0 else total_users_param
 
     # --- Overhead costs: separate ADMIN vs TECH ---
-    try:
-        conn.execute("SELECT is_admin FROM overhead_costs LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE overhead_costs ADD COLUMN is_admin INTEGER DEFAULT 1")
+    from database import safe_add_column
+    safe_add_column(conn, "overhead_costs", "is_admin", "INTEGER", "1")
 
     oh_rows = conn.execute("SELECT * FROM overhead_costs ORDER BY sort_order").fetchall()
     admin_overhead = 0.0      # Allocated by headcount (Section G)
@@ -6073,37 +6068,14 @@ def _ensure_cost_model_tables(conn):
         changed_by INTEGER REFERENCES users(id),
         changed_at TEXT DEFAULT (datetime('now'))
     )""")
-    # Add is_admin column to overhead_costs if missing
-    try:
-        conn.execute("SELECT is_admin FROM overhead_costs LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE overhead_costs ADD COLUMN is_admin INTEGER DEFAULT 1")
-        # Set tech infra items to is_admin=0
-        tech_cats = ("cloud", "cortex", "ms_license", "service_desk", "fw_license", "pam", "lms")
-        for tc in tech_cats:
-            conn.execute("UPDATE overhead_costs SET is_admin=0 WHERE category=?", [tc])
-    # Add columns to companies if missing
-    try:
-        conn.execute("SELECT user_count FROM companies LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE companies ADD COLUMN user_count INTEGER DEFAULT 0")
-    try:
-        conn.execute("SELECT cost_code FROM companies LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE companies ADD COLUMN cost_code TEXT DEFAULT ''")
-    # --- Campaign migrations ---
-    try:
-        conn.execute("SELECT cost FROM campaigns LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE campaigns ADD COLUMN cost REAL DEFAULT 0")
-    try:
-        conn.execute("SELECT lead_count FROM campaigns LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE campaigns ADD COLUMN lead_count INTEGER DEFAULT 0")
-    try:
-        conn.execute("SELECT conversion_count FROM campaigns LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE campaigns ADD COLUMN conversion_count INTEGER DEFAULT 0")
+    # Add columns if missing (PostgreSQL-safe using information_schema)
+    from database import safe_add_column
+    safe_add_column(conn, "overhead_costs", "is_admin", "INTEGER", "1")
+    safe_add_column(conn, "companies", "user_count", "INTEGER", "0")
+    safe_add_column(conn, "companies", "cost_code", "TEXT", "''")
+    safe_add_column(conn, "campaigns", "cost", "REAL", "0")
+    safe_add_column(conn, "campaigns", "lead_count", "INTEGER", "0")
+    safe_add_column(conn, "campaigns", "conversion_count", "INTEGER", "0")
     # Set cost values for seed campaigns if cost=0
     conn.execute("UPDATE campaigns SET cost=500 WHERE name='Весенняя рассылка 2026' AND (cost IS NULL OR cost=0)")
     conn.execute("UPDATE campaigns SET cost=200 WHERE name='Акция для новых клиентов' AND (cost IS NULL OR cost=0)")

@@ -2783,6 +2783,14 @@ function formatTicketDesc(desc) {
 // Escape for HTML attributes in handlers - prevents XSS via quotes, backticks, backslashes
 function escapeAttr(str) { if (!str) return ''; return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/`/g,'\\`').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ── Field Hint Helper ───────────────────────────────────────────
+// Returns a styled hint/helper text under form fields in 3 languages
+function _hint(en, ru, az) {
+  var L = currentLang || 'en';
+  var txt = L === 'ru' ? ru : L === 'az' ? az : en;
+  return '<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;font-style:italic;">' + txt + '</div>';
+}
+
 // ── Searchable Dropdown Component ───────────────────────────────
 // Usage: createSearchableDropdown({id, items:[], value:'', placeholder:'', onChange:fn, containerStyle:''})
 // Returns HTML string. Call initSearchableDropdown(id) after inserting into DOM.
@@ -14632,7 +14640,7 @@ async function renderTicketsPage(el) {
   // Header
   _tkHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
   _tkHTML += '<div><h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_tickets') + '</h1>';
-  _tkHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + (stats.total||0) + ' ' + _t('tickets total','тикетов всего','cəmi tiket') + '</p></div>';
+  _tkHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + (stats.total||0) + ' ' + _t('tickets total','тикетов всего','cəmi tiket') + ' — ' + _t('Track and resolve client issues and requests','Отслеживайте и решайте обращения клиентов','Müştəri müraciətlərini izləyin və həll edin') + '</p></div>';
   _tkHTML += '<button onclick="showCreateTicketModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(99,102,241,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(99,102,241,0.3)\'">+ ' + _t('New Ticket','Новый тикет','Yeni tiket') + '</button>';
   _tkHTML += '</div>';
 
@@ -14717,9 +14725,11 @@ function showCreateTicketModal() {
     <h2 class="text-xl font-bold mb-4">${_t('New Ticket','Новый тикет','Yeni tiket')}</h2>
     <div class="space-y-3">
       <div><label class="text-sm text-slate-400">${_t('Subject','Тема','Mövzu')}</label>
-        <input id="tkSubject" class="form-input w-full" placeholder="${_t('Ticket subject','Тема тикета','Tiketin mövzusu')}"></div>
+        <input id="tkSubject" class="form-input w-full" placeholder="${_t('Ticket subject','Тема тикета','Tiketin mövzusu')}">
+        ${_hint('Short summary of the issue or request','Краткое описание проблемы или запроса','Problemin və ya sorğunun qısa xülasəsi')}</div>
       <div><label class="text-sm text-slate-400">${_t('Description','Описание','Təsvir')}</label>
-        <textarea id="tkDescription" class="form-input w-full" rows="4" placeholder="${_t('Describe the issue...','Опишите проблему...','Problemi təsvir edin...')}"></textarea></div>
+        <textarea id="tkDescription" class="form-input w-full" rows="4" placeholder="${_t('Describe the issue...','Опишите проблему...','Problemi təsvir edin...')}"></textarea>
+        ${_hint('Detailed description: what happened, steps to reproduce, expected result','Подробное описание: что случилось, шаги воспроизведения, ожидаемый результат','Ətraflı təsvir: nə baş verdi, təkrarlama addımları, gözlənilən nəticə')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm text-slate-400">${_t('Priority','Приоритет','Prioritet')}</label>
           <select id="tkPriority" class="form-input w-full">
@@ -14727,23 +14737,27 @@ function showCreateTicketModal() {
             <option value="medium" selected>Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
-          </select></div>
+          </select>
+          ${_hint('How urgent is this? Critical = immediate attention needed','Насколько срочно? Critical = требуется немедленное внимание','Nə qədər təcilidir? Critical = dərhal diqqət tələb edir')}</div>
         <div><label class="text-sm text-slate-400">${_t('Category','Категория','Kateqoriya')}</label>
           <select id="tkCategory" class="form-input w-full">
             <option value="general">${_t('General','Общее','Ümumi')}</option>
             <option value="technical">${_t('Technical','Техническая','Texniki')}</option>
             <option value="billing">${_t('Billing','Биллинг','Ödəniş')}</option>
             <option value="feature_request">${_t('Feature Request','Запрос фичи','Yeni funksiya')}</option>
-          </select></div>
+          </select>
+          ${_hint('Type of issue to route to the right team','Тип обращения для маршрутизации в нужную команду','Düzgün komandaya yönləndirmək üçün sorğu növü')}</div>
       </div>
       <div><label class="text-sm text-slate-400">${_t('Company','Компания','Şirkət')}</label>
         <select id="tkCompanyId" class="form-input w-full">
           <option value="">${_t('— Select company —','— Выберите компанию —','— Şirkət seçin —')}</option>
-        </select></div>
+        </select>
+        ${_hint('Which client company reported this issue?','Какая компания-клиент сообщила о проблеме?','Hansı müştəri şirkəti bu problemi bildirdi?')}</div>
       <div><label class="text-sm text-slate-400">${_t('Assign to','Назначить','Təyin et')}</label>
         <select id="tkAssignedTo" class="form-input w-full">
           <option value="">${_t('— Not assigned —','— Не назначен —','— Təyin edilməyib —')}</option>
-        </select></div>
+        </select>
+        ${_hint('Team member responsible for resolving this ticket','Сотрудник, ответственный за решение тикета','Bu tiketin həlli üçün məsul olan əməkdaş')}</div>
     </div>
     <div class="flex gap-2 mt-4">
       <button class="btn btn-primary flex-1" onclick="saveNewTicket()">${_t('Create','Создать','Yarat')}</button>
@@ -14974,7 +14988,10 @@ async function renderKnowledgeBase(el) {
 
   el.innerHTML = `
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('nav_kb')} <span class="text-slate-500 text-lg font-normal">(${articles.length})</span></h1>
+      <div>
+        <h1 class="text-2xl font-bold">${t('nav_kb')} <span class="text-slate-500 text-lg font-normal">(${articles.length})</span></h1>
+        <p class="text-sm text-slate-400 mt-1">${_t('Articles, guides and FAQ for your team and clients','Статьи, инструкции и FAQ для команды и клиентов','Komanda və müştərilər üçün məqalələr, təlimatlar və FAQ')}</p>
+      </div>
       ${isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="showCreateArticleModal()">+ ${_t('New Article','Новая статья','Yeni məqalə')}</button>` : ''}
     </div>
     <div class="flex gap-2 mb-4">
@@ -15017,9 +15034,11 @@ function showCreateArticleModal() {
     <h2 class="text-xl font-bold mb-4">${_t('New Article','Новая статья','Yeni məqalə')}</h2>
     <div class="space-y-3">
       <div><label class="text-sm text-slate-400">${_t('Title','Заголовок','Başlıq')}</label>
-        <input id="kbTitle" class="form-input w-full"></div>
+        <input id="kbTitle" class="form-input w-full">
+        ${_hint('Clear, descriptive title for the article, e.g. "How to reset password"','Понятный заголовок статьи, напр. «Как сбросить пароль»','Məqalə üçün aydın başlıq, məs. "Şifrəni necə sıfırlamaq"')}</div>
       <div><label class="text-sm text-slate-400">${_t('Content','Содержание','Məzmun')}</label>
-        <textarea id="kbContent" class="form-input w-full" rows="8" placeholder="${_t('Article content (Markdown supported)...','Содержание статьи (Markdown)...','Məqalə məzmunu (Markdown)...')}"></textarea></div>
+        <textarea id="kbContent" class="form-input w-full" rows="8" placeholder="${_t('Article content (Markdown supported)...','Содержание статьи (Markdown)...','Məqalə məzmunu (Markdown)...')}"></textarea>
+        ${_hint('Full article text. You can use Markdown: **bold**, *italic*, # headings, - lists','Полный текст статьи. Поддерживается Markdown: **жирный**, *курсив*, # заголовки, - списки','Tam məqalə mətni. Markdown dəstəklənir: **qalın**, *kursiv*, # başlıqlar, - siyahılar')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm text-slate-400">${_t('Category','Категория','Kateqoriya')}</label>
           <select id="kbCategory" class="form-input w-full">
@@ -15028,12 +15047,14 @@ function showCreateArticleModal() {
             <option value="billing">${_t('Billing','Биллинг','Ödəniş')}</option>
             <option value="faq">FAQ</option>
             <option value="tutorial">${_t('Tutorial','Руководство','Dərslik')}</option>
-          </select></div>
+          </select>
+          ${_hint('Topic area to organize articles','Тематика для организации статей','Məqalələri təşkil etmək üçün mövzu sahəsi')}</div>
         <div><label class="text-sm text-slate-400">${_t('Status','Статус','Status')}</label>
           <select id="kbStatus" class="form-input w-full">
             <option value="draft">${_t('Draft','Черновик','Qaralama')}</option>
             <option value="published">${_t('Published','Опубликовано','Dərc olunub')}</option>
-          </select></div>
+          </select>
+          ${_hint('Draft = only visible to staff, Published = visible to everyone','Черновик = видно только сотрудникам, Опубликовано = видно всем','Qaralama = yalnız əməkdaşlara görünür, Dərc = hamıya görünür')}</div>
       </div>
     </div>
     <div class="flex gap-2 mt-4">
@@ -15107,7 +15128,10 @@ async function renderSLAPolicies(el) {
 
   el.innerHTML = `
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">${t('nav_sla')}</h1>
+      <div>
+        <h1 class="text-2xl font-bold">${t('nav_sla')}</h1>
+        <p class="text-sm text-slate-400 mt-1">${_t('Set response and resolution time limits by ticket priority','Установите лимиты времени ответа и решения по приоритету тикета','Tiket prioritetinə görə cavab və həll vaxtı limitlərini təyin edin')}</p>
+      </div>
       <button class="btn btn-primary btn-sm" onclick="showCreateSLAModal()">+ ${_t('New Policy','Новая политика','Yeni siyasət')}</button>
     </div>
     <div class="card overflow-hidden">
@@ -15141,12 +15165,16 @@ function showCreateSLAModal() {
   showModal(`
     <h2 class="text-xl font-bold mb-4">${_t('New SLA Policy','Новая SLA политика','Yeni SLA siyasəti')}</h2>
     <div class="space-y-3">
-      <div><label class="text-sm text-slate-400">${_t('Name','Название','Ad')}</label><input id="slaName" class="form-input w-full"></div>
+      <div><label class="text-sm text-slate-400">${_t('Name','Название','Ad')}</label><input id="slaName" class="form-input w-full">
+        ${_hint('Name for this SLA rule, e.g. "Critical - 1h response"','Название правила SLA, напр. «Критический — ответ за 1ч»','SLA qaydası adı, məs. "Kritik — 1 saat cavab"')}</div>
       <div><label class="text-sm text-slate-400">${_t('Priority','Приоритет','Prioritet')}</label>
-        <select id="slaPriority" class="form-input w-full"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
+        <select id="slaPriority" class="form-input w-full"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
+        ${_hint('Which ticket priority this SLA applies to','К какому приоритету тикетов применяется это SLA','Bu SLA hansı tiket prioritetinə tətbiq edilir')}</div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="text-sm text-slate-400">${_t('First Response (hours)','Первый ответ (часы)','İlk cavab (saat)')}</label><input id="slaFR" type="number" class="form-input w-full" value="4"></div>
-        <div><label class="text-sm text-slate-400">${_t('Resolution (hours)','Решение (часы)','Həll (saat)')}</label><input id="slaRes" type="number" class="form-input w-full" value="24"></div>
+        <div><label class="text-sm text-slate-400">${_t('First Response (hours)','Первый ответ (часы)','İlk cavab (saat)')}</label><input id="slaFR" type="number" class="form-input w-full" value="4">
+          ${_hint('Max hours before the first reply to the client','Максимум часов до первого ответа клиенту','Müştəriyə ilk cavaba qədər maksimum saat')}</div>
+        <div><label class="text-sm text-slate-400">${_t('Resolution (hours)','Решение (часы)','Həll (saat)')}</label><input id="slaRes" type="number" class="form-input w-full" value="24">
+          ${_hint('Max hours to fully resolve the ticket','Максимум часов для полного решения тикета','Tiketin tam həlli üçün maksimum saat')}</div>
       </div>
     </div>
     <div class="flex gap-2 mt-4">
@@ -15675,7 +15703,7 @@ async function renderCampaigns(el) {
           </div>
           <div>
             <h1 class="text-2xl font-bold">${t('campaigns_title')}</h1>
-            <p class="text-sm text-slate-400">${_t('Email marketing campaigns','Маркетинговые кампании','Marketinq kampaniyaları')}</p>
+            <p class="text-sm text-slate-400">${_t('Create and send mass email/SMS campaigns to your contacts and leads','Создавайте и отправляйте массовые email/SMS рассылки контактам и лидам','Kontaktlarınıza və lidlərinizə kütləvi email/SMS kampaniyalar yaradın və göndərin')}</p>
           </div>
         </div>
         <button class="btn btn-primary flex items-center gap-2" onclick="showCreateCampaignModal()">
@@ -15746,16 +15774,20 @@ function showCreateCampaignModal() {
   showModal(`
     <h2 class="text-xl font-bold mb-4">${t('campaign_new')}</h2>
     <div class="space-y-3">
-      <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="3"></textarea></div>
+      <div><label class="text-sm text-slate-400">${t('campaign_name')}</label><input id="campName" class="form-input w-full">
+        ${_hint('Campaign name for internal tracking, e.g. "March Newsletter"','Название кампании для отслеживания, напр. «Мартовская рассылка»','Daxili izləmə üçün kampaniya adı, məs. "Mart bülleteni"')}</div>
+      <div><label class="text-sm text-slate-400">${t('campaign_description')}</label><textarea id="campDesc" class="form-input w-full" rows="3"></textarea>
+        ${_hint('What is this campaign about? Will be shown in the email body','О чём эта кампания? Будет показано в теле письма','Bu kampaniya nə haqqındadır? Məktubun mətnində göstəriləcək')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm text-slate-400">${t('campaign_type')}</label>
           <select id="campType" class="form-input w-full">
             <option value="email">${t('campaign_type_email')}</option>
             <option value="sms">${t('campaign_type_sms')}</option>
-          </select></div>
+          </select>
+          ${_hint('Email for newsletters, SMS for short messages','Email для рассылок, SMS для коротких сообщений','Email xəbər bülleteni üçün, SMS qısa mesajlar üçün')}</div>
         <div><label class="text-sm text-slate-400">${t('campaign_template')}</label>
-          <select id="campTemplate" class="form-input w-full"></select></div>
+          <select id="campTemplate" class="form-input w-full"></select>
+          ${_hint('Pre-made email template with design and placeholders','Готовый шаблон письма с дизайном и переменными','Dizayn və dəyişənlərlə hazır e-poçt şablonu')}</div>
       </div>
       <div><label class="text-sm text-slate-400">${_t('Recipients','Получатели','Alıcılar')}</label>
         <select id="campTarget" class="form-input w-full" onchange="onCampTargetChange()">
@@ -16631,14 +16663,17 @@ async function showSendEmailModal(toEmail, contactId, dealId, ticketId) {
         <div>
           <label class="text-xs text-slate-500">${t('email_to')}</label>
           <input type="email" id="emailTo" value="${toEmail||''}" required class="w-full">
+          ${_hint('Recipient email address','Email адрес получателя','Alıcının email ünvanı')}
         </div>
         <div>
           <label class="text-xs text-slate-500">${t('email_subject')}</label>
           <input type="text" id="emailSubject" required class="w-full">
+          ${_hint('Subject line the recipient will see in their inbox','Тема письма, которую увидит получатель','Alıcının gələnlər qutusunda görəcəyi mövzu sətri')}
         </div>
         <div>
           <label class="text-xs text-slate-500">${t('email_body')}</label>
           <textarea id="emailBody" rows="6" class="w-full"></textarea>
+          ${_hint('Email message content. HTML tags are supported','Содержание письма. Поддерживаются HTML теги','Məktubun məzmunu. HTML teqləri dəstəklənir')}
         </div>
         <div class="flex gap-2">
           <button type="submit" class="btn btn-primary">${t('email_send')}</button>
@@ -16690,7 +16725,7 @@ async function renderEmailLogPage(container) {
           </div>
           <div>
             <h1 class="text-2xl font-bold">${_t('Email Log','Журнал Email','E-poçt jurnalı')}</h1>
-            <p class="text-sm text-slate-400">${_t('Email communication history','История коммуникации по электронной почте','E-poçt rabitə tarixi')}</p>
+            <p class="text-sm text-slate-400">${_t('All sent and received emails — track delivery status, errors and history','Все отправленные и полученные письма — статус доставки, ошибки и история','Bütün göndərilən və alınan məktublar — çatdırılma statusu, xətalar və tarixçə')}</p>
           </div>
         </div>
       </div>
@@ -17565,7 +17600,7 @@ async function renderSegmentsPage(container) {
           </div>
           <div>
             <h1 class="text-2xl font-bold">${t('seg_title')}</h1>
-            <p class="text-sm text-slate-400">${_t('Target contacts by segments','Целевые контакты по сегментам','Seqmentlər üzrə hədəfləmə')}</p>
+            <p class="text-sm text-slate-400">${_t('Group contacts by criteria (company, source, date) for targeted campaigns','Группировка контактов по критериям (компания, источник, дата) для целевых рассылок','Hədəfli kampaniyalar üçün kontaktları meyarlara görə qruplaşdırın (şirkət, mənbə, tarix)')}</p>
           </div>
         </div>
         <button class="btn btn-primary flex items-center gap-2" onclick="showSegmentForm()">
@@ -17656,10 +17691,12 @@ async function showSegmentForm(segId) {
         <div>
           <label class="text-xs text-slate-500">${t('seg_name')} *</label>
           <input type="text" name="seg_name" value="${esc(seg.name)}" required class="w-full">
+          ${_hint('Give the segment a clear name, e.g. "VIP Clients" or "IT Leads"','Дайте сегменту понятное название, напр. «VIP клиенты» или «IT лиды»','Seqmentə aydın ad verin, məs. "VIP müştərilər" və ya "IT lidlər"')}
         </div>
         <div>
           <label class="text-xs text-slate-500">${t('seg_description')}</label>
           <textarea name="seg_desc" rows="2" class="w-full">${esc(seg.description||'')}</textarea>
+          ${_hint('Optional description of what this segment is for','Необязательное описание для чего нужен этот сегмент','Seqmentin nə üçün olduğunun isteğe bağlı təsviri')}
         </div>
         <div class="rounded-2xl overflow-hidden border border-slate-700/30 shadow-lg">
           <!-- Gradient header for Conditions -->
@@ -17684,6 +17721,7 @@ async function showSegmentForm(segId) {
                   ${t('seg_company')}
                 </label>
                 <input type="text" name="seg_company_name" value="${esc(c.company_name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Filter by company name (partial match)','Фильтр по названию компании (частичное совпадение)','Şirkət adına görə filtr (qismən uyğunluq)')}
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
@@ -17699,6 +17737,7 @@ async function showSegmentForm(segId) {
                   <option value="LINKEDIN" ${c.source==='LINKEDIN'?'selected':''}>LinkedIn</option>
                   <option value="OTHER" ${c.source==='OTHER'?'selected':''}>${_t('Other','Другое','Digər')}</option>
                 </select>
+                ${_hint('Where did the contact come from?','Откуда пришёл контакт?','Kontakt haradan gəlib?')}
               </div>
             </div>
             <!-- Row 2: Role & Tag -->
@@ -17709,6 +17748,7 @@ async function showSegmentForm(segId) {
                   ${t('seg_role')}
                 </label>
                 <input type="text" name="seg_role" value="${esc(c.role||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Filter by job title, e.g. "CEO", "Manager"','Фильтр по должности, напр. «CEO», «Менеджер»','Vəzifəyə görə filtr, məs. "CEO", "Menecer"')}
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
@@ -17716,6 +17756,7 @@ async function showSegmentForm(segId) {
                   ${t('seg_tag')}
                 </label>
                 <input type="text" name="seg_tag" value="${esc(c.tag||'')}" placeholder="${_t('Tag name','Имя тега','Teq adı')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Filter contacts that have this tag assigned','Фильтр контактов с этим тегом','Bu teqlə işarələnmiş kontaktları filtrləyin')}
               </div>
             </div>
             <!-- Divider -->
@@ -17728,6 +17769,7 @@ async function showSegmentForm(segId) {
                   ${t('seg_created_after')}
                 </label>
                 <input type="date" name="seg_created_after" value="${c.created_after||''}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Show contacts created after this date','Показать контакты, созданные после этой даты','Bu tarixdən sonra yaradılmış kontaktları göstər')}
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
@@ -17735,6 +17777,7 @@ async function showSegmentForm(segId) {
                   ${t('seg_created_before')}
                 </label>
                 <input type="date" name="seg_created_before" value="${c.created_before||''}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Show contacts created before this date','Показать контакты, созданные до этой даты','Bu tarixdən əvvəl yaradılmış kontaktları göstər')}
               </div>
             </div>
             <!-- Row 4: Name & Checkboxes -->
@@ -17745,6 +17788,7 @@ async function showSegmentForm(segId) {
                   ${_t('Name','Имя','Ad')}
                 </label>
                 <input type="text" name="seg_contact_name" value="${esc(c.name||'')}" placeholder="${_t('Contains...','Содержит...','Ehtiva edir...')}" class="w-full text-sm bg-slate-900/50 border-slate-600/50 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition">
+                ${_hint('Filter by contact first/last name','Фильтр по имени/фамилии контакта','Kontaktın adına/soyadına görə filtr')}
               </div>
               <div class="flex items-end gap-5 pb-1">
                 <label class="flex items-center gap-2 text-xs cursor-pointer group">
@@ -18051,7 +18095,7 @@ async function renderWebForms(el) {
           </div>
           <div>
             <h1 class="text-2xl font-bold">${t('web_forms_title')}</h1>
-            <p class="text-sm text-slate-400">${_t('Capture leads with web forms','Формы для сбора лидов','Veb formalar ilə lidlər toplayın')}</p>
+            <p class="text-sm text-slate-400">${_t('Embed forms on your website to automatically capture leads into CRM','Встройте формы на свой сайт для автоматического сбора лидов в CRM','Lidləri avtomatik olaraq CRM-ə toplamaq üçün saytınıza formalar yerləşdirin')}</p>
           </div>
         </div>
         <button class="btn btn-primary flex items-center gap-2" onclick="showCreateWebFormModal()">
@@ -18088,11 +18132,15 @@ function showCreateWebFormModal() {
   showModal(`
     <h2 class="text-xl font-bold mb-4">${t('web_form_new')}</h2>
     <div class="space-y-3">
-      <div><label class="text-sm text-slate-400">${t('web_form_name')}</label><input id="wfName" class="form-input w-full"></div>
-      <div><label class="text-sm text-slate-400">${t('web_form_description')}</label><textarea id="wfDesc" class="form-input w-full" rows="3"></textarea></div>
-      <div><label class="text-sm text-slate-400">${t('web_form_redirect_url')}</label><input id="wfRedirect" class="form-input w-full" placeholder="https://example.com/thank-you"></div>
+      <div><label class="text-sm text-slate-400">${t('web_form_name')}</label><input id="wfName" class="form-input w-full">
+        ${_hint('Internal name for the web form, e.g. "Contact Us Page Form"','Внутреннее название формы, напр. «Форма страницы Контакты»','Veb forma üçün daxili ad, məs. "Əlaqə səhifəsi forması"')}</div>
+      <div><label class="text-sm text-slate-400">${t('web_form_description')}</label><textarea id="wfDesc" class="form-input w-full" rows="3"></textarea>
+        ${_hint('What is this form used for?','Для чего используется эта форма?','Bu forma nə üçün istifadə olunur?')}</div>
+      <div><label class="text-sm text-slate-400">${t('web_form_redirect_url')}</label><input id="wfRedirect" class="form-input w-full" placeholder="https://example.com/thank-you">
+        ${_hint('URL where users go after submitting the form (thank you page)','URL куда перенаправлять пользователя после отправки формы','Formu göndərdikdən sonra istifadəçinin yönləndirildiyi URL')}</div>
       <div><label class="text-sm text-slate-400">${t('web_form_assign_to')}</label>
-        <select id="wfAssignTo" class="form-input w-full"></select></div>
+        <select id="wfAssignTo" class="form-input w-full"></select>
+        ${_hint('Team member who will receive new submissions','Сотрудник, который будет получать новые заявки','Yeni müraciətləri alacaq əməkdaş')}</div>
     </div>
     <div class="flex gap-2 mt-4">
       <button class="btn btn-primary flex-1" onclick="saveNewWebForm()">${t('common_save')}</button>
@@ -20007,7 +20055,7 @@ async function onLeadDrop(e, newStatus) {
             const [jRes, statsRes] = await Promise.all([api.get('/api/journeys'), api.get('/api/journeys/stats')]);
             const journeys = jRes.data || [];
             const stats = statsRes.data || {};
-            let h = '<h2 style="color:#e2e8f0;margin:0 0 20px;display:flex;align-items:center;gap:10px">🛤️ Journey Builder<span style="font-size:14px;color:#64748b;font-weight:400">Конструктор путей клиента</span></h2>';
+            let h = '<div style="margin-bottom:20px"><h2 style="color:#e2e8f0;margin:0;display:flex;align-items:center;gap:10px">🛤️ Journey Builder</h2><p style="font-size:13px;color:#64748b;margin-top:4px">' + _t('Automate client communication: emails, delays, conditions in a visual flow','Автоматизируйте коммуникацию с клиентами: письма, задержки, условия в визуальном потоке','Müştəri rabitəsini avtomatlaşdırın: məktublar, gecikmələr, şərtlər vizual axında') + '</p></div>';
             h += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">';
             h += `<button onclick="openJourneyModal()" style="${_jbx.btn('#8b5cf6')}">+ Создать путь</button>`;
             h += `<button onclick="processJourneys()" style="${_jbx.btn('#334155','#e2e8f0')}">⚙️ Обработать очередь</button>`;

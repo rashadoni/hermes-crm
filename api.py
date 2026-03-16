@@ -9708,7 +9708,7 @@ async def predict_lead_score(lead_id: int, user=Depends(require_auth)):
             activities = []
             try:
                 activities = conn.execute(
-                    "SELECT * FROM activities WHERE entity_type='lead' AND entity_id=? ORDER BY created_at DESC LIMIT 20",
+                    "SELECT * FROM activities WHERE lead_id=? ORDER BY timestamp DESC LIMIT 20",
                     [lead_id]
                 ).fetchall()
             except Exception:
@@ -10406,8 +10406,8 @@ async def submit_web_form(token: str, request: Request):
         # Store submission metadata as activity
         submission_text = "Form: " + "; ".join([f"{k}={v}" for k,v in data.items() if k in ['name','email','phone','company']])
         conn.execute(
-            """INSERT INTO activities (contact_id, type, description, created_at)
-               VALUES (?,?,?,datetime('now'))""",
+            """INSERT INTO activities (contact_id, activity_type, subject, timestamp)
+               VALUES (?,?,?,NOW())""",
             [contact_id, "web_form_submission", submission_text]
         )
 
@@ -13092,9 +13092,10 @@ async def ai_sentiment_analysis(request: Request, user=Depends(require_auth)):
             # Get activities (columns may vary)
             act_text = ""
             try:
+                act_col = "lead_id" if entity_type == "lead" else "contact_id"
                 activities = conn.execute(
-                    "SELECT * FROM activities WHERE entity_type=? AND entity_id=? ORDER BY COALESCE(timestamp, created_at) DESC LIMIT 20",
-                    [entity_type, entity_id]
+                    f"SELECT * FROM activities WHERE {act_col}=? ORDER BY timestamp DESC LIMIT 20",
+                    [entity_id]
                 ).fetchall()
                 act_parts = []
                 for a in activities:
@@ -13266,7 +13267,8 @@ async def ai_auto_tasks(request: Request, user=Depends(require_auth)):
             except Exception:
                 pass
             try:
-                acts = conn.execute("SELECT * FROM activities WHERE entity_type=? AND entity_id=? ORDER BY COALESCE(timestamp,created_at) DESC LIMIT 10", [entity_type, entity_id]).fetchall()
+                _act_col = "lead_id" if entity_type == "lead" else "contact_id"
+                acts = conn.execute(f"SELECT * FROM activities WHERE {_act_col}=? ORDER BY timestamp DESC LIMIT 10", [entity_id]).fetchall()
                 for a in [dict(x) for x in acts]:
                     ctx_parts.append(f"[activity:{a.get('activity_type','')}|{str(a.get('timestamp',''))[:16]}]: {a.get('subject','')} {a.get('content','')[:100]}")
             except Exception:
@@ -13866,7 +13868,7 @@ async def ai_deal_forecast(request: Request, user=Depends(require_auth)):
 
             # Get related activities
             try:
-                acts = conn.execute("SELECT * FROM activities WHERE deal_id=? ORDER BY COALESCE(timestamp, created_at) DESC LIMIT 10", [deal_id]).fetchall()
+                acts = conn.execute("SELECT * FROM activities WHERE deal_id=? ORDER BY timestamp DESC LIMIT 10", [deal_id]).fetchall()
                 for a in acts:
                     a = dict(a)
                     activities.append(f"[{a.get('activity_type') or a.get('type','')}] {a.get('subject') or a.get('description','')}")

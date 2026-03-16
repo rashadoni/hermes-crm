@@ -5824,7 +5824,7 @@ async function renderCompanyList(el, mode) {
 
   if (mode === 'client') {
     // ─── UNIFIED LEADS PIPELINE VIEW ───
-    const _lf = window._leadsFilter || 'converted';
+    const _lf = window._leadsFilter || 'new';
     const [{data:companies}, costRes, {data:leadsRes}, {data:leadStats}, {data:actCounts}] = await Promise.all([
       api.get(`/api/companies?limit=500&q=`+encodeURIComponent(state.companiesQuery)),
       api.get('/api/cost-model/client-costs').catch(()=>({data:{clients:{}}})),
@@ -6139,7 +6139,7 @@ function _updateCompanyGrid(grid) {
   const mode = 'client';
   const allItems = window._lastCompanyItems || [];
   let filtered = allItems;
-  const _lf = window._leadsFilter || 'converted';
+  const _lf = window._leadsFilter || 'new';
   if (_lf !== 'all') filtered = filtered.filter(i => i.status === _lf);
   if (state.companiesQuery) {
     const sq = state.companiesQuery.toLowerCase();

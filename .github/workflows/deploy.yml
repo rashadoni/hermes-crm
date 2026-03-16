@@ -102,5 +102,12 @@ jobs:
             echo "=== Service log ==="
             journalctl -u hermes-crm --no-pager -n 10 2>/dev/null || echo "no journal"
             systemctl restart hermes-crm
-            sleep 2
-            systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"
+            sleep 5
+            systemctl is-active hermes-crm && echo "✅ Service active" || echo "❌ Service failed"
+            echo "=== Health check ==="
+            curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:8766/ 2>&1 || echo "curl failed"
+            echo ""
+            echo "=== Last 20 lines of hermes log ==="
+            journalctl -u hermes-crm --no-pager -n 20 2>/dev/null || tail -20 /var/log/hermes.log 2>/dev/null || echo "no logs"
+            echo "=== Listening ports ==="
+            ss -tlnp | grep 8766 || echo "port 8766 not listening"

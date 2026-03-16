@@ -4522,11 +4522,11 @@ async function renderContacts(el) {
           <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1.2px;text-align:center">${t('contacts_col_emails')}</div>
         </div>
         <!-- Rows -->
-        <div style="padding:4px 0">
+        <div id="contactsRowsContainer" style="padding:4px 0">
           ${contactRows}
         </div>
       </div>
-      ${renderPagination(total, state.contactsPage, 'onContactsPage')}
+      <div id="contactsPagination">${renderPagination(total, state.contactsPage, 'onContactsPage')}</div>
     </div>
   `;
   document.getElementById('contactsSearch').value = state.searchQuery;
@@ -4536,13 +4536,27 @@ function onContactsSearch(q) {
   state.searchQuery = q; state.contactsPage = 0;
   clearTimeout(_ctcSearchTimer);
   _ctcSearchTimer = setTimeout(async () => {
-    const pos = document.getElementById('contactsSearch')?.selectionStart;
-    await renderPage('contacts');
-    const inp = document.getElementById('contactsSearch');
-    if(inp){inp.focus();if(pos!=null)inp.setSelectionRange(pos,pos);}
+    const tmpEl = document.createElement('div');
+    await renderContacts(tmpEl);
+    const newRows = tmpEl.querySelector('#contactsRowsContainer');
+    const newPag = tmpEl.querySelector('#contactsPagination');
+    const curRows = document.getElementById('contactsRowsContainer');
+    const curPag = document.getElementById('contactsPagination');
+    if (curRows && newRows) curRows.innerHTML = newRows.innerHTML;
+    if (curPag && newPag) curPag.innerHTML = newPag.innerHTML;
   }, 300);
 }
-function onContactsPage(p) { state.contactsPage = p; renderPage('contacts'); }
+function onContactsPage(p) { state.contactsPage = p; _refreshContactsContent(); }
+async function _refreshContactsContent() {
+  const tmpEl = document.createElement('div');
+  await renderContacts(tmpEl);
+  const newRows = tmpEl.querySelector('#contactsRowsContainer');
+  const newPag = tmpEl.querySelector('#contactsPagination');
+  const curRows = document.getElementById('contactsRowsContainer');
+  const curPag = document.getElementById('contactsPagination');
+  if (curRows && newRows) curRows.innerHTML = newRows.innerHTML;
+  if (curPag && newPag) curPag.innerHTML = newPag.innerHTML;
+}
 
 function showContactModal() { showContactDetail(null); }
 function showContactDetail(id) {
@@ -6366,7 +6380,7 @@ async function renderAccounts(el) {
     // Search bar
     html += '<div style="background:rgba(30,41,59,0.8);border:1px solid rgba(99,102,241,0.1);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;gap:16px;align-items:center">';
     html += '<div style="flex:1;position:relative">';
-    html += '<input type="text" id="companiesSearch" placeholder="' + _t('Search accounts...', 'Поиск компаний...', 'Şirkət axtar...') + '" value="' + esc(state.companiesQuery || '') + '" oninput="state.companiesQuery=this.value;renderAccounts(document.getElementById(\'app\'))" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none">';
+    html += '<input type="text" id="companiesSearch" placeholder="' + _t('Search accounts...', 'Поиск компаний...', 'Şirkət axtar...') + '" value="' + esc(state.companiesQuery || '') + '" oninput="onAccountsSearch(this.value)" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(99,102,241,0.15);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none">';
     html += '</div></div>';
 
     // Table
@@ -6379,7 +6393,7 @@ async function renderAccounts(el) {
     html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Contracts', 'Контракты', 'Müqavilələr') + '</th>';
     html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Users', 'Юзеры', 'İstifadəçilər') + '</th>';
     html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Activity', 'Активность', 'Fəaliyyət') + '</th>';
-    html += '</tr></thead><tbody>';
+    html += '</tr></thead><tbody id="accountsTableBody">';
 
     if (filtered.length === 0) {
       html += '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';
@@ -6403,6 +6417,19 @@ async function renderAccounts(el) {
   } catch(e) {
     showToast(e.message || 'Error loading accounts', 'error');
   }
+}
+
+let _acctSearchTimer = null;
+function onAccountsSearch(q) {
+  state.companiesQuery = q;
+  clearTimeout(_acctSearchTimer);
+  _acctSearchTimer = setTimeout(async () => {
+    const tmpEl = document.createElement('div');
+    await renderAccounts(tmpEl);
+    const newBody = tmpEl.querySelector('#accountsTableBody');
+    const curBody = document.getElementById('accountsTableBody');
+    if (curBody && newBody) curBody.innerHTML = newBody.innerHTML;
+  }, 300);
 }
 
 async function deactivateCompany(id, name) {
@@ -6669,7 +6696,7 @@ async function renderContracts(el) {
   _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_start') + '</th>';
   _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('contracts_col_end') + '</th>';
   _cHTML += '<th style="padding:14px 16px;text-align:left;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + t('col_actions') + '</th>';
-  _cHTML += '</tr></thead><tbody>';
+  _cHTML += '</tr></thead><tbody id="contractsTableBody">';
   if (contracts.length === 0) {
     _cHTML += '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:40px 20px">' + t('contracts_none') + '</td></tr>';
   }
@@ -6690,7 +6717,7 @@ async function renderContracts(el) {
     _cHTML += '</tr>';
   });
   _cHTML += '</tbody></table></div>';
-  _cHTML += renderPagination(total, state.contractsPage, 'onContractsPage');
+  _cHTML += '<div id="contractsPagination">' + renderPagination(total, state.contractsPage, 'onContractsPage') + '</div>';
 
   el.innerHTML = _cHTML;
   document.getElementById('contractsSearch').value = contractsFilter.q;
@@ -6701,15 +6728,29 @@ function onContractsSearch(q) {
   contractsFilter.q = q; state.contractsPage = 0;
   clearTimeout(_ctrSearchTimer);
   _ctrSearchTimer = setTimeout(async () => {
-    const pos = document.getElementById('contractsSearch')?.selectionStart;
-    await renderPage('contracts');
-    const inp = document.getElementById('contractsSearch');
-    if(inp){inp.focus();if(pos!=null)inp.setSelectionRange(pos,pos);}
+    const tmpEl = document.createElement('div');
+    await renderContracts(tmpEl);
+    const newBody = tmpEl.querySelector('#contractsTableBody');
+    const newPag = tmpEl.querySelector('#contractsPagination');
+    const curBody = document.getElementById('contractsTableBody');
+    const curPag = document.getElementById('contractsPagination');
+    if (curBody && newBody) curBody.innerHTML = newBody.innerHTML;
+    if (curPag && newPag) curPag.innerHTML = newPag.innerHTML;
   }, 300);
 }
 function onContractTypeFilter(t) { contractsFilter.type = t; state.contractsPage = 0; renderPage('contracts'); }
 function onContractStatusFilter(s) { contractsFilter.status = s; state.contractsPage = 0; renderPage('contracts'); }
-function onContractsPage(p) { state.contractsPage = p; renderPage('contracts'); }
+function onContractsPage(p) { state.contractsPage = p; _refreshContractsContent(); }
+async function _refreshContractsContent() {
+  const tmpEl = document.createElement('div');
+  await renderContracts(tmpEl);
+  const newBody = tmpEl.querySelector('#contractsTableBody');
+  const newPag = tmpEl.querySelector('#contractsPagination');
+  const curBody = document.getElementById('contractsTableBody');
+  const curPag = document.getElementById('contractsPagination');
+  if (curBody && newBody) curBody.innerHTML = newBody.innerHTML;
+  if (curPag && newPag) curPag.innerHTML = newPag.innerHTML;
+}
 
 function showContractDetail(id) {
   api.get('/api/contracts/' + id).then(r => {
@@ -9479,7 +9520,7 @@ async function renderMuqavile(el) {
       <div>
         <input type="text" class="input-field w-full max-w-sm" placeholder="${t('muq_search_company')}"
           value="${esc(_muqavileFilter)}"
-          oninput="_muqavileFilter=this.value; renderMuqavileTable()">
+          oninput="_muqavileFilter=this.value; clearTimeout(window._muqTimer); window._muqTimer=setTimeout(renderMuqavileTable, 300)">
       </div>
 
       <!-- Companies table -->
@@ -10993,7 +11034,7 @@ async function renderOffers(el) {
   </div>
   <div class="flex gap-2 mb-4">
     <input id="offerSearch" type="text" placeholder="${t('search')}" class="flex-1 text-sm"
-      oninput="loadOffersList()">
+      oninput="onOfferSearch()">
     <select id="offerStatusFilter" class="text-sm" onchange="loadOffersList()" style="width:auto">
       <option value="">All</option>
       <option value="draft">${t('offer_status_draft')}</option>
@@ -11004,6 +11045,12 @@ async function renderOffers(el) {
   </div>
   <div id="offersListContainer"></div>`;
   await loadOffersList();
+}
+
+let _offerSearchTimer = null;
+function onOfferSearch() {
+  clearTimeout(_offerSearchTimer);
+  _offerSearchTimer = setTimeout(() => loadOffersList(), 300);
 }
 
 async function loadOffersList() {

@@ -165,7 +165,7 @@ def _ok(data=None, total=None):
 def _err(message, status_code=400):
     if status_code == 500:
         logger.error("Internal error: %s", message)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(message))  # TEMP: show details
     raise HTTPException(status_code=status_code, detail=message)
 
 

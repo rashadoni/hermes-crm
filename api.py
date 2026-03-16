@@ -7704,9 +7704,8 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
         _wf_company_id = None
         if _wf_new_status and _wf_new_status != old[0]:
             tkt = conn.execute("SELECT company_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
-            if tkt and tkt[0]:
-                _wf_status_changed = True
-                _wf_company_id = tkt[0]
+            _wf_status_changed = True
+            _wf_company_id = tkt[0] if tkt else None
         # Prepare notification data (send OUTSIDE db block)
         new_assigned = updates.get("assigned_to")
         _notify_assign = False
@@ -10596,7 +10595,7 @@ async def portal_change_password(request: Request):
 
 def _ensure_portal_notifications_table(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS portal_notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         portal_user_id INTEGER,
         company_id INTEGER,
         type TEXT DEFAULT 'info',
@@ -10605,7 +10604,7 @@ def _ensure_portal_notifications_table(conn):
         entity_type TEXT DEFAULT '',
         entity_id INTEGER DEFAULT 0,
         is_read INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TIMESTAMP DEFAULT NOW()
     )""")
 
 def send_portal_notification(portal_user_id=None, company_id=None, ntype="info", title="", message="", entity_type="", entity_id=0):

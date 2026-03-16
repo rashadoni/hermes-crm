@@ -543,19 +543,28 @@ async def startup_event():
     # ─── Seed: Email Logs ─────────────────────────────────────────
     try:
         with get_db() as conn:
+            # One-time: backfill body_text for existing seed emails
+            needs_body = conn.execute("SELECT COUNT(*) FROM email_log WHERE subject='Meeting confirmation' AND (body_text IS NULL OR body_text='')").fetchone()[0]
+            if needs_body > 0:
+                conn.execute("UPDATE email_log SET body_text='Здравствуйте, John!\n\nПодтверждаем нашу встречу на завтра в 14:00 по бакинскому времени.\n\nПовестка:\n1. Обсуждение текущего статуса проекта\n2. Планирование следующих шагов\n3. Бюджет и сроки\n\nМесто: офис LeadDrive, 3 этаж, конференц-зал А.\n\nС уважением,\nКоманда LeadDrive CRM' WHERE subject='Meeting confirmation'")
+                conn.execute("UPDATE email_log SET body_text='Уважаемый клиент,\n\nНаправляем вам счёт #2024-001 на сумму 5,500.00 AZN за услуги CRM-интеграции за март 2026.\n\nДетали:\n- Настройка CRM системы: 3,000.00 AZN\n- Импорт данных (577 контактов): 1,500.00 AZN\n- Обучение персонала (2 дня): 1,000.00 AZN\n\nСрок оплаты: 30 дней.\n\nС уважением,\nОтдел биллинга' WHERE subject='Invoice #2024-001'")
+                conn.execute("UPDATE email_log SET body_text='Добро пожаловать в LeadDrive CRM!\n\nВаш аккаунт успешно создан.\n\nРекомендуем начать с:\n1. Заполнения профиля компании\n2. Импорта контактов\n3. Настройки воронки продаж\n4. Подключения email-интеграции\n\nЕсли у вас возникнут вопросы, обращайтесь в поддержку.\n\nУспехов!' WHERE subject='Welcome aboard'")
+                conn.execute("UPDATE email_log SET body_text='Здравствуйте!\n\nПишу вам по поводу нашего коммерческого предложения.\n\nКлючевые преимущества:\n- Автоматизация продаж и лидогенерации\n- AI-ассистент для обработки заявок 24/7\n- Интеграция с Telegram, WhatsApp, Email\n- Аналитика и отчёты в реальном времени\n\nМожем назначить звонок на удобное для вас время.\n\nС уважением,\nОтдел продаж LeadDrive' WHERE subject='Proposal follow-up'")
+                conn.execute("UPDATE email_log SET body_text='Уважаемые коллеги,\n\nДоговор о сотрудничестве #LD-2026-042 подписан обеими сторонами.\n\nОсновные условия:\n- Срок действия: 12 месяцев\n- Сумма контракта: 28,784.00 AZN\n- Начало работ: 01.04.2026\n\nПодписанный экземпляр направлен курьерской службой.\n\nС уважением,\nЮридический отдел LeadDrive' WHERE subject='Contract signed'")
+                conn.commit()
             existing_count = conn.execute("SELECT COUNT(*) FROM email_log WHERE subject IN ('Meeting confirmation', 'Invoice #2024-001', 'Welcome aboard', 'Proposal follow-up', 'Contract signed')").fetchone()[0]
             if existing_count == 0:
                 conn.executescript("""
-                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
-                    ('noreply@hermes.crm', 'john@example.com', 'Meeting confirmation', 'sent', datetime('now', '-1 day'));
-                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
-                    ('billing@hermes.crm', 'finance@client.com', 'Invoice #2024-001', 'sent', datetime('now', '-2 days'));
-                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
-                    ('onboarding@hermes.crm', 'newuser@example.com', 'Welcome aboard', 'sent', datetime('now', '-5 days'));
-                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
-                    ('sales@hermes.crm', 'manager@prospect.com', 'Proposal follow-up', 'sent', datetime('now', '-3 days'));
-                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
-                    ('contracts@hermes.crm', 'legal@partner.com', 'Contract signed', 'sent', datetime('now', '-7 days'));
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, body_text, status, created_at) VALUES
+                    ('noreply@hermes.crm', 'john@example.com', 'Meeting confirmation', 'Здравствуйте, John!\n\nПодтверждаем нашу встречу на завтра в 14:00 по бакинскому времени.\n\nПовестка:\n1. Обсуждение текущего статуса проекта\n2. Планирование следующих шагов\n3. Бюджет и сроки\n\nМесто: офис LeadDrive, 3 этаж, конференц-зал А.\n\nС уважением,\nКоманда LeadDrive CRM', 'sent', datetime('now', '-1 day'));
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, body_text, status, created_at) VALUES
+                    ('billing@hermes.crm', 'finance@client.com', 'Invoice #2024-001', 'Уважаемый клиент,\n\nНаправляем вам счёт #2024-001 на сумму 5,500.00 AZN за услуги CRM-интеграции за март 2026.\n\nДетали:\n- Настройка CRM системы: 3,000.00 AZN\n- Импорт данных (577 контактов): 1,500.00 AZN\n- Обучение персонала (2 дня): 1,000.00 AZN\n\nСрок оплаты: 30 дней.\n\nС уважением,\nОтдел биллинга', 'sent', datetime('now', '-2 days'));
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, body_text, status, created_at) VALUES
+                    ('onboarding@hermes.crm', 'newuser@example.com', 'Welcome aboard', 'Добро пожаловать в LeadDrive CRM!\n\nВаш аккаунт успешно создан. Вот ваши данные для входа:\n\nURL: https://leaddrivecrm.org\nЛогин: newuser@example.com\n\nРекомендуем начать с:\n1. Заполнения профиля компании\n2. Импорта контактов\n3. Настройки воронки продаж\n4. Подключения email-интеграции\n\nЕсли у вас возникнут вопросы, обращайтесь в поддержку.\n\nУспехов!', 'sent', datetime('now', '-5 days'));
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, body_text, status, created_at) VALUES
+                    ('sales@hermes.crm', 'manager@prospect.com', 'Proposal follow-up', 'Здравствуйте!\n\nПишу вам по поводу нашего коммерческого предложения, отправленного на прошлой неделе.\n\nХотел бы уточнить, удалось ли вам ознакомиться с предложением? Буду рад ответить на любые вопросы и обсудить условия.\n\nНапомню ключевые преимущества:\n- Автоматизация продаж и лидогенерации\n- AI-ассистент для обработки заявок 24/7\n- Интеграция с Telegram, WhatsApp, Email\n- Аналитика и отчёты в реальном времени\n\nМожем назначить звонок на удобное для вас время.\n\nС уважением,\nОтдел продаж LeadDrive', 'sent', datetime('now', '-3 days'));
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, body_text, status, created_at) VALUES
+                    ('contracts@hermes.crm', 'legal@partner.com', 'Contract signed', 'Уважаемые коллеги,\n\nРады сообщить, что договор о сотрудничестве #LD-2026-042 был подписан обеими сторонами.\n\nОсновные условия:\n- Срок действия: 12 месяцев\n- Сумма контракта: 28,784.00 AZN\n- Начало работ: 01.04.2026\n\nПодписанный экземпляр направлен курьерской службой.\n\nС уважением,\nЮридический отдел LeadDrive', 'sent', datetime('now', '-7 days'));
                 """)
     except Exception as e:
         logger.warning("Email logs seed: %s", e)

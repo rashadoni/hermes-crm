@@ -12549,7 +12549,7 @@ function _renderCostServices(d) {
     const pctSign = isProfitable ? '+' : '-';
 
     return `
-      <div class="svc-bar-card ${isProfitable ? 'profitable' : 'loss'}">
+      <div class="svc-bar-card" style="border-left:4px solid ${isProfitable ? '#4ade80' : '#f87171'}; padding-left:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:14px;font-weight:600;color:#f1f5f9;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
@@ -12558,43 +12558,43 @@ function _renderCostServices(d) {
           <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:${statusColor};">${isProfitable?'+':''}${_fmtAZN(sa.balance)}</span>
         </div>
 
-        <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <div style="display:flex;gap:16px;margin-bottom:14px;">
           <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:10px;color:#f87171;text-transform:uppercase;letter-spacing:0.5px;">Maya</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;">${_fmtAZN(sa.cost)}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:10px;color:#f87171;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Maya</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#cbd5e1;font-weight:500;">${_fmtAZN(sa.cost)}</span>
             </div>
-            <div class="svc-bar-track">
-              <div class="svc-bar-fill" style="width:${costBarW}%;background:linear-gradient(90deg,#f87171,#ef4444);"></div>
+            <div style="height:10px;border-radius:5px;background:rgba(15,23,42,0.7);overflow:hidden;">
+              <div style="width:${costBarW}%;height:100%;border-radius:5px;background:linear-gradient(90deg,#f87171,#ef4444);transition:width 0.8s ease;"></div>
             </div>
           </div>
           <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:10px;color:#4ade80;text-transform:uppercase;letter-spacing:0.5px;">Gəlir</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;">${_fmtAZN(sa.revenue)}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:10px;color:#4ade80;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Gəlir</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#cbd5e1;font-weight:500;">${_fmtAZN(sa.revenue)}</span>
             </div>
-            <div class="svc-bar-track">
-              <div class="svc-bar-fill" style="width:${revBarW}%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
+            <div style="height:10px;border-radius:5px;background:rgba(15,23,42,0.7);overflow:hidden;">
+              <div style="width:${revBarW}%;height:100%;border-radius:5px;background:linear-gradient(90deg,#4ade80,#22c55e);transition:width 0.8s ease;"></div>
             </div>
           </div>
         </div>
 
-        <div style="display:flex;gap:8px;border-top:1px solid rgba(51,65,85,0.3);padding-top:10px;">
-          <div class="svc-metric">
-            <span class="svc-metric-label">Marja</span>
-            <span class="svc-metric-value" style="color:${statusColor};">${pctSign}${pctAbs}%</span>
+        <div style="display:flex;gap:0;border-top:1px solid rgba(51,65,85,0.3);padding-top:10px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Marja</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${pctSign}${pctAbs}%</span>
           </div>
-          <div class="svc-metric">
-            <span class="svc-metric-label">İşçi</span>
-            <span class="svc-metric-value">${sa.employee_count}</span>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">İşçi</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.employee_count}</span>
           </div>
-          <div class="svc-metric">
-            <span class="svc-metric-label">Müştəri</span>
-            <span class="svc-metric-value">${sa.client_count}</span>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Müştəri</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.client_count}</span>
           </div>
-          <div class="svc-metric">
-            <span class="svc-metric-label">Maya/İşçi</span>
-            <span class="svc-metric-value">${sa.employee_count > 0 ? _fmtAZN(sa.cost / sa.employee_count) : '—'}</span>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Maya/İşçi</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.employee_count > 0 ? _fmtAZN(sa.cost / sa.employee_count) : '—'}</span>
           </div>
         </div>
       </div>

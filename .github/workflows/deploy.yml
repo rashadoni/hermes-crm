@@ -90,8 +90,9 @@ jobs:
             # Add DATABASE_URL if not present
             grep -q "DATABASE_URL" .env 2>/dev/null || echo "DATABASE_URL=postgresql://hermes:hermes@localhost:5432/hermes_crm" >> .env
             grep -q "ANTHROPIC_API_KEY" .env 2>/dev/null || echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
-            # Gmail SMTP settings
-            grep -q "SMTP_HOST" .env 2>/dev/null || cat >> .env << 'SMTP_EOF'
+            # Gmail SMTP settings — force update
+            sed -i '/^SMTP_/d' .env 2>/dev/null || true
+            cat >> .env << 'SMTP_EOF'
             SMTP_HOST=smtp.gmail.com
             SMTP_PORT=587
             SMTP_USER=rashadrahimsoy@gmail.com

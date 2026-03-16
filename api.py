@@ -5703,10 +5703,6 @@ def _compute_cost_model(conn):
         "ms_license": "permanent_it",
         "cortex": "infosec",
         "fw_amort": "infosec",
-        "firewall_amort": "infosec",
-        "palo_alto": "infosec",
-        "service_desk": "permanent_it",
-        "pam": "infosec",
     }
     # Build per-service tech costs from overhead breakdown
     svc_tech_costs = {}

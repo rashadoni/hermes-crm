@@ -6001,6 +6001,8 @@ def _ensure_cost_model_tables(conn):
         in_overhead INTEGER DEFAULT 0,
         notes TEXT DEFAULT ''
     )""")
+    # One-time cleanup: remove duplicate BackOffice/Back-office Staff (30 ppl) row
+    conn.execute("DELETE FROM cost_employees WHERE department='BackOffice' AND position='Back-office Staff' AND count=30")
     conn.execute("""CREATE TABLE IF NOT EXISTS client_services (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,

@@ -12522,19 +12522,49 @@ function _renderCostAnalytics(d) {
 }
 
 function _renderCostServices(d) {
-  const rows = (d.service_analytics || []).map(sa => {
-    const balClass = sa.balance >= 0 ? 'text-green-400' : 'text-red-400';
+  const cards = (d.service_analytics || []).map(sa => {
+    const isProfitable = sa.balance >= 0;
+    const statusColor = isProfitable ? '#4ade80' : '#f87171';
+    const statusBg = isProfitable ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    const statusLabel = isProfitable ? 'Mənfəət' : 'Zərər';
+    const barWidth = sa.revenue > 0 ? Math.min((sa.revenue / (sa.revenue + sa.cost)) * 100, 100) : 0;
+
     return `
-      <tr>
-        <td class="font-semibold">${COST_SERVICE_LABELS[sa.service]||sa.service}</td>
-        <td class="text-right font-mono">${_fmtAZN(sa.cost)}</td>
-        <td class="text-right font-mono">${_fmtAZN(sa.revenue)}</td>
-        <td class="text-right font-mono ${balClass}">${sa.balance>=0?'+':''}${_fmtAZN(sa.balance)}</td>
-        <td class="text-right ${balClass}">${sa.balance_pct?.toFixed(1)}%</td>
-        <td class="text-center">${sa.employee_count}</td>
-        <td class="text-center">${sa.client_count}</td>
-        <td>${sa.status === 'profit' ? '✅ Mənfəət' : '❌ Zərər'}</td>
-      </tr>
+      <div class="svc-bar-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:600;color:#e2e8f0;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
+          <span style="font-size:11px;font-weight:700;color:${statusColor};padding:2px 8px;border-radius:5px;background:${statusBg};">${statusLabel}</span>
+        </div>
+        <div class="svc-bar-track" style="margin-bottom:8px;">
+          <div class="svc-bar-fill" style="width:${barWidth}%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;font-size:11px;">
+          <div style="flex:1;">
+            <div style="color:#94a3b8;margin-bottom:4px;">Maya</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${_fmtAZN(sa.cost)}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="color:#94a3b8;margin-bottom:4px;">Gəlir</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${_fmtAZN(sa.revenue)}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="color:#94a3b8;margin-bottom:4px;">Balans</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${isProfitable?'+':''}${_fmtAZN(sa.balance)}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="color:#94a3b8;margin-bottom:4px;">%</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${statusColor};">${sa.balance_pct?.toFixed(1)}%</div>
+          </div>
+          <div style="flex:0.7;text-align:center;">
+            <div style="color:#94a3b8;margin-bottom:4px;">İşçi</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.employee_count}</div>
+          </div>
+          <div style="flex:0.7;text-align:center;">
+            <div style="color:#94a3b8;margin-bottom:4px;">Müş.</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#e2e8f0;">${sa.client_count}</div>
+          </div>
+        </div>
+      </div>
     `;
   });
 
@@ -12542,15 +12572,10 @@ function _renderCostServices(d) {
     ${_aiBlockHTML('services')}
     <div class="card p-5">
       <h3 class="font-semibold mb-4">Xidmət İstiqamətləri — Maya vs Gəlir</h3>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>Xidmət</th><th>Maya ₼/ay</th><th>Gəlir ₼/ay</th><th>Balans ₼</th><th>%</th><th>İşçi</th><th>Müştəri</th><th>Status</th>
-          </tr></thead>
-          <tbody>${rows.join('')}</tbody>
-        </table>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        ${cards.join('')}
       </div>
-      <p class="text-xs text-slate-500 mt-3">
+      <p class="text-xs text-slate-500 mt-4">
         * Maya = birbaşa əmək + headcount nisbətinə görə paylanmış admin xərclər
       </p>
     </div>
@@ -12559,6 +12584,20 @@ function _renderCostServices(d) {
 
 function _renderCostClients(d) {
   const clients = (d.client_data || []).sort((a, b) => (a.margin_pct ?? -999) - (b.margin_pct ?? -999));
+
+  const getStatusColor = (status) => {
+    if (status === 'good') return { color: '#4ade80', bg: 'rgba(34,197,94,0.08)', label: '✅ Mənfəət' };
+    if (status === 'low') return { color: '#facc15', bg: 'rgba(250,204,21,0.08)', label: '⚠️ Aşağı' };
+    if (status === 'loss') return { color: '#f87171', bg: 'rgba(239,68,68,0.08)', label: '❌ Zərər' };
+    return { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', label: '— Gəlir yoxdur' };
+  };
+
+  const getMarginColor = (marginPct) => {
+    if ((marginPct ?? -1) >= 15) return '#4ade80';
+    if ((marginPct ?? -1) >= 0) return '#facc15';
+    return '#f87171';
+  };
+
   return `
     ${_aiBlockHTML('clients')}
     <div class="card p-5">
@@ -12566,29 +12605,48 @@ function _renderCostClients(d) {
         <h3 class="font-semibold">Müştəri Rentabelliyi</h3>
         <div class="flex gap-2">
           <input type="text" placeholder="Axtar..." id="costClientSearch" oninput="filterCostClients(this.value)"
-            style="font-size:12px;padding:5px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;width:180px;">
+            style="font-size:12px;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;width:200px;color:#e2e8f0;transition:all 0.2s;"
+            onfocus="this.style.borderColor='#475569';this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+            onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
         </div>
       </div>
       <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>Müştəri</th><th>İst.</th><th>Qiymət ₼</th><th>HelpDesk ₼</th><th>Əsas Gəlir ₼</th><th>Maya ₼</th><th>Əsas Marja ₼</th><th>Tam Marja ₼</th><th>%</th><th>Status</th>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead style="position:sticky;top:0;background:#0f172a;z-index:10;"><tr style="border-bottom:1px solid #1e293b;">
+            <th style="text-align:left;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Müştəri</th>
+            <th style="text-align:center;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">İst.</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Qiymət ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">HelpDesk ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Əsas Gəlir ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Maya ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Əsas Marja ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tam Marja ₼</th>
+            <th style="text-align:right;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">%</th>
+            <th style="text-align:center;padding:10px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
           </tr></thead>
           <tbody id="costClientsBody">
-            ${clients.map(c => `
-              <tr class="cost-client-row" data-cname="${esc((c.cost_code||c.name).toLowerCase())}">
-                <td><a href="#/clients" onclick="openClientDetails(${c.id})" class="text-indigo-400 hover:underline">${esc(c.cost_code||c.name)}</a></td>
-                <td class="text-center">${c.user_count||0}</td>
-                <td class="text-right font-mono">${_fmtAZN(c.pricing_revenue||c.total_revenue)}</td>
-                <td class="text-right font-mono text-blue-400">${c.helpdesk_revenue ? _fmtAZN(c.helpdesk_revenue) : '—'}</td>
-                <td class="text-right font-mono">${c.core_revenue!=null ? _fmtAZN(c.core_revenue) : '—'}</td>
-                <td class="text-right font-mono text-slate-400">${_fmtAZN(c.total_cost)}</td>
-                <td class="text-right font-mono ${(c.core_margin??0)>=0?'text-green-400':'text-red-400'}">${c.core_margin!=null?(c.core_margin>=0?'+':'')+_fmtAZN(c.core_margin):'—'}</td>
-                <td class="text-right font-mono ${c.margin>=0?'text-green-400':'text-red-400'}">${c.margin>=0?'+':''}${_fmtAZN(c.margin)}</td>
-                <td class="text-right ${(c.margin_pct??-1)>=15?'text-green-400':(c.margin_pct??-1)>=0?'text-yellow-400':'text-red-400'}">${c.margin_pct!=null?c.margin_pct.toFixed(1)+'%':'—'}</td>
-                <td>${_statusBadge(c.status)}</td>
-              </tr>
-            `).join('')}
+            ${clients.map((c, idx) => {
+              const statusInfo = getStatusColor(c.status);
+              const marginColor = getMarginColor(c.margin_pct);
+              const bgColor = idx % 2 === 0 ? 'transparent' : 'rgba(30,41,59,0.25)';
+              return `
+                <tr class="cost-client-row" data-cname="${esc((c.cost_code||c.name).toLowerCase())}"
+                    style="border-bottom:1px solid #1e293b;background:${bgColor};transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(51,65,85,0.25);this.style.borderLeftColor='#475569';this.style.borderLeft='3px solid #475569';"
+                    onmouseout="this.style.background='${bgColor}';this.style.borderLeft='3px solid transparent';">
+                  <td style="padding:10px 12px;"><a href="#/clients" onclick="openClientDetails(${c.id})" style="color:#818cf8;text-decoration:none;font-weight:500;transition:color 0.2s;" onmouseover="this.style.color='#a5b4fc'" onmouseout="this.style.color='#818cf8'">${esc(c.cost_code||c.name)}</a></td>
+                  <td style="text-align:center;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e8f0;">${c.user_count||0}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e8f0;">${_fmtAZN(c.pricing_revenue||c.total_revenue)}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#60a5fa;">${c.helpdesk_revenue ? _fmtAZN(c.helpdesk_revenue) : '—'}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e8f0;">${c.core_revenue!=null ? _fmtAZN(c.core_revenue) : '—'}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cbd5e1;">${_fmtAZN(c.total_cost)}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${(c.core_margin??0)>=0?'#4ade80':'#f87171'};">${c.core_margin!=null?(c.core_margin>=0?'+':'')+_fmtAZN(c.core_margin):'—'}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${c.margin>=0?'#4ade80':'#f87171'};">${c.margin>=0?'+':''}${_fmtAZN(c.margin)}</td>
+                  <td style="text-align:right;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${marginColor};">${c.margin_pct!=null?c.margin_pct.toFixed(1)+'%':'—'}</td>
+                  <td style="text-align:center;padding:10px 12px;"><span style="font-size:11px;font-weight:700;color:${statusInfo.color};padding:4px 10px;border-radius:6px;background:${statusInfo.bg};">${statusInfo.label}</span></td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -12604,42 +12662,90 @@ function filterCostClients(q) {
 }
 
 function _renderCostOverhead(d) {
-  const rows = (d.overhead_breakdown || []).map(oh => `
-    <tr>
-      <td class="text-slate-400 text-xs">${esc(oh.label)}</td>
-      <td class="text-right font-mono">
-        <input type="number" value="${oh.amount}" step="0.01" min="0"
-          style="width:120px;text-align:right;padding:3px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:12px;"
-          onchange="updateOverhead(${oh.id}, 'amount', this.value)">
-      </td>
-      <td class="text-center">
-        <input type="checkbox" ${oh.is_annual ? 'checked' : ''} onchange="updateOverhead(${oh.id}, 'is_annual', this.checked?1:0)">
-        <span class="text-xs text-slate-500 ml-1">İllik÷12</span>
-      </td>
-      <td class="text-center">
-        <input type="checkbox" ${oh.has_vat ? 'checked' : ''} onchange="updateOverhead(${oh.id}, 'has_vat', this.checked?1:0)">
-        <span class="text-xs text-slate-500 ml-1">+ƏDV</span>
-      </td>
-      <td class="text-right font-mono text-indigo-300">${_fmtAZN(oh.monthly_amount)}</td>
-    </tr>
-  `).join('');
+  const adminItems = (d.overhead_breakdown || []).filter(oh => oh.is_admin);
+  const techItems = (d.overhead_breakdown || []).filter(oh => !oh.is_admin);
+
+  const adminSum = adminItems.reduce((s, oh) => s + (oh.monthly_amount || 0), 0);
+  const techSum = techItems.reduce((s, oh) => s + (oh.monthly_amount || 0), 0);
+
+  const renderOverheadGroup = (items, title, titleColor, borderColor, isAdmin) => {
+    const groupRows = items.map(oh => `
+      <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;align-items:center;">
+        <div style="color:#cbd5e1;font-size:12px;">${esc(oh.label)}</div>
+        <div>
+          <input type="number" value="${oh.amount}" step="0.01" min="0"
+            style="width:100%;text-align:right;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:12px;color:#e2e8f0;font-family:'JetBrains Mono',monospace;transition:all 0.2s;"
+            onfocus="this.style.borderColor='#475569';this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+            onblur="this.style.borderColor='#334155';this.style.boxShadow='none'"
+            onchange="updateOverhead(${oh.id}, 'amount', this.value)">
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" ${oh.is_annual ? 'checked' : ''}
+            style="cursor:pointer;width:16px;height:16px;accent-color:#818cf8;"
+            onchange="updateOverhead(${oh.id}, 'is_annual', this.checked?1:0)">
+          <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">İllik÷12</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" ${oh.has_vat ? 'checked' : ''}
+            style="cursor:pointer;width:16px;height:16px;accent-color:#818cf8;"
+            onchange="updateOverhead(${oh.id}, 'has_vat', this.checked?1:0)">
+          <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">+ƏDV</span>
+        </div>
+        <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#e2e8f0;">${_fmtAZN(oh.monthly_amount)}</div>
+      </div>
+    `).join('');
+
+    const groupSum = items.reduce((s, oh) => s + (oh.monthly_amount || 0), 0);
+
+    return `
+      <div style="border:1px solid ${borderColor};border-radius:10px;background:rgba(30,41,59,0.4);margin-bottom:12px;overflow:hidden;">
+        <div style="padding:10px 12px;background:${borderColor}15;border-bottom:1px solid ${borderColor};font-weight:600;color:${titleColor};font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">${title}</div>
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+          <div>Xərc Növü</div>
+          <div style="text-align:right;">Məbləğ</div>
+          <div>Hesablama</div>
+          <div>ƏDV</div>
+          <div style="text-align:right;">Aylıq</div>
+        </div>
+        ${groupRows}
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;background:rgba(51,65,85,0.15);border-top:1px solid ${borderColor};font-weight:600;color:${titleColor};font-family:'JetBrains Mono',monospace;font-size:12px;">
+          <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Qrup Cəmi</div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div style="text-align:right;">${_fmtAZN(groupSum)}</div>
+        </div>
+      </div>
+    `;
+  };
 
   return `
     ${_aiBlockHTML('overhead')}
     <div class="card p-5">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold">Overhead Xərclər</h3>
-        <div class="text-sm text-slate-400">Cəm aylıq overhead: <span class="font-bold text-white">${_fmtAZN(d.total_overhead)}</span></div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Cəm Aylıq Overhead</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#e2e8f0;">${_fmtAZN(d.total_overhead)}</div>
+        </div>
       </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>Xərc Növü</th><th>Məbləğ (AZN)</th><th>Hesablama</th><th>ƏDV</th><th>Aylıq Məbləğ</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+
+      ${adminItems.length > 0 ? renderOverheadGroup(adminItems, '📋 Admin Xərclər', '#818cf8', '#475569') : ''}
+      ${techItems.length > 0 ? renderOverheadGroup(techItems, '⚙️ Texniki Xərclər', '#4ade80', '#334155') : ''}
+
+      <div style="padding:12px;background:rgba(99,102,241,0.08);border:1px solid #475569;border-radius:10px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;">
+          <div style="color:#818cf8;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Cəm Overhead</div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div style="text-align:right;color:#4ade80;">${_fmtAZN(d.total_overhead)}</div>
+        </div>
       </div>
-      <p class="text-xs text-slate-500 mt-3">Dəyişiklik etdikdən sonra səhifəni yeniləyin.</p>
+
+      <p style="font-size:11px;color:#94a3b8;margin-top:12px;padding:8px;background:rgba(30,41,59,0.5);border-radius:6px;border-left:3px solid #475569;">
+        💡 Dəyişiklik etdikdən sonra səhifəni yeniləyin.
+      </p>
     </div>
   `;
 }
@@ -12662,64 +12768,125 @@ function _renderCostEmployees(d) {
   let totalCount = 0, totalCost = 0, overheadCount = 0;
   emps.forEach(e => { totalCount += e.count; totalCost += e.total_labor_cost; if(e.in_overhead) overheadCount += e.count; });
 
+  // Get unique departments
+  const depts = [...new Set(emps.map(e => e.department))];
+
+  // KPI Stats Bar
+  const kpiBar = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+      <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:10px;padding:16px;color:white;">
+        <div style="font-size:11px;opacity:0.9;margin-bottom:8px;font-weight:600;text-transform:uppercase;">Cəm İşçi Sayı</div>
+        <div style="font-size:24px;font-weight:700;font-family:monospace;">${totalCount}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:10px;padding:16px;color:white;">
+        <div style="font-size:11px;opacity:0.9;margin-bottom:8px;font-weight:600;text-transform:uppercase;">Cəm Xərclər</div>
+        <div style="font-size:24px;font-weight:700;font-family:monospace;">${_fmtAZN(totalCost).split(' ')[0]}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:10px;padding:16px;color:white;">
+        <div style="font-size:11px;opacity:0.9;margin-bottom:8px;font-weight:600;text-transform:uppercase;">Overhead</div>
+        <div style="font-size:24px;font-weight:700;font-family:monospace;">${overheadCount}</div>
+      </div>
+    </div>
+  `;
+
+  // Department filter tabs
+  const deptTabs = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e293b;">
+      <button onclick="window._filterDept=null;document.getElementById('empTableWrap').innerHTML=window._currentEmpHTML;return false;" style="padding:6px 14px;border-radius:20px;background:${!window._filterDept?'#6366f1':'#1e293b'};color:white;border:none;font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;">Hamısı</button>
+      ${depts.map(d => `
+        <button onclick="window._filterDept='${d}';document.getElementById('empTableWrap').innerHTML=window._currentEmpHTML.split('<tr').filter((tr,i)=>i===0||(tr.includes('${d}')||tr.includes('CƏMİ')||tr.includes('<thead'))).join('<tr');return false;" style="padding:6px 14px;border-radius:20px;background:${deptColors[d]}22;color:${deptColors[d]};border:1px solid ${deptColors[d]};font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;">${esc(d)}</button>
+      `).join('')}
+    </div>
+  `;
+
   const rows = emps.map(emp => {
     const col = deptColors[emp.department] || '#94a3b8';
     return `
-      <tr>
-        <td><span style="background:${col}22;color:${col};padding:2px 8px;border-radius:9999px;font-size:11px;">${esc(emp.department)}</span></td>
-        <td>${esc(emp.position)}</td>
-        <td class="text-center">
+      <tr style="border-bottom:1px solid #1e293b;transition:all 0.2s;" onmouseenter="this.style.backgroundColor='#1e293b'" onmouseleave="this.style.backgroundColor='transparent'">
+        <td style="padding:12px 8px;"><span style="background:${col}22;color:${col};padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${col}44;">${esc(emp.department)}</span></td>
+        <td style="padding:12px 8px;font-weight:500;">${esc(emp.position)}</td>
+        <td class="text-center" style="padding:12px 8px;">
           <input type="number" value="${emp.count}" min="1"
-            style="width:60px;text-align:center;padding:3px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:12px;"
+            style="width:60px;text-align:center;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:12px;font-family:monospace;transition:all 0.2s;"
+            onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+            onblur="this.style.borderColor='#334155';this.style.boxShadow='none'"
             onchange="updateEmployee(${emp.id}, 'count', +this.value)">
         </td>
-        <td class="text-right">
+        <td class="text-right" style="padding:12px 8px;">
           <input type="number" value="${emp.net_salary}" min="0" step="0.01"
-            style="width:100px;text-align:right;padding:3px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:12px;"
+            style="width:100px;text-align:right;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:12px;font-family:monospace;transition:all 0.2s;"
+            onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+            onblur="this.style.borderColor='#334155';this.style.boxShadow='none'"
             onchange="updateEmployee(${emp.id}, 'net_salary', +this.value)">
         </td>
-        <td class="text-right font-mono text-slate-400">${_fmtAZN(emp.gross_salary)}</td>
-        <td class="text-right font-mono">${_fmtAZN(emp.super_gross)}</td>
-        <td class="text-right font-mono text-indigo-300">${_fmtAZN(emp.total_labor_cost)}</td>
-        <td class="text-center">
+        <td class="text-right font-mono text-slate-400" style="padding:12px 8px;font-family:monospace;font-size:12px;">${_fmtAZN(emp.gross_salary)}</td>
+        <td class="text-right font-mono" style="padding:12px 8px;font-family:monospace;font-size:12px;">${_fmtAZN(emp.super_gross)}</td>
+        <td class="text-right font-mono text-indigo-300" style="padding:12px 8px;font-family:monospace;font-size:12px;color:#a5f3fc;font-weight:600;">${_fmtAZN(emp.total_labor_cost)}</td>
+        <td class="text-center" style="padding:12px 8px;">
           <input type="checkbox" ${emp.in_overhead ? 'checked' : ''} title="Overhead-ə köçür"
-            onchange="updateEmployee(${emp.id}, 'in_overhead', this.checked?1:0)">
+            onchange="updateEmployee(${emp.id}, 'in_overhead', this.checked?1:0)" style="cursor:pointer;">
         </td>
-        <td>
-          <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" onclick="deleteEmployee(${emp.id}, '${esc(emp.position)}', ${emp.count})">🗑</button>
+        <td style="padding:12px 8px;text-align:center;">
+          <button style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.2s;"
+            onmouseenter="this.style.backgroundColor='#f43f5e22';this.style.color='#f43f5e';"
+            onmouseleave="this.style.backgroundColor='transparent';this.style.color='#94a3b8';"
+            onclick="deleteEmployee(${emp.id}, '${esc(emp.position)}', ${emp.count})">🗑</button>
         </td>
       </tr>
     `;
   }).join('');
 
   const summaryRow = `
-    <tr style="border-top:2px solid #475569;font-weight:700;background:#1e293b22;">
-      <td colspan="2" style="padding:8px 4px;">CƏMİ: ${emps.length} sətir</td>
-      <td class="text-center" style="padding:8px 4px;">${totalCount} nəfər</td>
+    <tr style="border-top:2px solid #475569;font-weight:700;background:linear-gradient(90deg,#1e293b44 0%,#0f172a44 100%);transition:all 0.2s;">
+      <td colspan="2" style="padding:12px 8px;">CƏMİ: ${emps.length} sətir</td>
+      <td class="text-center" style="padding:12px 8px;font-family:monospace;">${totalCount}</td>
       <td colspan="3"></td>
-      <td class="text-right font-mono" style="padding:8px 4px;color:#22d3ee;">${_fmtAZN(totalCost)}</td>
-      <td class="text-center text-xs text-slate-500" style="padding:8px 4px;">${overheadCount} OH</td>
+      <td class="text-right" style="padding:12px 8px;color:#22d3ee;font-family:monospace;font-size:13px;">${_fmtAZN(totalCost)}</td>
+      <td class="text-center text-xs text-slate-500" style="padding:12px 8px;font-family:monospace;">${overheadCount}</td>
       <td></td>
     </tr>
   `;
 
+  const tableHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="background:#0f172a;border-bottom:2px solid #334155;">
+          <tr>
+            <th style="padding:12px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">İstiqamət</th>
+            <th style="padding:12px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">Vəzifə</th>
+            <th style="padding:12px 8px;text-align:center;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">Say</th>
+            <th style="padding:12px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">Net Maaş</th>
+            <th style="padding:12px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">Gross</th>
+            <th style="padding:12px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">SuperGross</th>
+            <th style="padding:12px 8px;text-align:right;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">Cəm/ay</th>
+            <th style="padding:12px 8px;text-align:center;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;">OH</th>
+            <th style="padding:12px 8px;text-align:center;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:700;"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}${summaryRow}</tbody>
+      </table>
+    </div>
+  `;
+  window._currentEmpHTML = tableHTML;
+
   return `
     ${_aiBlockHTML('employees')}
-    <div class="card p-5 mb-4">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-semibold">Ştat Cədvəli</h3>
-        <button class="btn btn-primary text-sm" onclick="openAddEmployeeModal()">+ Əməkdaş Əlavə Et</button>
+    <div class="card" style="padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <h3 style="font-size:18px;font-weight:700;margin:0;margin-bottom:4px;">Ştat Cədvəli</h3>
+          <p style="font-size:12px;color:#94a3b8;margin:0;">${emps.length} sətir, ${depts.length} istiqamət</p>
+        </div>
+        <button class="btn btn-primary" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;color:white;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 15px rgba(102,126,234,0.4);"
+          onmouseenter="this.style.boxShadow='0 6px 20px rgba(102,126,234,0.6)'"
+          onmouseleave="this.style.boxShadow='0 4px 15px rgba(102,126,234,0.4)'"
+          onclick="openAddEmployeeModal()">+ Əməkdaş Əlavə Et</button>
       </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>İstiqamət</th><th>Vəzifə</th><th>Say</th><th>Net Maaş ₼</th><th>Gross ₼</th><th>SuperGross ₼</th><th>Cəm ₼/ay</th><th>Overhead</th><th></th>
-          </tr></thead>
-          <tbody>${rows}${summaryRow}</tbody>
-        </table>
-      </div>
-      <p class="text-xs text-slate-500 mt-3">
-        Gross = Net ÷ 0.86 | SuperGross = Gross × 1.175 | Overhead sütunu: GRC kimi xərclər overhead-ə keçir
+      ${kpiBar}
+      ${deptTabs}
+      <div id="empTableWrap">${tableHTML}</div>
+      <p style="font-size:11px;color:#94a3b8;margin-top:16px;padding-top:12px;border-top:1px solid #1e293b;">
+        <strong>Formula:</strong> Gross = Net ÷ 0.86 | SuperGross = Gross × 1.175 | Overhead: GRC kimi xərclər overhead-ə keçir
       </p>
     </div>
   `;
@@ -12809,46 +12976,134 @@ async function submitAddEmployee() {
 
 function _renderCostSettings(d) {
   const p = d.params || {};
+  const fixedPercent = ((p.fixed_overhead_ratio||0)*100).toFixed(0);
+  const variablePercent = ((1-(p.fixed_overhead_ratio||0))*100).toFixed(0);
+
   return `
-    <div class="card p-5">
-      <h3 class="font-semibold mb-4">⚙️ Ümumi Parametrlər</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="costParamsForm">
-        <div class="md:col-span-2" style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 16px;">
-          <div class="flex items-center justify-between">
-            <label class="text-xs text-slate-400">Cəm İstifadəçi Sayı</label>
-            <span class="text-sm font-semibold text-indigo-400">${d.portfolio_users || d.total_users} ist.</span>
-          </div>
-          <div class="text-xs text-slate-500 mt-1">Avtomatik: hər müştərinin İstifadəçi sayından hesablanır</div>
-          <input type="hidden" id="param_total_users" value="${d.portfolio_users || p.total_users}">
+    <div>
+      <!-- Total Users KPI Card -->
+      <div style="background:linear-gradient(135deg,#06b6d4 0%,#0891b2 100%);border-radius:12px;padding:20px;margin-bottom:20px;color:white;box-shadow:0 4px 15px rgba(6,182,212,0.3);">
+        <div style="font-size:12px;opacity:0.9;margin-bottom:8px;font-weight:600;text-transform:uppercase;">Cəm İstifadəçi Sayı</div>
+        <div style="font-size:32px;font-weight:700;font-family:monospace;margin-bottom:6px;">${d.portfolio_users || d.total_users}</div>
+        <div style="font-size:11px;opacity:0.85;">Avtomatik hesablanır: hər müştərinin İstifadəçi sayından</div>
+        <input type="hidden" id="param_total_users" value="${d.portfolio_users || p.total_users}">
+      </div>
+
+      <!-- Main Settings Card -->
+      <div class="card" style="padding:20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #1e293b;">
+          <div style="font-size:20px;">⚙️</div>
+          <h3 style="font-size:16px;font-weight:700;margin:0;">Parametrlər</h3>
         </div>
-        ${[
-          ['total_employees', 'Cəm İşçi Sayı', p.total_employees, 'number'],
-          ['technical_staff', 'Texniki İşçilər', p.technical_staff, 'number'],
-          ['back_office_staff', 'Back-office İşçilər', p.back_office_staff, 'number'],
-          ['vat_rate', 'ƏDV Dərəcəsi (məs. 0.18)', p.vat_rate, 'number'],
-          ['employer_tax_rate', 'Sosial Sığorta Dərəcəsi (məs. 0.175)', p.employer_tax_rate, 'number'],
-          ['risk_rate', 'Risk Faizi (məs. 0.05)', p.risk_rate, 'number'],
-          ['misc_expense_rate', 'Müxtəlif Xərclər % (məs. 0.01)', p.misc_expense_rate, 'number'],
-          ['fixed_overhead_ratio', 'Sabit Overhead Payı (məs. 0.25)', p.fixed_overhead_ratio, 'number'],
-        ].map(([key, label, val, type]) => `
+
+        <!-- Headcount Section -->
+        <div style="margin-bottom:20px;padding:14px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin:0 0 12px 0;">Məşvər Sayı</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Cəm İşçi Sayı</label>
+              <input type="number" id="param_total_employees" value="${p.total_employees ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Back-office İşçilər</label>
+              <input type="number" id="param_back_office_staff" value="${p.back_office_staff ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Texniki İşçilər</label>
+              <input type="number" id="param_technical_staff" value="${p.technical_staff ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Taxes Section -->
+        <div style="margin-bottom:20px;padding:14px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin:0 0 12px 0;">Vergiler</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">ƏDV Dərəcəsi</label>
+              <input type="number" id="param_vat_rate" value="${p.vat_rate ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Sosial Sığorta Dərəcəsi</label>
+              <input type="number" id="param_employer_tax_rate" value="${p.employer_tax_rate ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Ratios Section -->
+        <div style="margin-bottom:20px;padding:14px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin:0 0 12px 0;">Nisbətlər</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Risk Faizi</label>
+              <input type="number" id="param_risk_rate" value="${p.risk_rate ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Müxtəlif Xərclər %</label>
+              <input type="number" id="param_misc_expense_rate" value="${p.misc_expense_rate ?? ''}" step="0.001"
+                style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+                onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+                onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Overhead Section -->
+        <div style="margin-bottom:20px;padding:14px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin:0 0 12px 0;">Overhead Paylaşması</h4>
           <div>
-            <label class="text-xs text-slate-400 block mb-1">${esc(label)}</label>
-            <input type="${type}" id="param_${key}" value="${val ?? ''}" step="0.001"
-              style="width:100%;padding:7px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;">
+            <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px;">Sabit Overhead Payı</label>
+            <input type="number" id="param_fixed_overhead_ratio" value="${p.fixed_overhead_ratio ?? ''}" step="0.001"
+              style="width:100%;padding:9px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;font-family:monospace;color:#e2e8f0;transition:all 0.2s;"
+              onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 2px rgba(99,102,241,0.1)'"
+              onblur="this.style.borderColor='#334155';this.style.boxShadow='none'">
+            <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding:8px;background:#1e293b;border-radius:6px;">
+              <span style="font-weight:600;">Paylaşma:</span> Sabit <span style="color:#a5f3fc;font-weight:700;">${fixedPercent}%</span> + Dəyişən <span style="color:#a5f3fc;font-weight:700;">${variablePercent}%</span>
+            </div>
           </div>
-        `).join('')}
-      </div>
-      <div class="mt-4 flex items-center gap-3">
-        <button class="btn btn-primary" onclick="saveCostParams()">💾 Saxla</button>
-        <div class="text-xs text-slate-500">
-          Sabit+Dəyişən = 1 (Sabit=${((p.fixed_overhead_ratio||0)*100).toFixed(0)}%, Dəyişən=${((1-(p.fixed_overhead_ratio||0))*100).toFixed(0)}%)
+        </div>
+
+        <!-- Save Button -->
+        <div style="display:flex;gap:12px;padding-top:16px;border-top:1px solid #1e293b;">
+          <button class="btn btn-primary" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;color:white;padding:11px 22px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 15px rgba(102,126,234,0.4);"
+            onmouseenter="this.style.boxShadow='0 6px 20px rgba(102,126,234,0.6)'"
+            onmouseleave="this.style.boxShadow='0 4px 15px rgba(102,126,234,0.4)'"
+            onclick="saveCostParams()">💾 Saxla</button>
         </div>
       </div>
-    </div>
-    <div class="card p-5 mt-4">
-      <h3 class="font-semibold mb-3">📥 CRM Müştərilərini Yüklə</h3>
-      <p class="text-sm text-slate-400 mb-3">CRM bazadakı bütün müştəriləri maya modelinə əlavə et</p>
-      <button class="btn btn-primary" onclick="seedClientsFromCRM()">🔄 Müştəriləri Sinxronla</button>
+
+      <!-- CRM Sync Card -->
+      <div class="card" style="padding:20px;background:linear-gradient(135deg,#1e293b44 0%,#0f172a44 100%);border:1px solid #1e293b;border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="font-size:20px;">📥</div>
+          <div>
+            <h3 style="font-size:14px;font-weight:700;margin:0;">CRM Müştərilərini Sinxronla</h3>
+            <p style="font-size:11px;color:#94a3b8;margin:2px 0 0 0;">CRM bazadakı bütün müştəriləri maya modelinə əlavə et</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);border:none;color:white;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 15px rgba(16,185,129,0.4);"
+          onmouseenter="this.style.boxShadow='0 6px 20px rgba(16,185,129,0.6)'"
+          onmouseleave="this.style.boxShadow='0 4px 15px rgba(16,185,129,0.4)'"
+          onclick="seedClientsFromCRM()">🔄 Sinxronla</button>
+      </div>
     </div>
   `;
 }

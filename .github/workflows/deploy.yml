@@ -84,30 +84,19 @@ jobs:
                 certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL still pending"
               fi
             fi
-            # One-time password reset (remove after deploy)
-            cd /opt/hermes_crm
-            /opt/hermes_crm/venv/bin/python -c "
-            import sqlite3,bcrypt
-            c=sqlite3.connect('crm.db')
-            users=c.execute('SELECT id,username,email,role FROM users LIMIT 10').fetchall()
-            print('Users:',users)
-            h=bcrypt.hashpw(b'admin123',bcrypt.gensalt()).decode()
-            if users:
-              uid=users[0][0]
-              c.execute('UPDATE users SET password_hash=? WHERE id=?',(h,uid))
-              c.commit()
-              print(f'Password reset for user id={uid}')
-            c.close()
-            "
-            echo "=== Service log ==="
-            journalctl -u hermes-crm --no-pager -n 10 2>/dev/null || echo "no journal"
+            # Check nginx status and fix if needed
+            echo "=== Nginx status ==="
+            nginx -t 2>&1 && echo "nginx config OK" || echo "nginx config ERROR"
+            systemctl is-active nginx && echo "nginx running" || systemctl start nginx
+            echo "=== Nginx ports ==="
+            ss -tlnp | grep -E ':80|:443' || echo "nginx not listening on 80/443"
+            echo "=== SSL check ==="
+            grep -l "ssl_certificate" /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null && echo "SSL configured" || echo "SSL NOT configured - retrying..."
+            if ! grep -q "ssl_certificate" /etc/nginx/sites-available/leaddrivecrm.org 2>/dev/null; then
+              certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL setup failed"
+            fi
+            systemctl reload nginx 2>/dev/null || true
             systemctl restart hermes-crm
-            sleep 5
-            systemctl is-active hermes-crm && echo "✅ Service active" || echo "❌ Service failed"
-            echo "=== Health check ==="
-            curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:8766/ 2>&1 || echo "curl failed"
-            echo ""
-            echo "=== Last 20 lines of hermes log ==="
-            journalctl -u hermes-crm --no-pager -n 20 2>/dev/null || tail -20 /var/log/hermes.log 2>/dev/null || echo "no logs"
-            echo "=== Listening ports ==="
-            ss -tlnp | grep 8766 || echo "port 8766 not listening"
+            sleep 2
+            systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"
+            curl -s -o /dev/null -w "Local HTTP: %{http_code}" http://127.0.0.1:8766/ 2>&1 && echo ""

@@ -481,17 +481,17 @@ async def startup_event():
             existing_count = conn.execute("SELECT COUNT(*) FROM workflow_rules WHERE name IN ('Auto-assign new deals', 'Notify on deal won', 'Create task on new lead')").fetchone()[0]
             if existing_count == 0:
                 # Insert workflow rules
-                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                cur1 = conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
                     ('Auto-assign new deals', 'deals', 'created', '{}', 1))
-                rule_id_1 = conn.lastrowid
+                rule_id_1 = cur1.lastrowid
 
-                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                cur2 = conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
                     ('Notify on deal won', 'deals', 'stage_changed', '{"stage":"WON"}', 1))
-                rule_id_2 = conn.lastrowid
+                rule_id_2 = cur2.lastrowid
 
-                conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
+                cur3 = conn.execute("INSERT OR IGNORE INTO workflow_rules (name, entity_type, trigger_event, conditions, is_active) VALUES (?, ?, ?, ?, ?)",
                     ('Create task on new lead', 'leads', 'created', '{}', 1))
-                rule_id_3 = conn.lastrowid
+                rule_id_3 = cur3.lastrowid
 
                 # Insert workflow actions
                 conn.execute("INSERT OR IGNORE INTO workflow_actions (rule_id, action_type, action_config, action_order) VALUES (?, ?, ?, ?)",
@@ -513,9 +513,9 @@ async def startup_event():
             existing_count = conn.execute("SELECT COUNT(*) FROM nurture_sequences WHERE name IN ('Welcome Series', 'Re-engagement')").fetchone()[0]
             if existing_count == 0:
                 # Insert Welcome Series
-                conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
+                cur_n1 = conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
                     ('Welcome Series', 'Automated welcome emails for new leads', 'lead_created', 1))
-                seq_id_1 = conn.lastrowid
+                seq_id_1 = cur_n1.lastrowid
 
                 # Insert steps for Welcome Series
                 conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
@@ -526,9 +526,9 @@ async def startup_event():
                     (seq_id_1, 3, 7, 'task', 'Follow up call'))
 
                 # Insert Re-engagement sequence
-                conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
+                cur_n2 = conn.execute("INSERT OR IGNORE INTO nurture_sequences (name, description, trigger_event, is_active) VALUES (?, ?, ?, ?)",
                     ('Re-engagement', 'Win-back campaign for inactive leads', 'lead_status_changed', 0))
-                seq_id_2 = conn.lastrowid
+                seq_id_2 = cur_n2.lastrowid
 
                 # Insert steps for Re-engagement
                 conn.execute("INSERT INTO nurture_steps (sequence_id, step_order, delay_days, action_type, task_title) VALUES (?, ?, ?, ?, ?)",
@@ -546,15 +546,15 @@ async def startup_event():
             existing_count = conn.execute("SELECT COUNT(*) FROM email_log WHERE subject IN ('Meeting confirmation', 'Invoice #2024-001', 'Welcome aboard', 'Proposal follow-up', 'Contract signed')").fetchone()[0]
             if existing_count == 0:
                 conn.executescript("""
-                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
                     ('noreply@hermes.crm', 'john@example.com', 'Meeting confirmation', 'sent', datetime('now', '-1 day'));
-                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
                     ('billing@hermes.crm', 'finance@client.com', 'Invoice #2024-001', 'sent', datetime('now', '-2 days'));
-                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
                     ('onboarding@hermes.crm', 'newuser@example.com', 'Welcome aboard', 'sent', datetime('now', '-5 days'));
-                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
                     ('sales@hermes.crm', 'manager@prospect.com', 'Proposal follow-up', 'sent', datetime('now', '-3 days'));
-                    INSERT OR IGNORE INTO email_log (sender_email, recipient_email, subject, status, sent_at) VALUES
+                    INSERT OR IGNORE INTO email_log (from_address, to_address, subject, status, created_at) VALUES
                     ('contracts@hermes.crm', 'legal@partner.com', 'Contract signed', 'sent', datetime('now', '-7 days'));
                 """)
     except Exception as e:

@@ -54,6 +54,15 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LeadDrive CRM", version="1.0.0")
 
+# TEMP: Global exception handler for debugging
+import traceback as _tb
+from starlette.requests import Request as _SRequest
+from starlette.responses import JSONResponse as _SJResponse
+@app.exception_handler(Exception)
+async def _debug_exc_handler(request: _SRequest, exc: Exception):
+    logger.error("Unhandled: %s\n%s", exc, _tb.format_exc())
+    return _SJResponse(status_code=500, content={"detail": str(exc), "trace": _tb.format_exc()[-500:]})
+
 # Include external API v1 router
 app.include_router(external_api_router)
 

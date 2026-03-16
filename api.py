@@ -6001,15 +6001,7 @@ def _ensure_cost_model_tables(conn):
         in_overhead INTEGER DEFAULT 0,
         notes TEXT DEFAULT ''
     )""")
-    # One-time cleanup: remove duplicate BackOffice/Back-office Staff (30 ppl) row
-    conn.execute("DELETE FROM cost_employees WHERE department='BackOffice' AND position='Back-office Staff' AND count=30")
-    # One-time cleanup: remove duplicate overhead cost items
-    for dup_id in [19, 20, 24, 18, 21, 22]:
-        conn.execute("DELETE FROM overhead_costs WHERE id=?", [dup_id])
-    # Fix tech items: set is_admin=0 for infrastructure items (should be Tech, not Admin)
-    tech_categories = ['cloud_servers', 'cortex', 'ms_license', 'service_desk', 'palo_alto', 'pam', 'firewall_amort']
-    for cat in tech_categories:
-        conn.execute("UPDATE overhead_costs SET is_admin=0 WHERE category=?", [cat])
+    # Cleanup already applied: duplicate employees, overhead items, tech item reclassification
     conn.execute("""CREATE TABLE IF NOT EXISTS client_services (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
@@ -6175,12 +6167,36 @@ async def get_overhead_costs(user=Depends(require_auth)):
         return _ok([dict(r) for r in rows])
 
 
+@app.post("/api/cost-model/overhead")
+async def add_overhead_cost(request: Request, user=Depends(require_admin)):
+    body = await request.json()
+    category = body.get("category", "").strip()
+    label = body.get("label", "").strip()
+    if not category or not label:
+        raise HTTPException(400, "Kateqoriya və ad boş ola bilməz")
+    amount = _validate_numeric(body.get("amount", 0), "amount")
+    with get_db() as conn:
+        # Duplicate check: same category
+        existing = conn.execute("SELECT id, label FROM overhead_costs WHERE category=?", [category]).fetchone()
+        if existing:
+            raise HTTPException(400, f"'{category}' kateqoriyası artıq mövcuddur: '{existing['label']}' (id={existing['id']}). Mövcud sətri redaktə edin.")
+        max_sort = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM overhead_costs").fetchone()[0]
+        cur = conn.execute(
+            "INSERT INTO overhead_costs (category, label, amount, is_annual, has_vat, sort_order, notes, is_admin) VALUES (?,?,?,?,?,?,?,?)",
+            [category, label, round(amount, 2), int(body.get("is_annual", 0)), int(body.get("has_vat", 0)),
+             max_sort + 1, body.get("notes", ""), int(body.get("is_admin", 1))]
+        )
+        row = conn.execute("SELECT * FROM overhead_costs WHERE id=?", [cur.lastrowid]).fetchone()
+        _invalidate_ai_cache()
+        return _ok(dict(row))
+
+
 @app.put("/api/cost-model/overhead/{oh_id}")
 async def update_overhead_cost(oh_id: int, request: Request, user=Depends(require_admin)):
     body = await request.json()
     if "amount" in body:
         body["amount"] = _validate_numeric(body["amount"], "amount")
-    allowed = ["label", "amount", "is_annual", "has_vat", "notes"]
+    allowed = ["label", "amount", "is_annual", "has_vat", "notes", "is_admin"]
     with get_db() as conn:
         for key, val in body.items():
             if key in allowed:
@@ -6190,6 +6206,19 @@ async def update_overhead_cost(oh_id: int, request: Request, user=Depends(requir
         row = conn.execute("SELECT * FROM overhead_costs WHERE id=?", [oh_id]).fetchone()
         _invalidate_ai_cache()
         return _ok(dict(row))
+
+
+@app.delete("/api/cost-model/overhead/{oh_id}")
+async def delete_overhead_cost(oh_id: int, user=Depends(require_admin)):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM overhead_costs WHERE id=?", [oh_id]).fetchone()
+        if not row:
+            raise HTTPException(404, "Tapılmadı")
+        conn.execute("DELETE FROM overhead_costs WHERE id=?", [oh_id])
+        conn.execute("INSERT INTO cost_model_log (table_name, record_id, action, new_value, changed_by) VALUES (?,?,?,?,?)",
+                     ["overhead_costs", oh_id, "delete", json.dumps(dict(row)), user.get("user_id")])
+        _invalidate_ai_cache()
+        return _ok({"deleted": oh_id})
 
 
 @app.get("/api/cost-model/employees")
@@ -6205,15 +6234,25 @@ async def add_cost_employee(request: Request, user=Depends(require_admin)):
     body = await request.json()
     income_tax = 0.14
     emp_tax = 0.175
+    dept = body.get("department", "IT")
+    pos = body.get("position", "").strip()
+    if not pos:
+        raise HTTPException(400, "Vəzifə boş ola bilməz")
     net = _validate_numeric(body.get("net_salary", 0), "net_salary")
     count = _validate_numeric(body.get("count", 1), "count", allow_zero=False)
     count = int(count)
     gross = net / (1 - income_tax)
     super_gross = gross * (1 + emp_tax)
     with get_db() as conn:
+        # Duplicate check: same department + position
+        existing = conn.execute(
+            "SELECT id FROM cost_employees WHERE department=? AND position=?", [dept, pos]
+        ).fetchone()
+        if existing:
+            raise HTTPException(400, f"Bu şöbədə '{pos}' artıq mövcuddur (id={existing['id']}). Mövcud sətri redaktə edin.")
         cur = conn.execute(
             "INSERT INTO cost_employees (department, position, count, net_salary, gross_salary, super_gross, in_overhead, notes) VALUES (?,?,?,?,?,?,?,?)",
-            [body.get("department", "IT"), body.get("position", ""), count,
+            [dept, pos, count,
              round(net, 2), round(gross, 2), round(super_gross, 2),
              int(body.get("in_overhead", 0)), body.get("notes", "")]
         )

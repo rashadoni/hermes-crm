@@ -12553,7 +12553,11 @@ function _renderCostEmployees(d) {
     GRC: '#f59e0b', PM: '#10b981', HelpDesk: '#f43f5e', BackOffice: '#94a3b8'
   };
 
-  const rows = (d.employees || []).map(emp => {
+  const emps = d.employees || [];
+  let totalCount = 0, totalCost = 0, overheadCount = 0;
+  emps.forEach(e => { totalCount += e.count; totalCost += e.total_labor_cost; if(e.in_overhead) overheadCount += e.count; });
+
+  const rows = emps.map(emp => {
     const col = deptColors[emp.department] || '#94a3b8';
     return `
       <tr>
@@ -12577,11 +12581,22 @@ function _renderCostEmployees(d) {
             onchange="updateEmployee(${emp.id}, 'in_overhead', this.checked?1:0)">
         </td>
         <td>
-          <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" onclick="deleteEmployee(${emp.id})">🗑</button>
+          <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" onclick="deleteEmployee(${emp.id}, '${esc(emp.position)}', ${emp.count})">🗑</button>
         </td>
       </tr>
     `;
   }).join('');
+
+  const summaryRow = `
+    <tr style="border-top:2px solid #475569;font-weight:700;background:#1e293b22;">
+      <td colspan="2" style="padding:8px 4px;">CƏMİ: ${emps.length} sətir</td>
+      <td class="text-center" style="padding:8px 4px;">${totalCount} nəfər</td>
+      <td colspan="3"></td>
+      <td class="text-right font-mono" style="padding:8px 4px;color:#22d3ee;">${_fmtAZN(totalCost)}</td>
+      <td class="text-center text-xs text-slate-500" style="padding:8px 4px;">${overheadCount} OH</td>
+      <td></td>
+    </tr>
+  `;
 
   return `
     ${_aiBlockHTML('employees')}
@@ -12595,7 +12610,7 @@ function _renderCostEmployees(d) {
           <thead><tr>
             <th>İstiqamət</th><th>Vəzifə</th><th>Say</th><th>Net Maaş ₼</th><th>Gross ₼</th><th>SuperGross ₼</th><th>Cəm ₼/ay</th><th>Overhead</th><th></th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${summaryRow}</tbody>
         </table>
       </div>
       <p class="text-xs text-slate-500 mt-3">
@@ -12615,15 +12630,16 @@ async function updateEmployee(id, field, value) {
   } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
 }
 
-async function deleteEmployee(id) {
-  if (!confirm('Bu əməkdaşı silmək istəyirsiniz?')) return;
+async function deleteEmployee(id, position, count) {
+  const msg = position ? `"${position}" (${count} nəfər) silmək istəyirsiniz?\n\nBu maya hesablamasını dəyişəcək!` : 'Bu əməkdaşı silmək istəyirsiniz?';
+  if (!confirm(msg)) return;
   try {
-    await api.delete ? api.delete(`/api/cost-model/employees/${id}`) :
-      fetch(`/api/cost-model/employees/${id}`, {method:'DELETE',headers:api._getHeaders()});
+    await api.remove('/api/cost-model/employees/' + id);
     _costModelData = null;
     await renderCostModel(document.getElementById('app'));
     _costModelTab = 'employees';
     _renderCostModelPage(document.getElementById('app'));
+    showToast('Silindi', 'success');
   } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
 }
 

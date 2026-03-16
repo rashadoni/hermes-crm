@@ -6323,11 +6323,12 @@ async function showCompanyDetail(id) {
 // ─── ACCOUNTS (Компании) PAGE — Salesforce-style ───
 async function renderAccounts(el) {
   showLoading(el);
+  state.companiesQuery = '';
   const L = currentLang;
   const _t = (en, ru, az) => L === 'ru' ? ru : L === 'az' ? az : en;
   try {
     const [{data:companies}, costRes, {data:actCounts}] = await Promise.all([
-      api.get('/api/companies?limit=500&q=' + encodeURIComponent(state.companiesQuery || '')),
+      api.get('/api/companies?limit=500'),
       api.get('/api/cost-model/client-costs').catch(() => ({data:{clients:{}}})),
       api.get('/api/activities/company-counts').catch(() => ({data:{}})),
     ]);
@@ -6337,24 +6338,17 @@ async function renderAccounts(el) {
     window._accountsItems = clients;
     window._accountsActivity = activityCounts;
 
-    // Search
-    let filtered = clients;
-    if (state.companiesQuery) {
-      const sq = state.companiesQuery.toLowerCase();
-      filtered = filtered.filter(c => (c.name||'').toLowerCase().includes(sq) || (c.cost_code||'').toLowerCase().includes(sq) || (c.domain||'').toLowerCase().includes(sq));
-    }
-
-    // Stats
-    const totalContracts = filtered.reduce((s, c) => s + (c.contracts_count || 0), 0);
-    const totalContacts = filtered.reduce((s, c) => s + (c.contacts_count || 0), 0);
-    const withContracts = filtered.filter(c => c.contracts_count > 0).length;
+    // Stats (always show totals for ALL clients)
+    const totalContracts = clients.reduce((s, c) => s + (c.contracts_count || 0), 0);
+    const totalContacts = clients.reduce((s, c) => s + (c.contacts_count || 0), 0);
+    const withContracts = clients.filter(c => c.contracts_count > 0).length;
 
     let html = '';
     // Header
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
     html += '<div>';
     html += '<h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_accounts') + '</h1>';
-    html += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + filtered.length + ' ' + _t('accounts total', 'компаний всего', 'cəmi şirkət') + '</p>';
+    html += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + clients.length + ' ' + _t('accounts total', 'компаний всего', 'cəmi şirkət') + '</p>';
     html += '</div>';
     html += '<button onclick="showCompanyForm(\'client\')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(34,197,94,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">+ ' + _t('New Account', 'Новая компания', 'Yeni şirkət') + '</button>';
     html += '</div>';
@@ -6363,7 +6357,7 @@ async function renderAccounts(el) {
     html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">';
     // Total accounts
     html += '<div style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04));border:1px solid rgba(34,197,94,0.15);border-radius:16px;padding:20px">';
-    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + filtered.length + '</div>';
+    html += '<div style="font-size:24px;font-weight:800;color:#f1f5f9">' + clients.length + '</div>';
     html += '<div style="font-size:12px;color:#64748b;font-weight:500">' + _t('Accounts', 'Компании', 'Şirkətlər') + '</div></div>';
     // With contracts
     html += '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));border:1px solid rgba(99,102,241,0.15);border-radius:16px;padding:20px">';
@@ -6397,10 +6391,10 @@ async function renderAccounts(el) {
     html += '<th style="text-align:center;padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px">' + _t('Activity', 'Активность', 'Fəaliyyət') + '</th>';
     html += '</tr></thead><tbody id="accountsTableBody">';
 
-    if (filtered.length === 0) {
+    if (clients.length === 0) {
       html += '<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">' + t('nothing_found') + '</td></tr>';
     } else {
-      filtered.forEach(c => {
+      clients.forEach(c => {
         const ac = activityCounts[c.id] || {};
         const cost = costMap[c.id];
         const name = c.cost_code || c.name;

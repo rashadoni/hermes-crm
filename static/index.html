@@ -6376,15 +6376,15 @@ async function showCompanyDetail(id) {
       </div>
 
       <!-- Action buttons -->
-      <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-700 flex-wrap">
-        <button onclick="showCompanyContracts(${id})" class="btn btn-sm" style="background:#065f46;color:#34d399">📄 ${t('company_view_contracts')}</button>
-        <button onclick="this.closest('.modal-overlay').remove();showCompanyForm(${id})" class="btn btn-primary btn-sm">✏️ ${t('btn_edit')}</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid #334155;">
+        <button onclick="showCompanyContracts(${id})" class="btn btn-sm" style="background:#065f46;color:#34d399;width:100%">📄 ${t('company_view_contracts')}</button>
+        <button onclick="this.closest('.modal-overlay').remove();showCompanyForm(${id})" class="btn btn-primary btn-sm" style="width:100%">✏️ ${t('btn_edit')}</button>
         ${c.category === 'inactive' ? `
-          <button onclick="reactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#065f46;color:#34d399;font-weight:600;">▶ ${t('company_reactivate')}</button>
+          <button onclick="reactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#065f46;color:#34d399;font-weight:600;width:100%">▶ ${t('company_reactivate')}</button>
         ` : `
-          <button onclick="deactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;font-weight:600;">✖ ${t('company_deactivate')}</button>
+          <button onclick="deactivateCompany(${id}, '${esc(c.name)}')" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;font-weight:600;width:100%">✖ ${t('company_deactivate')}</button>
         `}
-        <button onclick="deleteCompany(${id})" class="btn btn-danger btn-sm">🗑️ ${t('btn_delete')}</button>
+        <button onclick="deleteCompany(${id})" class="btn btn-danger btn-sm" style="width:100%">🗑️ ${t('btn_delete')}</button>
       </div>
     </div>
   </div>`;

@@ -195,6 +195,173 @@
     .btn { padding: 6px 12px; font-size: 13px; }
     .kanban-col { min-width: 200px; }
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     THEME TOGGLE — Salesforce Lightning Light Theme
+     ═══════════════════════════════════════════════════════════════ */
+  .theme-toggle-wrap { display:flex;align-items:center;gap:6px;margin:0 4px; }
+  .theme-toggle-track { position:relative;width:44px;height:24px;background:#334155;border-radius:12px;cursor:pointer;transition:background 0.3s;flex-shrink:0; }
+  .theme-toggle-thumb { position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform 0.3s;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+  .theme-toggle-track.light { background:#0176D3; }
+  .theme-toggle-track.light .theme-toggle-thumb { transform:translateX(20px); }
+  .theme-icon { font-size:14px;pointer-events:none; }
+
+  /* ── Light theme overrides ────────────────────────────── */
+  body.light-theme { background:#F3F2F2 !important;color:#181818 !important; }
+
+  /* Nav */
+  body.light-theme nav { background:rgba(255,255,255,0.97) !important;border-bottom-color:#E5E5E5 !important; }
+  body.light-theme nav .text-xl,
+  body.light-theme nav .text-indigo-400 { color:#0176D3 !important; }
+  body.light-theme nav .text-sm.text-slate-400 { color:#706E6B !important; }
+  body.light-theme .nav-link { color:#181818 !important; }
+  body.light-theme .nav-link:hover,
+  body.light-theme .nav-link.active { background:rgba(1,118,211,0.1) !important;color:#0176D3 !important; }
+  body.light-theme .nav-dropdown-menu { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
+  body.light-theme .nav-dropdown-menu a { color:#181818 !important; }
+  body.light-theme .nav-dropdown-menu a:hover { background:rgba(1,118,211,0.08) !important;color:#0176D3 !important; }
+  body.light-theme .nav-dropdown-btn { color:#181818 !important; }
+  body.light-theme .hamburger { color:#706E6B !important; }
+  body.light-theme #notifBtn { color:#181818 !important; }
+  body.light-theme #notifBtn:hover { background:#F3F2F2 !important; }
+
+  /* Cards */
+  body.light-theme .card { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 2px 4px rgba(0,0,0,0.06) !important; }
+
+  /* Modals */
+  body.light-theme .modal-overlay { background:rgba(0,0,0,0.35) !important; }
+  body.light-theme .modal-content,
+  body.light-theme .modal-box { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 8px 32px rgba(0,0,0,0.12) !important; }
+
+  /* Inputs */
+  body.light-theme input,
+  body.light-theme select,
+  body.light-theme textarea { background:#FFFFFF !important;border-color:#DDDBDA !important;color:#181818 !important;color-scheme:light !important; }
+  body.light-theme input:focus,
+  body.light-theme select:focus,
+  body.light-theme textarea:focus { border-color:#0176D3 !important;box-shadow:0 0 0 1px #0176D3 !important; }
+  body.light-theme input::placeholder,
+  body.light-theme textarea::placeholder { color:#939393 !important; }
+
+  /* Buttons */
+  body.light-theme .btn-primary { background:#0176D3 !important;color:#FFFFFF !important; }
+  body.light-theme .btn-primary:hover { background:#014486 !important; }
+  body.light-theme .btn-secondary { background:#FFFFFF !important;color:#181818 !important;border:1px solid #DDDBDA !important; }
+  body.light-theme .btn-secondary:hover { background:#F3F2F2 !important; }
+  body.light-theme .btn-danger { background:#FEE2E2 !important;color:#EA001E !important; }
+  body.light-theme .btn-danger:hover { background:#FECACA !important; }
+
+  /* Tables */
+  body.light-theme th { color:#706E6B !important;border-bottom-color:#E5E5E5 !important;background:#FAFAF9 !important; }
+  body.light-theme td { border-bottom-color:#F3F2F2 !important;color:#181818 !important; }
+  body.light-theme tr:hover td { background:rgba(1,118,211,0.04) !important; }
+
+  /* Text colors */
+  body.light-theme h1,
+  body.light-theme h2,
+  body.light-theme h3 { color:#181818 !important; }
+  body.light-theme .text-slate-400,
+  body.light-theme .text-slate-500 { color:#706E6B !important; }
+  body.light-theme .text-slate-300 { color:#444444 !important; }
+  body.light-theme label { color:#3E3E3C !important; }
+  body.light-theme .text-indigo-400,
+  body.light-theme .text-indigo-300 { color:#0176D3 !important; }
+  body.light-theme .text-2xl.font-bold { color:#181818 !important; }
+  body.light-theme p.text-sm { color:#706E6B !important; }
+
+  /* Stat cards */
+  body.light-theme .stat-value { color:#0176D3 !important; }
+  body.light-theme .stat-label { color:#706E6B !important; }
+
+  /* Search & dropdowns */
+  body.light-theme .search-dropdown { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 8px 24px rgba(0,0,0,0.12) !important; }
+  body.light-theme .search-item:hover { background:rgba(1,118,211,0.06) !important; }
+  body.light-theme .search-section-title { color:#706E6B !important; }
+
+  /* Notifications */
+  body.light-theme .notif-panel { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 8px 24px rgba(0,0,0,0.12) !important; }
+  body.light-theme .notif-item { border-bottom-color:#F3F2F2 !important; }
+  body.light-theme .notif-item:hover { background:rgba(1,118,211,0.04) !important; }
+
+  /* Language & user dropdown */
+  body.light-theme .lang-dropdown { background:#FFFFFF !important;border-color:#E5E5E5 !important;box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
+  body.light-theme .lang-option:hover { background:rgba(1,118,211,0.06) !important; }
+  body.light-theme .lang-option.active { background:rgba(1,118,211,0.1) !important;color:#0176D3 !important; }
+  body.light-theme #langWrap button { border-color:#DDDBDA !important;color:#181818 !important; }
+  body.light-theme #langWrap button:hover { background:#F3F2F2 !important; }
+  body.light-theme #userDropdownName { color:#0176D3 !important;border-bottom-color:#E5E5E5 !important; }
+  body.light-theme .lang-option { color:#181818 !important; }
+
+  /* Kanban */
+  body.light-theme .kanban-card { background:#FFFFFF !important;border-color:#E5E5E5 !important; }
+  body.light-theme .kanban-card:hover { border-color:#0176D3 !important; }
+
+  /* Toasts */
+  body.light-theme .toast-success { background:#2E844A !important;color:#FFFFFF !important; }
+  body.light-theme .toast-error { background:#EA001E !important;color:#FFFFFF !important; }
+
+  /* Pagination */
+  body.light-theme .pagination .active-page { background:#0176D3 !important; }
+
+  /* Score badges keep their colors */
+
+  /* Inline-style overrides for dynamically generated content */
+  body.light-theme [style*="background:#1e293b"],
+  body.light-theme [style*="background: #1e293b"] { background:#FFFFFF !important; }
+  body.light-theme [style*="background:#0f172a"],
+  body.light-theme [style*="background: #0f172a"] { background:#F3F2F2 !important; }
+  body.light-theme [style*="color:#e2e8f0"],
+  body.light-theme [style*="color: #e2e8f0"] { color:#181818 !important; }
+  body.light-theme [style*="color:#94a3b8"],
+  body.light-theme [style*="color: #94a3b8"] { color:#706E6B !important; }
+  body.light-theme [style*="color:#64748b"],
+  body.light-theme [style*="color: #64748b"] { color:#939393 !important; }
+  body.light-theme [style*="border-color:#334155"],
+  body.light-theme [style*="border:1px solid #334155"],
+  body.light-theme [style*="border: 1px solid #334155"] { border-color:#E5E5E5 !important; }
+  body.light-theme [style*="border-bottom:1px solid #334155"] { border-bottom-color:#E5E5E5 !important; }
+  body.light-theme [style*="border-left:1px solid rgba(148,163,184,0.2)"] { border-left-color:#E5E5E5 !important; }
+
+  /* Tailwind bg overrides */
+  body.light-theme .bg-slate-900\/95,
+  body.light-theme .bg-slate-900 { background:rgba(255,255,255,0.97) !important; }
+  body.light-theme .bg-slate-800 { background:#F3F2F2 !important; }
+  body.light-theme .bg-slate-800\/50 { background:rgba(0,0,0,0.03) !important; }
+  body.light-theme .hover\:bg-slate-800:hover { background:#F3F2F2 !important; }
+  body.light-theme .border-slate-700 { border-color:#E5E5E5 !important; }
+  body.light-theme .border-slate-800 { border-color:#F3F2F2 !important; }
+  body.light-theme .border-b.border-slate-700 { border-bottom-color:#E5E5E5 !important; }
+  body.light-theme .text-red-400 { color:#EA001E !important; }
+  body.light-theme .bg-indigo-600 { background:#0176D3 !important; }
+  body.light-theme .hover\:bg-indigo-500:hover { background:#014486 !important; }
+  body.light-theme .border-indigo-400 { border-color:#0176D3 !important; }
+
+  /* Login form in light theme */
+  body.light-theme .bg-slate-900\/80 { background:rgba(255,255,255,0.92) !important; }
+
+  /* User avatar button */
+  body.light-theme #userAvatarBtn { background:#0176D3 !important;border-color:#0176D3 !important; }
+  body.light-theme #userAvatarBtn:hover { background:#014486 !important; }
+  body.light-theme #userAvatarBtn svg { stroke:#FFFFFF !important; }
+
+  /* Fix chart containers */
+  body.light-theme canvas { filter:none; }
+
+  /* Score & status badges keep their colors — no override needed */
+
+  /* Loading spinner */
+  body.light-theme .spinner { border-color:#E5E5E5 !important;border-top-color:#0176D3 !important; }
+
+  /* Scrollbar for light theme */
+  body.light-theme ::-webkit-scrollbar { width:8px; }
+  body.light-theme ::-webkit-scrollbar-track { background:#F3F2F2; }
+  body.light-theme ::-webkit-scrollbar-thumb { background:#C9C7C5;border-radius:4px; }
+
+  /* Mobile nav in light theme */
+  @media (max-width: 768px) {
+    body.light-theme .nav-links { background:#FFFFFF !important;border-bottom-color:#E5E5E5 !important; }
+    body.light-theme .nav-links a { border-bottom-color:#F3F2F2 !important; }
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -283,6 +450,14 @@
         </button>
         <div id="notifPanel" class="notif-panel" style="display:none"></div>
       </div>
+      <!-- Theme Toggle -->
+      <div class="theme-toggle-wrap" title="Light / Dark">
+        <span class="theme-icon" id="themeIconMoon">&#x1F319;</span>
+        <div class="theme-toggle-track" id="themeToggle" onclick="toggleTheme()">
+          <div class="theme-toggle-thumb" id="themeThumb"></div>
+        </div>
+        <span class="theme-icon" id="themeIconSun">&#x2600;&#xFE0F;</span>
+      </div>
       <!-- Language Switcher -->
       <div class="relative" id="langWrap">
         <button style="min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;" onclick="toggleLanguageDropdown()" class="px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-800 border border-slate-700" aria-label="Language">
@@ -318,6 +493,57 @@
 <div id="toastContainer" class="toast-container"></div>
 
 <script>
+// ─── Theme Toggle ─────────────────────────────────────────────
+var _currentTheme = localStorage.getItem('ld_theme') || 'dark';
+function applyTheme(theme) {
+  _currentTheme = theme;
+  localStorage.setItem('ld_theme', theme);
+  document.body.classList.toggle('light-theme', theme === 'light');
+  var track = document.getElementById('themeToggle');
+  if (track) track.classList.toggle('light', theme === 'light');
+  // Fix inline styles on dynamic content
+  if (theme === 'light') _patchInlineStyles();
+}
+function toggleTheme() {
+  applyTheme(_currentTheme === 'dark' ? 'light' : 'dark');
+}
+function _patchInlineStyles() {
+  // Patch backgrounds on elements with specific inline dark colors
+  document.querySelectorAll('[style]').forEach(function(el) {
+    var s = el.getAttribute('style');
+    if (!s) return;
+    // Fix background colors
+    s = s.replace(/background\s*:\s*#0f172a/gi, 'background:#F3F2F2');
+    s = s.replace(/background\s*:\s*#1e293b/gi, 'background:#FFFFFF');
+    s = s.replace(/background\s*:\s*#334155/gi, 'background:#E5E5E5');
+    // Fix text colors (but preserve colored badges)
+    s = s.replace(/(?<![a-f0-9])color\s*:\s*#e2e8f0/gi, 'color:#181818');
+    s = s.replace(/(?<![a-f0-9])color\s*:\s*#94a3b8/gi, 'color:#706E6B');
+    s = s.replace(/(?<![a-f0-9])color\s*:\s*#cbd5e1/gi, 'color:#3E3E3C');
+    // Fix borders
+    s = s.replace(/border:\s*1px solid #334155/gi, 'border:1px solid #E5E5E5');
+    s = s.replace(/border-color\s*:\s*#334155/gi, 'border-color:#E5E5E5');
+    s = s.replace(/border-bottom:\s*1px solid #334155/gi, 'border-bottom:1px solid #E5E5E5');
+    s = s.replace(/border-left:\s*1px solid rgba\(148,163,184,0\.2\)/gi, 'border-left:1px solid #E5E5E5');
+    el.setAttribute('style', s);
+  });
+}
+// Apply saved theme on load
+document.addEventListener('DOMContentLoaded', function() { applyTheme(_currentTheme); });
+// Re-patch inline styles after any render
+var _origInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+var _themeObserver = new MutationObserver(function() {
+  if (_currentTheme === 'light') {
+    clearTimeout(window._themePatchTimer);
+    window._themePatchTimer = setTimeout(_patchInlineStyles, 80);
+  }
+});
+document.addEventListener('DOMContentLoaded', function() {
+  _themeObserver.observe(document.getElementById('app') || document.body, { childList: true, subtree: true });
+  var mc = document.getElementById('modalContainer');
+  if (mc) _themeObserver.observe(mc, { childList: true, subtree: true });
+});
+
 // ─── Translation System ──────────────────────────────────────
 const translations = {
   en: {
@@ -7925,6 +8151,7 @@ async function renderUsers(el) {
         <h1 class="text-2xl font-bold">${t('users_title')}</h1>
         <button class="btn btn-primary btn-sm" onclick="showUserForm()">${t('users_add')}</button>
       </div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px;">${(currentLang==='ru'?'Управление пользователями системы, их ролями и правами доступа':currentLang==='az'?'Sistem istifadəçilərini, onların rollarını və giriş icazələrini idarə edin':'Manage system users, their roles and access permissions')}</div>
       <div class="grid gap-4">
     `;
 
@@ -7982,20 +8209,24 @@ function showUserForm(userId = null) {
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2">${t('user_form_email')}</label>
         <input type="email" value="${esc(user.email || user.username)}" disabled class="opacity-50">
+        ${_hint('User email address (cannot be changed)', 'Адрес электронной почты пользователя (не может быть изменён)', 'İstifadəçinin e-mail ünvanı (dəyişdirilə bilməz)')}
       </div>
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_fullname')}</label>
         <input type="text" id="formFullName" value="${esc(user.full_name || '')}" required oninput="markFormDirty()">
+        ${_hint('User\'s full name for display in the system', 'Полное имя пользователя для отображения в системе', 'Sistəmdə göstərilmə üçün istifadəçinin tam adı')}
       </div>
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_role')}</label>
         <select id="formRole" required onchange="markFormDirty()">
           ${roles.map(r => `<option value="${r}" ${user.role === r ? 'selected' : ''}>${t('user_role_' + r)}</option>`).join('')}
         </select>
+        ${_hint('User\'s access level: Manager can create deals, Admin has full control, Viewer is read-only', 'Уровень доступа: Менеджер создаёт сделки, Администратор имеет полный контроль, Просмотр только для чтения', 'Giriş səviyyəsi: Menecyer sdelləri yaradır, Admin tam nəzarətə malikdir, Baxış yalnız oxu')}
       </div>
       <div class="mb-6">
         <label class="block text-sm text-slate-400 mb-2">${t('user_form_password')} (${t('optional')})</label>
         <input type="password" id="formPassword" placeholder="Leave empty to keep current" oninput="markFormDirty()">
+        ${_hint('New password (minimum 4 characters). Leave empty to keep the current password', 'Новый пароль (минимум 4 символа). Оставьте пусто, чтобы сохранить текущий', 'Yeni parol (minimum 4 simvol). Cari parolunu saxlamaq üçün boş qoyun')}
       </div>
     `;
   } else {
@@ -8003,20 +8234,24 @@ function showUserForm(userId = null) {
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_email')}</label>
         <input type="email" id="formEmail" required placeholder="user@company.com" oninput="markFormDirty()">
+        ${_hint('Unique email address for login - must be a valid email', 'Уникальный адрес электронной почты для входа - должен быть действительным', 'Giriş üçün unikal e-mail - etibarlı olmalıdır')}
       </div>
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_fullname')}</label>
         <input type="text" id="formFullName" required oninput="markFormDirty()">
+        ${_hint('User\'s full name for display in the system', 'Полное имя пользователя для отображения в системе', 'Sistəmdə göstərilmə üçün istifadəçinin tam adı')}
       </div>
       <div class="mb-4">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_password')}</label>
         <input type="password" id="formPassword" required minlength="4" oninput="markFormDirty()">
+        ${_hint('Initial password (minimum 4 characters). User can change it later', 'Начальный пароль (минимум 4 символа). Пользователь может изменить позже', 'İlkin parol (minimum 4 simvol). İstifadəçi sonra dəyişə bilər')}
       </div>
       <div class="mb-6">
         <label class="block text-sm text-slate-400 mb-2 required-mark">${t('user_form_role')}</label>
         <select id="formRole" required onchange="markFormDirty()">
           ${roles.map(r => `<option value="${r}" ${r === 'manager' ? 'selected' : ''}>${t('user_role_' + r)}</option>`).join('')}
         </select>
+        ${_hint('User\'s access level: Manager can create deals, Admin has full control, Viewer is read-only', 'Уровень доступа: Менеджер создаёт сделки, Администратор имеет полный контроль, Просмотр только для чтения', 'Giriş səviyyəsi: Menecyer sdelləri yaradır, Admin tam nəzarətə malikdir, Baxış yalnız oxu')}
       </div>
     `;
   }
@@ -13564,6 +13799,7 @@ async function renderRolesAdmin(el) {
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">${title}</h1>
     </div>
+    <div style="font-size:13px;color:#64748b;margin-top:4px;margin-bottom:6px;">${(currentLang==='ru'?'Настройте роли и разрешения для разных уровней доступа':currentLang==='az'?'Müxtəlif giriş səviyyələri üçün rolları və icazələri təyin edin':'Define roles and permissions for different user access levels')}</div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       ${roles.map(r => {
         const perms = typeof r.permissions === 'string' ? JSON.parse(r.permissions) : (r.permissions||{});
@@ -13604,6 +13840,7 @@ async function renderAuditLog(el) {
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">${_i._g('al_title')} <span class="text-slate-500 text-lg font-normal">(${total})</span></h1>
     </div>
+    <div style="font-size:13px;color:#64748b;margin-top:4px;margin-bottom:6px;">${(currentLang==='ru'?'Полная история всех действий пользователей и системных изменений':currentLang==='az'?'Bütün istifadəçi hərəkətlərinin və sistem dəyişikliklərinin tam tarixçəsi':'Complete history of all user actions and system changes')}</div>
     <div class="card overflow-x-auto">
       <table class="w-full text-sm">
         <thead><tr class="text-left text-slate-500 border-b border-slate-700">
@@ -13986,12 +14223,14 @@ function showAddScoringRuleModal(editField, editCond, editValue, editPoints, edi
         <select id="srField" class="form-input w-full" onchange="window._srFieldChanged()" style="font-size:15px;padding:10px 12px;">
           ${_fieldOpts.map(f=>`<option value="${f.v}" ${editField===f.v?'selected':''}>${f.l} — ${f.hint}</option>`).join('')}
         </select>
+        ${_hint('Choose which lead property triggers this scoring rule', 'Выберите свойство лида, которое активирует это правило', 'Bu skorinq qaydasını aktivləşdirən lid xüsusiyyətini seçin')}
       </div>
       <div>
         <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_condition')}</label>
         <select id="srCondition" class="form-input w-full" onchange="window._srCondChanged()" style="font-size:15px;padding:10px 12px;">
           ${_condOpts.map(c=>`<option value="${c.v}" ${editCond===c.v?'selected':''}>${c.l}</option>`).join('')}
         </select>
+        ${_hint('How should the field value be evaluated - equals, contains, greater than, or just not empty', 'Как оценивать значение поля - равно, содержит, больше чем или просто не пусто', 'Sahə dəyərinin qiymətləndirilməsi - bərabərdir, ehtiva edir, çoxdur və ya sadəcə boş deyildir')}
       </div>
       <div id="srValueWrap">
         <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_value')}</label>
@@ -13999,6 +14238,7 @@ function showAddScoringRuleModal(editField, editCond, editValue, editPoints, edi
           ${(_presets.source||[]).map(p=>{const[v,l]=p.split('|');return`<option value="${v}">${l}</option>`;}).join('')}
         </select>
         <input id="srValueInput" class="form-input w-full" placeholder="${_i._g('sr_value')}..." style="display:none;font-size:15px;padding:10px 12px;margin-top:4px;">
+        ${_hint('Specific value to match - select from preset options or enter custom text', 'Конкретное значение для соответствия - выберите из предустановок или введите пользовательский текст', 'Müvafiq olmaq üçün xüsusi dəyər - əvvəlcədən təyin edilmiş seçənəklərdən seçin və ya fərdi mətn daxil edin')}
       </div>
       <div>
         <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('sr_points')}</label>
@@ -14008,6 +14248,7 @@ function showAddScoringRuleModal(editField, editCond, editValue, editPoints, edi
           <button type="button" onclick="document.getElementById('srPoints').value=Math.min(100,parseInt(document.getElementById('srPoints').value||0)+5)" style="background:#1e293b;border:1px solid #334155;color:#4ade80;width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">+</button>
           <span class="text-slate-500 text-sm" style="margin-left:4px;">${_i._g('sr_points_help')}</span>
         </div>
+        ${_hint('Points to add (positive) or subtract (negative) when condition is met - impacts lead ranking', 'Баллы для добавления (положительные) или вычитания (отрицательные) при выполнении условия', 'Şərt yerinə yetirildikdə əlavə ediləcək (müsbət) və ya çıxarılacaq (mənfi) ballar')}
       </div>
       ${isEdit ? `<div style="display:flex;align-items:center;gap:10px;">
         <label class="text-sm text-slate-400">${_i._g('sr_status')}:</label>
@@ -14211,6 +14452,7 @@ function showAssignmentRuleModal(editData) {
         <div>
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_name')}</label>
           <input id="arName" class="w-full input-field" required placeholder="${_i._g('ar_name_ph')}" value="${isEdit ? esc(editData.name) : ''}" style="font-size:15px;padding:10px 12px;">
+          ${_hint('Descriptive name for this assignment rule - helps identify its purpose', 'Описательное имя для этого правила распределения - помогает определить его назначение', 'Bu təyin qaydası üçün təsviri ad - onun məqsədini müəyyən etməyə kömək edir')}
         </div>
         <div>
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_cond_field')}</label>
@@ -14218,12 +14460,14 @@ function showAssignmentRuleModal(editData) {
             <option value="">${_i._g('ar_cond_all')}</option>
             ${condFields.map(f=>`<option value="${f.v}" ${editCondField===f.v?'selected':''}>${f.l}</option>`).join('')}
           </select>
+          ${_hint('Which lead property determines if this rule applies - leave empty to apply to all leads', 'Какое свойство лида определяет применение этого правила - оставьте пусто для всех лидов', 'Hansı lid xüsusiyyəti bu qaydanın tətbiq olunacağını müəyyən edir - bütün lidlər üçün boş qoyun')}
         </div>
         <div id="arCondValueWrap" style="${editCondField?'':'display:none;'}">
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_cond_value')}</label>
           <select id="arCondValue" class="w-full input-field" style="font-size:15px;padding:10px 12px;">
             ${(condPresets[editCondField]||[]).map(v=>`<option value="${v.v}" ${editCondValue===v.v?'selected':''}>${v.l}</option>`).join('')}
           </select>
+          ${_hint('Specific value that must match for this rule to apply', 'Конкретное значение, которое должно соответствовать для применения этого правила', 'Bu qaydanın tətbiq olunması üçün uyğun olması gereken xüsusi dəyər')}
         </div>
         <div>
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_method')}</label>
@@ -14231,12 +14475,14 @@ function showAssignmentRuleModal(editData) {
             <option value="direct" ${isEdit&&editData.assign_method==='direct'?'selected':''}>${_i._g('ar_method_direct')}</option>
             <option value="round_robin" ${isEdit&&editData.assign_method==='round_robin'?'selected':''}>${_i._g('ar_method_rr')}</option>
           </select>
+          ${_hint('Direct: assign to specific user; Round Robin: distribute equally among team members', 'Прямой: назначить конкретному пользователю; По очереди: распределить поровну между членами команды', 'Birbaşa: xüsusi istifadəçiyə təyin edin; Round Robin: komanda üzvləri arasında bərabər paylaşın')}
         </div>
         <div id="arAssignToWrap" style="${isEdit&&editData.assign_method==='round_robin'?'display:none;':''}">
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_assign_to')}</label>
           <select id="arUser" class="w-full input-field" style="font-size:15px;padding:10px 12px;">
             ${users.map(u=>`<option value="${u.id}" ${isEdit&&editData.assign_to===u.id?'selected':''}>${esc(u.full_name||u.username)} (${u.role})</option>`).join('')}
           </select>
+          ${_hint('User who will be assigned matching leads when using direct assignment method', 'Пользователь, которому будут назначены соответствующие лиды при прямом методе распределения', 'Birbaşa təyin üsulu istifadə edərkən uyğun lidlərin təyin olunacağı istifadəçi')}
         </div>
         <div>
           <label class="text-sm text-slate-400 mb-1" style="display:block;">${_i._g('ar_priority')}</label>
@@ -14315,7 +14561,8 @@ async function deleteAssignmentRule(id) {
 async function renderWebToLead(el) {
   const baseUrl = window.location.origin;
   el.innerHTML = `
-    <h1 class="text-2xl font-bold mb-6">🌐 ${_i._g('wl_title')}</h1>
+    <h1 class="text-2xl font-bold mb-2">🌐 ${_i._g('wl_title')}</h1>
+    <p style="font-size:13px;color:#64748b;margin-bottom:6px;">${(currentLang==='ru'?'Сгенерируйте код для автоматического захвата лидов с вашего сайта':currentLang==='az'?'Veb saytınızdan avtomatik lid toplamaq üçün yerləşdirmə kodu yaradın':'Generate embed code to capture leads from your website automatically')}</p>
     <div class="grid md:grid-cols-2 gap-6">
       <div class="card p-5">
         <h3 class="text-lg font-semibold mb-3">${_i._g('wl_embed')}</h3>
@@ -14456,25 +14703,33 @@ async function showPipelineStageModal(id) {
         <h2 class="text-xl font-bold mb-4">${isEdit ? _i._g('ps_edit_title') : _i._g('ps_add_title')}</h2>
         <div class="space-y-3">
           <div><label class="text-sm text-slate-400">${_i._g('ps_name')}</label>
-            <input id="psName" class="form-input w-full" value="${isEdit?esc(stage.name):''}" placeholder="e.g. QUALIFIED" ${isEdit?'readonly style="opacity:0.6"':''}></div>
+            <input id="psName" class="form-input w-full" value="${isEdit?esc(stage.name):''}" placeholder="e.g. QUALIFIED" ${isEdit?'readonly style="opacity:0.6"':''}>
+            ${_hint('Internal code name for this stage - used in API calls and reports (cannot be changed)', 'Внутреннее имя кода этапа - используется в API и отчетах (не может быть изменено)', 'Bu mərhələnin daxili kod adı - API və hesabatlarda istifadə olunur (dəyişdirilə bilməz)')}</div>
           <div><label class="text-sm text-slate-400">${_i._g('ps_display')} (EN)</label>
-            <input id="psDisplay" class="form-input w-full" value="${isEdit?esc(stage.display_name):''}"></div>
+            <input id="psDisplay" class="form-input w-full" value="${isEdit?esc(stage.display_name):''}">
+            ${_hint('Display name shown to English-speaking users in the UI', 'Имя для отображения на английском языке в интерфейсе', 'İngilis dilli istifadəçilərə UI-da göstərilən görüntülənmə adı')}</div>
           <div><label class="text-sm text-slate-400">${_i._g('ps_display_ru')}</label>
-            <input id="psDisplayRu" class="form-input w-full" value="${isEdit?esc(stage.display_name_ru||''):''}"></div>
+            <input id="psDisplayRu" class="form-input w-full" value="${isEdit?esc(stage.display_name_ru||''):''}">
+            ${_hint('Display name shown to Russian-speaking users in the UI', 'Имя для отображения на русском языке в интерфейсе', 'Rus dilli istifadəçilərə UI-da göstərilən görüntülənmə adı')}</div>
           <div><label class="text-sm text-slate-400">${_i._g('ps_display_az')}</label>
-            <input id="psDisplayAz" class="form-input w-full" value="${isEdit?esc(stage.display_name_az||''):''}"></div>
+            <input id="psDisplayAz" class="form-input w-full" value="${isEdit?esc(stage.display_name_az||''):''}">
+            ${_hint('Display name shown to Azerbaijani-speaking users in the UI', 'Имя для отображения на азербайджанском языке в интерфейсе', 'Azərbaycanca sönəmə istifadəçilərə UI-da göstərilən görüntülənmə adı')}</div>
           <div class="grid grid-cols-2 gap-3">
             <div><label class="text-sm text-slate-400">${_i._g('ps_color')}</label>
-              <input id="psColor" type="color" class="form-input w-full h-10" value="${isEdit?stage.color:'#6366f1'}"></div>
+              <input id="psColor" type="color" class="form-input w-full h-10" value="${isEdit?stage.color:'#6366f1'}">
+              ${_hint('Visual color for this stage in pipeline views and deal cards', 'Визуальный цвет этапа в представлениях конвейера и карточках сделок', 'Bu mərhələnin konveyer görünüşlərində və sdelə kartlarında vizual rəngi')}</div>
             <div><label class="text-sm text-slate-400">${_i._g('ps_probability')}</label>
-              <input id="psProb" type="number" class="form-input w-full" min="0" max="100" value="${isEdit?stage.probability:0}"></div>
+              <input id="psProb" type="number" class="form-input w-full" min="0" max="100" value="${isEdit?stage.probability:0}">
+              ${_hint('Win probability percentage - used for forecasting and weighting deals', 'Процент вероятности выигрыша - используется для прогнозирования', 'Qalib gəlmə ehtimalı faizi - proqnozlaşdırma üçün istifadə olunur')}</div>
           </div>
           <div class="flex gap-4">
             <label class="flex items-center gap-2"><input type="checkbox" id="psIsWon" ${isEdit&&stage.is_won?'checked':''}> ${_i._g('ps_is_won')}</label>
             <label class="flex items-center gap-2"><input type="checkbox" id="psIsLost" ${isEdit&&stage.is_lost?'checked':''}> ${_i._g('ps_is_lost')}</label>
           </div>
+          ${_hint('Mark if this stage is a terminal state (deal is won or lost)', 'Отметьте, если этапу ва терминальное состояние (сделка выиграна или проиграна)', 'Bu mərhələ terminal vəziyyətidirsə (sdelə qazandı və ya itirdi) işarələyin')}
           ${!isEdit ? `<div><label class="text-sm text-slate-400">${_i._g('ps_order')}</label>
-            <input id="psOrder" type="number" class="form-input w-full" min="1" max="20" value="7"></div>` : ''}
+            <input id="psOrder" type="number" class="form-input w-full" min="1" max="20" value="7">
+            ${_hint('Position in pipeline from left to right - affects display order', 'Позиция в конвейере слева направо - влияет на порядок отображения', 'Soldan sağa konveyer pozisiyası - görüntü sırasını təsir edir')}</div>` : ''}
         </div>
         <div class="flex gap-2 mt-4">
           <button class="btn btn-primary flex-1" onclick="savePipelineStage(${isEdit?stage.id:'null'})">${isEdit?_i._g('c_update'):_i._g('c_save')}</button>
@@ -15434,7 +15689,7 @@ async function renderEmailTemplates(el) {
       '<div style="display:flex;align-items:center;gap:12px;">' +
         '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#ec4899,#f43f5e);display:flex;align-items:center;justify-content:center;font-size:22px;">✉️</div>' +
         '<div><h1 style="font-size:22px;font-weight:700;margin:0;">' + _t('Email Templates','Шаблоны писем','E-poçt Şablonları') + '</h1>' +
-        '<p style="font-size:13px;color:#64748b;margin:0;">' + _etAllTemplates.length + ' ' + _t('templates','шаблонов','şablon') + '</p></div>' +
+        '<p style="font-size:13px;color:#64748b;margin:4px 0 0 0;">' + (currentLang==='ru'?'Просматривайте и управляйте шаблонами писем для рассылок':currentLang==='az'?'Kampaniyalar üçün təkrar istifadə olunan email şablonlarını idarə edin':'Browse, create and manage reusable email templates for campaigns') + '</p></div>' +
       '</div>' +
       '<button onclick="showCreateEmailTemplateModal()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 15px rgba(99,102,241,0.3);" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">➕ ' + _t('New Template','Новый шаблон','Yeni Şablon') + '</button>' +
     '</div>' +
@@ -16177,18 +16432,21 @@ async function showWorkflowForm(ruleId) {
       </div>
       <form onsubmit="saveWorkflow(event, ${ruleId||'null'})" class="space-y-4">
         <div class="grid grid-cols-3 gap-3">
-          <div><label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label><input type="text" id="wfName" value="${esc(rule.name)}" required class="w-full"></div>
+          <div><label class="text-xs text-slate-500">${_t('Name','Название','Ad')} *</label><input type="text" id="wfName" value="${esc(rule.name)}" required class="w-full">
+          ${_hint('Descriptive name for this workflow rule', 'Описательное название этого правила рабочего процесса', 'Bu iş axını qaydası üçün təsviri ad')}</div>
           <div>
             <label class="text-xs text-slate-500">${t('wf_entity')}</label>
             <select id="wfEntity" class="w-full text-sm">
               ${entities.map(e => '<option value="'+e+'" '+(rule.entity_type===e?'selected':'')+'>'+e+'</option>').join('')}
             </select>
+            ${_hint('Entity type that triggers this workflow - Deals, Leads, Tickets, etc.', 'Тип сущности которая запускает этот рабочий процесс', 'Bu iş axını tetikleyən subyekt tipi - Sövdələşmələr, Lidlər, Məsələlər və s.')}
           </div>
           <div>
             <label class="text-xs text-slate-500">${t('wf_trigger')}</label>
             <select id="wfTrigger" class="w-full text-sm">
               ${triggers.map(t => '<option value="'+t+'" '+(rule.trigger_event===t?'selected':'')+'>'+t+'</option>').join('')}
             </select>
+            ${_hint('Event that starts the workflow - Created, Updated, Stage Changed, Status Changed', 'Событие которое запускает рабочий процесс - создан, обновлён, изменена стадия', 'İş axını başlayan hadisə - Yaradıldı, Yeniləndi, Mərhələ dəyişdi, Status dəyişdi')}
           </div>
         </div>
         <div class="bg-slate-800/50 rounded-lg p-4">
@@ -16320,7 +16578,7 @@ async function renderDashboardSettings(container) {
           </div>
           <div>
             <h1 class="text-2xl font-bold">${t('dash_title')}</h1>
-            <p class="text-sm text-slate-400">${_t('Choose widgets for your dashboard','Выберите виджеты для панели','Paneliniz üçün vidjetlər seçin')}</p>
+            <p class="text-sm text-slate-400">${_t('Customize your dashboard: choose which widgets to show and their layout','Настройте панель: выберите виджеты для отображения и их расположение','İdarə panelini fərdiləşdirin: hansı vidcetləri göstərmək və onların yerləşməsini seçin')}</p>
           </div>
         </div>
       </div>
@@ -16574,10 +16832,14 @@ async function showCurrencyForm() {
     <div class="bg-slate-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border border-slate-700">
       <h2 class="text-lg font-bold mb-4">${t('cur_new')}</h2>
       <form onsubmit="saveCurrency(event)" class="space-y-3">
-        <div><label class="text-xs text-slate-500">${t('cur_code')} (3 letters)</label><input type="text" id="curCode" maxlength="3" required class="w-full" placeholder="GEL"></div>
-        <div><label class="text-xs text-slate-500">${t('cur_name')}</label><input type="text" id="curName" required class="w-full" placeholder="Georgian Lari"></div>
-        <div><label class="text-xs text-slate-500">${t('cur_symbol')}</label><input type="text" id="curSymbol" class="w-full" placeholder="₾"></div>
-        <div><label class="text-xs text-slate-500">${t('cur_rate')} (to 1 AZN)</label><input type="number" id="curRate" step="any" value="1" class="w-full"></div>
+        <div><label class="text-xs text-slate-500">${t('cur_code')} (3 letters)</label><input type="text" id="curCode" maxlength="3" required class="w-full" placeholder="GEL">
+        ${_hint('ISO 4217 currency code - three letter code like USD, EUR, GBP', 'Код валюты ISO 4217 - трёхбуквенный код вроде USD, EUR, GBP', 'ISO 4217 valyuta kodu - USD, EUR, GBP kimi üçbükveli kod')}</div>
+        <div><label class="text-xs text-slate-500">${t('cur_name')}</label><input type="text" id="curName" required class="w-full" placeholder="Georgian Lari">
+        ${_hint('Full name of the currency for display', 'Полное название валюты для отображения', 'Valyutanın tam adı göstərilmə üçün')}</div>
+        <div><label class="text-xs text-slate-500">${t('cur_symbol')}</label><input type="text" id="curSymbol" class="w-full" placeholder="₾">
+        ${_hint('Currency symbol shown in reports and lists - can be special character', 'Символ валюты отображаемый в отчётах - может быть спецсимволом', 'Hesabatlarda göstərilən valyuta simvolu - xüsusi simvol ola bilər')}</div>
+        <div><label class="text-xs text-slate-500">${t('cur_rate')} (to 1 AZN)</label><input type="number" id="curRate" step="any" value="1" class="w-full">
+        ${_hint('Exchange rate relative to base AZN currency - how many of this currency equals 1 AZN', 'Курс обмена относительно базовой валюты AZN - сколько этой валюты равно 1 AZN', 'Baza AZN valyutasına nisbətən dəyişdirmə dərəcəsi - bu valyutanın neçəsi 1 AZN-ə bərabərdir')}</div>
         <div class="flex gap-2">
           <button type="submit" class="btn btn-primary">${_t('Save','Сохранить','Saxla')}</button>
           <button type="button" class="btn btn-secondary" onclick="document.getElementById('curModal').remove()">${_t('Cancel','Отмена','Ləğv')}</button>
@@ -17020,10 +17282,12 @@ async function showNurtureForm(seqId) {
           <div class="nur-field-group">
             <label class="nur-field-label">${_t('Sequence name','Название цепочки','Zəncir adı')} *</label>
             <input type="text" id="nurName" value="${esc(seq.name)}" required class="w-full" placeholder="${_t('e.g. New lead onboarding','Например: Онбординг нового лида','Məs: Yeni lid onboarding')}">
+            ${_hint('A descriptive name for this email sequence - should indicate its purpose', 'Описательное имя для этой email-цепочки - должно указывать её назначение', 'Bu email zəncirinin təsviri adı - onun məqsədini göstərməlidir')}
           </div>
           <div class="nur-field-group" style="margin-bottom:0">
             <label class="nur-field-label">${_t('Description (optional)','Описание (необязательно)','Təsvir (istəyə bağlı)')}</label>
             <textarea id="nurDesc" rows="2" class="w-full" placeholder="${_t('Briefly describe what this sequence does...','Кратко опишите, что делает эта цепочка...','Bu zəncirin nə etdiyini qısaca təsvir edin...')}">${esc(seq.description||'')}</textarea>
+            ${_hint('Optional: explain what leads will experience in this sequence', 'Опционально: объясните, что будут испытывать лиды в этой цепочке', 'Opcionально: lidlərin bu zəncirdə nə yaşayacağını izah edin')}
           </div>
         </div>
 
@@ -17377,31 +17641,39 @@ async function showCustomFieldForm(fieldId) {
             <select name="cf_entity_type" class="w-full text-sm" ${fieldId?'disabled':''}>
               ${entityTypes.map(et => '<option value="'+et+'" '+(f.entity_type===et?'selected':'')+'>'+et+'</option>').join('')}
             </select>
+            ${_hint('Which CRM entity will have this field - Leads, Contacts, Deals, Companies, or Tickets', 'К какой сущности CRM будет добавлено это поле - лиды, контакты, сделки, компании или тикеты', 'Bu sahənin hansı CRM subyektinə əlavə olunacağı - Lidlər, Kontaktlar, Sövdələşmələr, Şirkətlər və ya Biletlər')}
           </div>
           <div>
             <label class="text-xs text-slate-500">${t('cf_field_type')} *</label>
             <select name="cf_field_type" class="w-full text-sm" onchange="document.getElementById('cfOptionsRow').style.display=this.value==='select'||this.value==='multiselect'?'':'none'">
               ${fieldTypes.map(ft => '<option value="'+ft+'" '+(f.field_type===ft?'selected':'')+'>'+ft+'</option>').join('')}
             </select>
+            ${_hint('Data type for this field - Text, Number, Date, Select (dropdown), Checkbox, etc.', 'Тип данных этого поля - текст, число, дата, список выбора, флажок и т.д.', 'Bu sahənin data tipi - Mətn, Rəqəm, Tarix, Seçim (açılır siyahı), İşarə və s.')}
           </div>
         </div>
         <div>
           <label class="text-xs text-slate-500">${t('cf_field_name')} * (${_t('latin, no spaces','латиница, без пробелов','latın, boşluqsuz')})</label>
           <input type="text" name="cf_field_name" value="${esc(f.field_name)}" required class="w-full text-sm" pattern="[a-z0-9_]+" ${fieldId?'readonly':''}>
+          ${_hint('Machine name for API access - lowercase letters, numbers and underscores only', 'Имя машины для доступа API - только строчные буквы, цифры и подчеркивания', 'API girişi üçün maşın adı - yalnız kiçik hərflər, rəqəmlər və alt çizgilər')}
         </div>
         <div class="grid grid-cols-3 gap-2">
-          <div><label class="text-xs text-slate-500">Label EN</label><input name="cf_label" value="${esc(f.field_label)}" class="w-full text-sm"></div>
-          <div><label class="text-xs text-slate-500">Label RU</label><input name="cf_label_ru" value="${esc(f.field_label_ru||'')}" class="w-full text-sm"></div>
-          <div><label class="text-xs text-slate-500">Label AZ</label><input name="cf_label_az" value="${esc(f.field_label_az||'')}" class="w-full text-sm"></div>
+          <div><label class="text-xs text-slate-500">Label EN</label><input name="cf_label" value="${esc(f.field_label)}" class="w-full text-sm">
+          ${_hint('Field label for English users', 'Метка поля для англоязычных пользователей', 'İngilis dilli istifadəçilər üçün sahə etiketı')}</div>
+          <div><label class="text-xs text-slate-500">Label RU</label><input name="cf_label_ru" value="${esc(f.field_label_ru||'')}" class="w-full text-sm">
+          ${_hint('Field label for Russian users', 'Метка поля для русскоязычных пользователей', 'Rus dilli istifadəçilər üçün sahə etiketı')}</div>
+          <div><label class="text-xs text-slate-500">Label AZ</label><input name="cf_label_az" value="${esc(f.field_label_az||'')}" class="w-full text-sm">
+          ${_hint('Field label for Azerbaijani users', 'Метка поля для азербайджанскоязычных пользователей', 'Azərbaycanca sönəmə istifadəçilər üçün sahə etiketı')}</div>
         </div>
         <div id="cfOptionsRow" style="display:${f.field_type==='select'||f.field_type==='multiselect'?'':'none'}">
           <label class="text-xs text-slate-500">${t('cf_options')}</label>
           <input type="text" name="cf_options" value="${Array.isArray(f.options)?f.options.join(', '):''}" class="w-full text-sm" placeholder="Option1, Option2, Option3">
+          ${_hint('Comma-separated list of options for select/dropdown fields', 'Список опций для полей выбора - разделённый запятыми', 'Seçim sahələri üçün seçənəklərin vergüllə ayrılmış siyahısı')}
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs text-slate-500">${t('cf_default')}</label>
             <input type="text" name="cf_default" value="${esc(f.default_value||'')}" class="w-full text-sm">
+            ${_hint('Default value pre-filled when creating new records', 'Значение по умолчанию при создании новых записей', 'Yeni qeydlər yaradıldıqda əvvəlcədən doldurulmuş dəfault dəyər')}
           </div>
           <div class="flex items-end">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -17944,22 +18216,31 @@ async function renderSmtpSettings(el) {
   html += '<div style="margin-bottom:16px;">';
   html += '<label class="text-sm text-slate-400">' + t('smtp_host') + '</label>';
   html += '<input id="smtpHost" class="form-input w-full" placeholder="smtp.gmail.com">';
+  html += _hint('SMTP server address - e.g. smtp.gmail.com, smtp.mailru.ru, smtp.office365.com', 'Адрес SMTP-сервера - например smtp.gmail.com, smtp.mailru.ru, smtp.office365.com', 'SMTP server ünvanı - məs smtp.gmail.com, smtp.mailru.ru, smtp.office365.com');
   html += '</div>';
   
   // Port + TLS
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_port') + '</label>';
-  html += '<input id="smtpPort" class="form-input w-full" type="number" value="587" placeholder="587"></div>';
+  html += '<input id="smtpPort" class="form-input w-full" type="number" value="587" placeholder="587">';
+  html += _hint('Port number: 587 (TLS) or 465 (SSL) - 25 often blocked', 'Порт: 587 (TLS) или 465 (SSL) - 25 часто заблокирован', 'Port: 587 (TLS) və ya 465 (SSL) - 25 tez-tez bloklanır');
+  html += '</div>';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_use_tls') + '</label>';
-  html += '<select id="smtpTls" class="form-input w-full"><option value="1">' + _t('Yes','Да','Bəli') + '</option><option value="0">' + _t('No','Нет','Xeyr') + '</option></select></div>';
+  html += '<select id="smtpTls" class="form-input w-full"><option value="1">' + _t('Yes','Да','Bəli') + '</option><option value="0">' + _t('No','Нет','Xeyr') + '</option></select>';
+  html += _hint('Enable TLS encryption for secure connection - usually "Yes" for port 587', 'Включить TLS шифрование для безопасного соединения - обычно "Да" для порта 587', 'Təhlükəsiz bağlantı üçün TLS şifrələməsini aktivləşdirin - adətən 587 portunda "Bəli"');
+  html += '</div>';
   html += '</div>';
   
   // Username + Password
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_user') + '</label>';
-  html += '<input id="smtpUser" class="form-input w-full" placeholder="user@gmail.com"></div>';
+  html += '<input id="smtpUser" class="form-input w-full" placeholder="user@gmail.com">';
+  html += _hint('SMTP login username - usually your email address', 'Имя пользователя SMTP - обычно ваш адрес электронной почты', 'SMTP giriş istifadəçi adı - adətən sizin email ünvanınız');
+  html += '</div>';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_password') + '</label>';
-  html += '<input id="smtpPassword" class="form-input w-full" type="password" placeholder=""></div>';
+  html += '<input id="smtpPassword" class="form-input w-full" type="password" placeholder="">';
+  html += _hint('SMTP password or app-specific password - for Gmail use App Password not regular password', 'Пароль SMTP или специальный пароль приложения - для Gmail используйте пароль приложения', 'SMTP parolu və ya tətbiq xüsusi parolu - Gmail üçün App Parolu istifadə edin');
+  html += '</div>';
   html += '</div>';
   
   // App password hint
@@ -17975,9 +18256,13 @@ async function renderSmtpSettings(el) {
   // Sender email + name
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_email') + '</label>';
-  html += '<input id="smtpSenderEmail" class="form-input w-full" placeholder="your@gmail.com"></div>';
+  html += '<input id="smtpSenderEmail" class="form-input w-full" placeholder="your@gmail.com">';
+  html += _hint('Email address that will appear as "From" - should match SMTP username', 'Адрес электронной почты который будет отображаться как отправитель - должна совпадать с пользователем SMTP', 'Göndərən kimi görünəcək email ünvanı - SMTP istifadəçi adı ilə uyğun olmalıdır');
+  html += '</div>';
   html += '<div><label class="text-sm text-slate-400">' + t('smtp_sender_name') + '</label>';
-  html += '<input id="smtpSenderName" class="form-input w-full" placeholder="LeadDrive CRM"></div>';
+  html += '<input id="smtpSenderName" class="form-input w-full" placeholder="LeadDrive CRM">';
+  html += _hint('Display name shown to recipients - e.g. "Your Company Sales" instead of just email', 'Имя для отображения получателям - например "Ваша компания" вместо просто email', 'Alıcılara göstərilən göstəriş adı - məs "Sizin Şirkət Satış" sadəcə email əvəzinə');
+  html += '</div>';
   html += '</div>';
   
   // Save button
@@ -18234,7 +18519,13 @@ async function renderNotificationsPage(el) {
 
     el.innerHTML = `
       <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">${_i._g('np_title')} ${unread ? `<span class="text-sm bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">${unread}</span>` : ''}</h1>
+        <div>
+          <h1 class="text-2xl font-bold">${_i._g('np_title')} ${unread ? `<span class="text-sm bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">${unread}</span>` : ''}</h1>
+          <p style="font-size:13px;color:#64748b;margin-top:4px;">${(currentLang==='ru'?'Просматривайте уведомления — будьте в курсе задач и событий':currentLang==='az'?'Bildirişlərinizi izləyin — tapşırıq və hadisələrdən xəbərdar olun':'View and manage your notifications — stay updated on tasks and events')}</p>
+        </div>
+      </div>
+      <div class="flex justify-between items-center mb-6">
+        <div></div>
         <div class="flex gap-2">
           <a href="#/notification-preferences" class="btn btn-sm btn-secondary flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -19650,7 +19941,7 @@ async function onLeadDrop(e, newStatus) {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async function renderOmniChannelPage(container) {
-        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">📡 Omni-Channel</h2><div id="omniContent"><div class="loading">Загрузка...</div></div></div>';
+        container.innerHTML = '<div style="padding:24px"><div><h2 style="color:#e2e8f0;margin-bottom:4px">📡 Omni-Channel</h2><p style="font-size:13px;color:#64748b;margin-bottom:20px">' + (currentLang==='ru'?'Единый почтовый ящик всех каналов: email, чат, соцсети':currentLang==='az'?'Bütün kommunikasiya kanalları üçün vahid poçt qutusu: email, çat, sosial':'Unified inbox for all communication channels: email, chat, social') + '</p></div><div id="omniContent"><div class="loading">Загрузка...</div></div></div>';
         try {
             const [convRes, statsRes, leadsRes] = await Promise.allSettled([
                 api.get('/api/channels/conversations'),
@@ -19857,7 +20148,7 @@ async function onLeadDrop(e, newStatus) {
     // ─── Channel Configs Page ───
 
     async function renderChannelConfigsPage(container) {
-        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">⚙️ Настройка каналов / Kanal parametrləri</h2><div id="chConfigContent"><div class="loading">Загрузка...</div></div></div>';
+        container.innerHTML = '<div style="padding:24px"><div><h2 style="color:#e2e8f0;margin-bottom:4px">⚙️ Настройка каналов / Kanal parametrləri</h2><p style="font-size:13px;color:#64748b;margin-bottom:20px">' + (currentLang==='ru'?'Настройте параметры интеграции для каждого канала связи':currentLang==='az'?'Hər kommunikasiya kanalı üçün inteqrasiya parametrlərini tənzimləyin':'Configure integration settings for each communication channel') + '</p></div><div id="chConfigContent"><div class="loading">Загрузка...</div></div></div>';
         try {
             const res = await api.get('/api/channels/configs');
             const configs = res.data || [];
@@ -19887,6 +20178,7 @@ async function onLeadDrop(e, newStatus) {
             <h3 style="color:#e2e8f0;margin:0 0 20px">${id?'Редактировать':'Добавить'} канал</h3>
             <label style="color:#94a3b8;font-size:13px">Название</label>
             <input id="chCfgName" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">
+            ${_hint('Descriptive name for this channel configuration - helps identify it in lists', 'Описательное название этой конфигурации канала - для идентификации в списках', 'Bu kanal konfiqurasiyası üçün təsviri ad - siyahılarda identifikasiya üçün')}
             <label style="color:#94a3b8;font-size:13px">Тип канала</label>
             <select id="chCfgType" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box" onchange="toggleChannelFields()">
                 <option value="telegram">✈️ Telegram</option>
@@ -19894,6 +20186,7 @@ async function onLeadDrop(e, newStatus) {
                 <option value="email">📧 Email</option>
                 <option value="sms">📱 SMS</option>
             </select>
+            ${_hint('Communication channel type - Telegram, WhatsApp, Email, or SMS', 'Тип канала связи - Telegram, WhatsApp, Email или SMS', 'Kommunikasiya kanalı tipi - Telegram, WhatsApp, Email və ya SMS')}
             <div id="chCfgFields"></div>
             <div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end">
                 <button onclick="document.getElementById('channelConfigModal')?.remove()" style="padding:10px 20px;border-radius:8px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">Отмена</button>
@@ -19954,7 +20247,7 @@ async function onLeadDrop(e, newStatus) {
     // ─── Lead Scoring Page ───
 
     async function renderLeadScoringPage(container) {
-        container.innerHTML = '<div style="padding:24px"><h2 style="color:#e2e8f0;margin-bottom:20px">🎯 AI Lead Scoring / AI Lider Qiymətləndirmə</h2><div id="scoringContent"><div class="loading">Загрузка...</div></div></div>';
+        container.innerHTML = '<div style="padding:24px"><div><h2 style="color:#e2e8f0;margin-bottom:4px">🎯 AI Lead Scoring / AI Lider Qiymətləndirmə</h2><p style="font-size:13px;color:#64748b;margin-bottom:20px">' + (currentLang==='ru'?'AI-скоринг лидов — автоматическая оценка и ранжирование':currentLang==='az'?'AI ilə lid skorinqi — lidlərinizi avtomatik qiymətləndirin və sıralayın':'AI-powered lead scoring — automatically evaluate and rank your leads') + '</p></div><div id="scoringContent"><div class="loading">Загрузка...</div></div></div>';
         try {
             const [topRes, statsRes] = await Promise.allSettled([
                 api.get('/api/leads/top-prospects?limit=20'),

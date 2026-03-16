@@ -54,15 +54,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LeadDrive CRM", version="1.0.0")
 
-# TEMP: Global exception handler for debugging
-import traceback as _tb
-from starlette.requests import Request as _SRequest
-from starlette.responses import JSONResponse as _SJResponse
-@app.exception_handler(Exception)
-async def _debug_exc_handler(request: _SRequest, exc: Exception):
-    logger.error("Unhandled: %s\n%s", exc, _tb.format_exc())
-    return _SJResponse(status_code=500, content={"detail": str(exc), "trace": _tb.format_exc()[-800:]})
-
 # Include external API v1 router
 app.include_router(external_api_router)
 
@@ -10845,7 +10836,7 @@ async def portal_tickets(request: Request):
                 params.append(contact_id)
             wc = "WHERE (" + " OR ".join(where) + ")" if where else ""
             rows = conn.execute(
-                f"""SELECT t.id, 'TK-' || printf('%04d', t.id) as ticket_number, t.subject, t.status, t.priority, t.category,
+                f"""SELECT t.id, 'TK-' || LPAD(t.id::TEXT, 4, '0') as ticket_number, t.subject, t.status, t.priority, t.category,
                            t.created_at, t.resolved_at
                     FROM tickets t {wc} ORDER BY t.created_at DESC LIMIT 100""", params
             ).fetchall()
@@ -11358,14 +11349,14 @@ def _execute_tool(tool_name: str, tool_input: dict, company_id: int, portal_user
                 sf = tool_input.get("status_filter", "all")
                 if tid:
                     row = conn.execute(
-                        "SELECT id, 'TK-' || printf('%04d', id) as ticket_number, subject, status, priority, created_at, updated_at FROM tickets WHERE id=? AND company_id=?",
+                        "SELECT id, 'TK-' || LPAD(id::TEXT, 4, '0') as ticket_number, subject, status, priority, created_at, updated_at FROM tickets WHERE id=? AND company_id=?",
                         [tid, company_id]
                     ).fetchone()
                     if row:
                         cols = ["id", "ticket_number", "subject", "status", "priority", "created_at", "updated_at"]
                         return json.dumps(dict(zip(cols, row)), ensure_ascii=False)
                     return json.dumps({"error": f"Ticket #{tid} not found"})
-                query = "SELECT id, 'TK-' || printf('%04d', id) as ticket_number, subject, status, priority, created_at FROM tickets WHERE company_id=?"
+                query = "SELECT id, 'TK-' || LPAD(id::TEXT, 4, '0') as ticket_number, subject, status, priority, created_at FROM tickets WHERE company_id=?"
                 params = [company_id]
                 if sf == "open":
                     query += " AND status NOT IN ('closed','resolved')"

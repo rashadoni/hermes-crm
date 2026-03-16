@@ -16879,7 +16879,7 @@ async function showCampaignRoiDetail(campaignId) {
           <option value="">— ${t('roi_link_deal')} —</option>
           ${available.map(d => '<option value="' + d.id + '">' + esc(d.title) + ' (' + (d.value_amount||0).toLocaleString() + ' ' + (d.currency||'AZN') + ')</option>').join('')}
         </select>
-        <button class="btn btn-primary btn-sm" onclick="linkDealToCampaign(${campaignId})">+</button>
+        <button class="btn btn-primary btn-sm" onclick="linkDealToCampaignRoi(${campaignId})">+</button>
       </div>
       <table class="w-full text-sm">
         <thead><tr class="text-left border-b border-slate-700">
@@ -16895,7 +16895,7 @@ async function showCampaignRoiDetail(campaignId) {
                 <td class="p-2">${esc(d.title)}</td>
                 <td class="p-2"><span class="text-xs px-2 py-0.5 rounded-full ${d.stage==='WON'?'bg-green-500/20 text-green-400':d.stage==='LOST'?'bg-red-500/20 text-red-400':'bg-indigo-500/20 text-indigo-400'}">${d.stage}</span></td>
                 <td class="p-2">${d.value_amount.toLocaleString()} ${d.currency||'AZN'}</td>
-                <td class="p-2 text-right"><button class="text-xs text-red-400 hover:underline" onclick="unlinkDealFromCampaign(${campaignId},${d.id})">✕</button></td>
+                <td class="p-2 text-right"><button class="text-xs text-red-400 hover:underline" onclick="unlinkDealFromCampaignRoi(${campaignId},${d.id})">✕</button></td>
               </tr>
             `).join('')}
         </tbody>
@@ -16903,7 +16903,7 @@ async function showCampaignRoiDetail(campaignId) {
     </div>`;
 }
 
-async function linkDealToCampaign(campaignId) {
+async function linkDealToCampaignRoi(campaignId) {
   const sel = document.getElementById('roiDealSelect');
   if (!sel || !sel.value) return;
   try {
@@ -16913,9 +16913,9 @@ async function linkDealToCampaign(campaignId) {
   } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }
 }
 
-async function unlinkDealFromCampaign(campaignId, dealId) {
+async function unlinkDealFromCampaignRoi(campaignId, dealId) {
   try {
-    await api.delete('/api/campaigns/' + campaignId + '/deals/' + dealId);
+    await api.remove('/api/campaigns/' + campaignId + '/deals/' + dealId);
     showToast('Unlinked', 'success');
     showCampaignRoiDetail(campaignId);
   } catch(e) { showToast(e.message||_t('Error','Ошибка','Xəta'),'error'); }

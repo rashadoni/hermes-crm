@@ -211,23 +211,36 @@
     </button>
     <div class="nav-links">
       <a href="#/" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="dashboard" data-i18n="nav_dashboard">Dashboard</a>
-      <a href="#/clients" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="clients" data-i18n="nav_clients">Leads</a>
-      <a href="#/accounts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="accounts" data-i18n="nav_accounts">Accounts</a>
-      <a href="#/contacts" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="contacts" data-i18n="nav_contacts">Contacts</a>
       <div class="nav-dropdown">
-        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_deals">Deals</span>
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_crm_menu">CRM</span>
         <div class="nav-dropdown-menu">
+          <a href="#/clients" data-page="clients" data-i18n="nav_clients">Leads</a>
+          <a href="#/contacts" data-page="contacts" data-i18n="nav_contacts">Contacts</a>
+          <a href="#/accounts" data-page="accounts" data-i18n="nav_accounts">Accounts</a>
           <a href="#/deals" data-page="deals" data-i18n="nav_deals">Deals</a>
           <a href="#/offers" data-page="offers" data-i18n="nav_offers">Offers</a>
         </div>
       </div>
       <a href="#/tasks" class="nav-link px-3 py-2 rounded-lg text-sm" data-page="tasks" data-i18n="nav_tasks">Tasks</a>
-      
       <div class="nav-dropdown">
-        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_docs_menu">Documents</span>
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_marketing_menu">Marketing</span>
         <div class="nav-dropdown-menu">
-          <a href="#/muqavile" data-page="muqavile" data-i18n="nav_muqavile">Müqavilə</a>
-          <a href="#/contracts" data-page="contracts" data-i18n="nav_contracts">Contracts</a>
+          <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
+          <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
+          <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
+          <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
+          <a href="#/journeys" data-page="journeys" data-i18n="nav_journeys">Journey Builder</a>
+          <a href="#/lead-scoring" data-page="lead-scoring" data-i18n="nav_lead_scoring">AI Lead Scoring</a>
+          <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
+          <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_comms_menu">Comms</span>
+        <div class="nav-dropdown-menu">
+          <a href="#/omnichannel" data-page="omnichannel" data-i18n="nav_omnichannel">Unified Inbox</a>
+          <a href="#/channel-configs" data-page="channel-configs" data-i18n="nav_channel_configs">Channel Config</a>
+          <a href="#/email-log" data-page="email-log" data-i18n="email_log">Email Log</a>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -236,41 +249,27 @@
           <a href="#/tickets" data-page="tickets" data-i18n="nav_tickets">Tickets</a>
           <a href="#/knowledge-base" data-page="knowledge-base" data-i18n="nav_kb">Knowledge Base</a>
           <a href="#/sla-policies" data-page="sla-policies" data-i18n="nav_sla">SLA Policies</a>
-        </div>
-      </div>
-      <div class="nav-dropdown">
-        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_marketing_menu">Marketing</span>
-        <div class="nav-dropdown-menu">
-          <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
-          <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
-          <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
-          <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
-          <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
-          <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
-          <a href="#/email-log" data-page="email-log" data-i18n="email_log">Email Log</a>
-          <a href="#/currencies" data-page="currencies" data-i18n="cur_title">Currencies</a>
-          <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
-          <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
-          <a href="#/web-forms" data-page="web-forms" data-i18n="nav_web_forms">Web Forms</a>
-          <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
-          <a href="#/journeys" data-page="journeys" data-i18n="nav_journeys">🛤️ Journey Builder</a>
-          <a href="#/lead-scoring" data-page="lead-scoring" data-i18n="nav_lead_scoring">🎯 AI Lead Scoring</a>
-        </div>
-      </div>
-      <div class="nav-dropdown">
-        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_channels_menu">📡 Channels</span>
-        <div class="nav-dropdown-menu">
-          <a href="#/omnichannel" data-page="omnichannel" data-i18n="nav_omnichannel">Unified Inbox</a>
-          <a href="#/channel-configs" data-page="channel-configs" data-i18n="nav_channel_configs">Channel Config</a>
+          <a href="#/muqavile" data-page="muqavile" data-i18n="nav_muqavile">Müqavilə</a>
+          <a href="#/contracts" data-page="contracts" data-i18n="nav_contracts">Contracts</a>
         </div>
       </div>
       <div class="nav-dropdown">
         <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_analytics_menu">Analytics</span>
         <div class="nav-dropdown-menu">
           <a href="#/analytics" data-page="analytics" data-i18n="nav_reports_analytics">Reports</a>
-          <a href="#/pricing" data-page="pricing" data-i18n="nav_pricing">Pricing</a>
+          <a href="#/ai-command-center" data-page="ai-command-center" style="color:#8b5cf6">AI Command Center</a>
           <a href="#/cost-model" data-page="cost-model" data-i18n="nav_cost_model">Maya</a>
-          <a href="#/ai-command-center" data-page="ai-command-center" style="color:#8b5cf6">🤖 AI Command Center</a>
+          <a href="#/pricing" data-page="pricing" data-i18n="nav_pricing">Pricing</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <span class="nav-link nav-dropdown-btn px-3 py-2 rounded-lg text-sm" data-i18n="nav_settings_menu">⚙</span>
+        <div class="nav-dropdown-menu">
+          <a href="#/workflows" data-page="workflows" data-i18n="wf_title">Workflow</a>
+          <a href="#/custom-fields" data-page="custom-fields" data-i18n="cf_title">Custom Fields</a>
+          <a href="#/currencies" data-page="currencies" data-i18n="cur_title">Currencies</a>
+          <a href="#/smtp-settings" data-page="smtp-settings" data-i18n="nav_smtp_settings">SMTP</a>
+          <a href="#/dashboard-settings" data-page="dashboard-settings" data-i18n="dash_title">Dashboard Settings</a>
         </div>
       </div>
     </div>
@@ -347,6 +346,9 @@ const translations = {
     nav_notifications_page: 'Notifications',
     nav_notif_prefs: 'Notification Settings',
     nav_user_management: 'User Management',
+    nav_crm_menu: 'CRM',
+    nav_comms_menu: 'Comms',
+    nav_settings_menu: '⚙',
     nav_service_menu: 'Service',
     nav_tickets: 'Tickets',
     nav_kb: 'Knowledge Base',
@@ -1130,6 +1132,9 @@ const translations = {
     nav_notifications_page: 'Уведомления',
     nav_notif_prefs: 'Настройки уведомлений',
     nav_user_management: 'Управление пользователем',
+    nav_crm_menu: 'CRM',
+    nav_comms_menu: 'Связь',
+    nav_settings_menu: '⚙',
     nav_service_menu: 'Поддержка',
     nav_tickets: 'Тикеты',
     nav_kb: 'База знаний',
@@ -1911,6 +1916,9 @@ const translations = {
     nav_notifications_page: 'Bildirişlər',
     nav_notif_prefs: 'Bildiriş parametrləri',
     nav_user_management: 'İstifadəçi idarəetməsi',
+    nav_crm_menu: 'CRM',
+    nav_comms_menu: 'Əlaqə',
+    nav_settings_menu: '⚙',
     nav_service_menu: 'Xidmət',
     nav_tickets: 'Tiketlər',
     nav_kb: 'Bilik bazası',

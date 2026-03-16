@@ -181,12 +181,6 @@ jobs:
               exit 1
             fi
 
-            # One-time portal password reset
-            if [ -f reset_portal_password.py ]; then
-              cd /opt/hermes_crm
-              /opt/hermes_crm/venv/bin/python reset_portal_password.py || python3 reset_portal_password.py || true
-            fi
-
             echo ""
             echo "═══════════════════════════════════════════════"
             echo "  ✅ Deploy successful — PostgreSQL active"

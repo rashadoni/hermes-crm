@@ -161,12 +161,12 @@ jobs:
 
             echo ""
             echo "═══════════════════════════════════════════════"
-            echo "  Phase 6.5: Restore tickets from SQLite backup"
+            echo "  Phase 6.5: Diagnose tickets table"
             echo "═══════════════════════════════════════════════"
             if [ -d "/opt/hermes_crm/venv" ]; then
-              /opt/hermes_crm/venv/bin/python restore_tickets.py
+              /opt/hermes_crm/venv/bin/python diag_tickets.py
             else
-              python3 restore_tickets.py
+              python3 diag_tickets.py
             fi
 
             echo ""

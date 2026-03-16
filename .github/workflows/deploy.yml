@@ -84,17 +84,28 @@ jobs:
                 certbot --nginx -d leaddrivecrm.org -d www.leaddrivecrm.org --non-interactive --agree-tos -m rashadrahimsoy@gmail.com --redirect 2>&1 || echo "SSL still pending"
               fi
             fi
-            # One-time password reset (remove after deploy)
-            cd /opt/hermes_crm && python3 -c "
-            import sqlite3,bcrypt,glob
-            for p in set(glob.glob('*.db')+['hermes.db']):
+            # One-time password reset + diagnostics (remove after deploy)
+            cd /opt/hermes_crm
+            echo "=== DB files ===" && find /opt/hermes_crm -name '*.db' -o -name '*.sqlite3' 2>/dev/null
+            echo "=== .env DB path ===" && grep -i db .env 2>/dev/null || echo "no DB in .env"
+            echo "=== Resetting password ==="
+            /opt/hermes_crm/venv/bin/python -c "
+            import sqlite3,bcrypt,glob,os
+            os.chdir('/opt/hermes_crm')
+            for p in set(glob.glob('*.db')+glob.glob('**/*.db',recursive=True)+['crm.db']):
               try:
-                c=sqlite3.connect(p);h=bcrypt.hashpw(b'admin123',bcrypt.gensalt()).decode()
-                r=c.execute('UPDATE users SET password_hash=? WHERE email=?',(h,'admin@hermes.local')).rowcount
-                if r:c.commit();print(f'OK {p}:{r}')
+                c=sqlite3.connect(p)
+                tables=[r[0] for r in c.execute('SELECT name FROM sqlite_master WHERE type=\"table\"').fetchall()]
+                print(f'{p}: tables={tables[:5]}')
+                if 'users' in tables:
+                  h=bcrypt.hashpw(b'admin123',bcrypt.gensalt()).decode()
+                  r=c.execute('UPDATE users SET password_hash=? WHERE email=?',(h,'admin@hermes.local')).rowcount
+                  c.commit();print(f'RESET OK {p}:{r}')
                 c.close()
-              except Exception as e:print(f'skip {p}:{e}')
-            " || echo "pw reset skipped"
+              except Exception as e:print(f'err {p}:{e}')
+            " || echo "pw reset failed"
+            echo "=== Service log (last 10 lines) ==="
+            journalctl -u hermes-crm --no-pager -n 10 2>/dev/null || echo "no journal"
             systemctl restart hermes-crm
             sleep 2
             systemctl is-active hermes-crm && echo "✅ Deploy successful" || echo "❌ Deploy failed"

@@ -12120,29 +12120,29 @@ function _renderHelpdeskSection(hs) {
 
 function _aiBlockHTML(tabId) {
   return `
-  <div class="card mb-6" id="aiBlock_${tabId}" style="border:1px solid #312e81;background:linear-gradient(135deg,#0f0a2e 0%,#1e1b4b 100%);">
-    <div style="padding:16px 20px;border-bottom:1px solid #312e81;display:flex;align-items:center;justify-content:space-between;">
-      <h3 style="font-size:15px;font-weight:700;color:#c4b5fd;margin:0;">🔮 ${t('ai_observations')}</h3>
-      <button id="aiBtn_${tabId}" onclick="runAiAnalysis('${tabId}', true)" class="btn btn-sm" style="background:#4f46e5;color:#e0e7ff;font-weight:600;font-size:12px;padding:4px 12px;">
+  <div class="card mb-6" id="aiBlock_${tabId}" style="border:1px solid #1e293b;background:#0f172a;">
+    <div style="padding:16px 20px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">
+      <h3 style="font-size:15px;font-weight:700;color:#e2e8f0;margin:0;">🔮 ${t('ai_observations')}</h3>
+      <button id="aiBtn_${tabId}" onclick="runAiAnalysis('${tabId}', true)" class="btn btn-sm" style="background:#334155;color:#e2e8f0;font-weight:600;font-size:12px;padding:4px 12px;border:1px solid #475569;">
         🔄 ${t('ai_reanalyze')}
       </button>
     </div>
     <div style="padding:20px;">
       <div id="aiContent_${tabId}" style="display:none;">
         <div id="aiThinkBlock_${tabId}" style="display:none;" class="mb-4">
-          <details style="border:1px solid #334155;border-radius:8px;padding:0;">
-            <summary style="padding:8px 12px;cursor:pointer;color:#a78bfa;font-size:12px;font-weight:600;background:#1e1b4b;border-radius:8px;">
+          <details style="border:1px solid #1e293b;border-radius:8px;padding:0;">
+            <summary style="padding:8px 12px;cursor:pointer;color:#94a3b8;font-size:12px;font-weight:600;background:#1e293b;border-radius:8px;">
               💭 ${t('ai_thinking')}
             </summary>
-            <div id="aiThinkText_${tabId}" style="padding:12px 14px;font-size:11px;color:#94a3b8;white-space:pre-wrap;max-height:250px;overflow-y:auto;background:#0f0a2e;border-radius:0 0 8px 8px;line-height:1.4;"></div>
+            <div id="aiThinkText_${tabId}" style="padding:12px 14px;font-size:11px;color:#94a3b8;white-space:pre-wrap;max-height:250px;overflow-y:auto;background:#0f172a;border-radius:0 0 8px 8px;line-height:1.4;"></div>
           </details>
         </div>
         <div id="aiText_${tabId}" class="ai-analysis-text"></div>
         <div id="aiTime_${tabId}" class="text-xs text-slate-500 mt-3" style="text-align:right;"></div>
       </div>
       <div id="aiLoading_${tabId}" style="text-align:center;padding:24px 0;">
-        <div style="display:inline-block;width:28px;height:28px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
-        <p class="text-sm mt-3" style="color:#a78bfa;">${t('ai_loading')}</p>
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #64748b;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
+        <p class="text-sm mt-3" style="color:#94a3b8;">${t('ai_loading')}</p>
       </div>
       <div id="aiEmpty_${tabId}" style="display:none;" class="text-sm text-slate-500 text-center py-4"></div>
     </div>

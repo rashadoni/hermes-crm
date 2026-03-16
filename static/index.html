@@ -12217,160 +12217,265 @@ async function runAiAnalysis(tabId, force) {
   if (btn) { btn.disabled = false; btn.innerHTML = '🔄 ' + t('ai_reanalyze'); }
 }
 
+function _costRowV2(key, label, value, dotColor, detailHtml) {
+  const uid = 'cr_' + key + '_' + Date.now();
+  return `
+    <div class="cost-row-v2" onclick="var d=this.nextElementSibling;var o=d.classList.toggle('open');this.classList.toggle('open',o);">
+      <div class="cr-left">
+        <div class="cr-dot" style="background:${dotColor};"></div>
+        <span class="cr-chevron">&#9654;</span>
+        <span style="font-size:12px;color:#94a3b8;">${label}</span>
+      </div>
+      <span class="cr-value">${_fmtAZN(value)}</span>
+    </div>
+    <div class="cost-detail-v2">${detailHtml}</div>
+  `;
+}
+
 function _renderCostAnalytics(d) {
   const s = d.summary;
   const marginColor = s.total_margin >= 0 ? 'text-green-400' : 'text-red-400';
+  const marginBg = s.total_margin >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+  const marginBorder = s.total_margin >= 0 ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)';
+  const marginPct = Math.abs(s.margin_pct||0);
+
+  // Cost composition data for donut chart
+  const adminOH = d.admin_overhead || 0;
+  const techInfra = d.tech_infra_total || 0;
+  const laborTotal = Object.values(d.dept_costs||{}).reduce((a,b)=>a+b,0);
+  const miscVal = d.misc || 0;
+  const riskVal = d.risk_cost || 0;
+  const totalComposition = adminOH + techInfra + laborTotal + miscVal + riskVal;
+  const compPcts = totalComposition > 0 ? {
+    admin: (adminOH/totalComposition*100),
+    tech: (techInfra/totalComposition*100),
+    labor: (laborTotal/totalComposition*100),
+    misc: (miscVal/totalComposition*100),
+    risk: (riskVal/totalComposition*100)
+  } : {admin:0,tech:0,labor:0,misc:0,risk:0};
+
+  // Build conic gradient for donut
+  let gradStops = [];
+  let cumPct = 0;
+  const compColors = {admin:'#8b5cf6',tech:'#06b6d4',labor:'#f59e0b',misc:'#64748b',risk:'#ef4444'};
+  const compItems = [
+    {key:'admin',label:'Admin OH',val:adminOH,pct:compPcts.admin},
+    {key:'tech',label:'Tech Infra',val:techInfra,pct:compPcts.tech},
+    {key:'labor',label:'Birbaşa Əmək',val:laborTotal,pct:compPcts.labor},
+    {key:'misc',label:'Ezam',val:miscVal,pct:compPcts.misc},
+    {key:'risk',label:'Risk',val:riskVal,pct:compPcts.risk}
+  ];
+  compItems.forEach(ci => {
+    if(ci.pct > 0) {
+      gradStops.push(`${compColors[ci.key]} ${cumPct}% ${cumPct + ci.pct}%`);
+      cumPct += ci.pct;
+    }
+  });
+  const conicGrad = gradStops.join(', ');
 
   return `
+    <style>
+      .kpi-card-v2 {
+        position:relative; padding:20px; border-radius:12px;
+        background:linear-gradient(135deg,rgba(30,41,59,0.6),rgba(15,23,42,0.8));
+        border:1px solid rgba(71,85,105,0.3); overflow:hidden;
+        transition:all 0.3s ease; cursor:default;
+      }
+      .kpi-card-v2:hover { border-color:rgba(99,102,241,0.4); transform:translateY(-2px); box-shadow:0 8px 25px rgba(0,0,0,0.3); }
+      .kpi-card-v2 .kpi-icon { position:absolute; top:14px; right:14px; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+      .kpi-card-v2 .kpi-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; font-weight:600; }
+      .kpi-card-v2 .kpi-value { font-size:22px; font-weight:800; margin-top:8px; font-variant-numeric:tabular-nums; }
+      .kpi-card-v2 .kpi-sub { font-size:11px; margin-top:4px; color:#64748b; }
+      .cost-row-v2 {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:10px 14px; border-radius:8px; margin-bottom:4px; cursor:pointer;
+        transition:all 0.2s ease; border:1px solid transparent;
+      }
+      .cost-row-v2:hover { background:rgba(51,65,85,0.3); border-color:rgba(71,85,105,0.3); }
+      .cost-row-v2 .cr-left { display:flex; align-items:center; gap:10px; }
+      .cost-row-v2 .cr-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+      .cost-row-v2 .cr-chevron { color:#475569; font-size:10px; transition:transform 0.2s; }
+      .cost-row-v2.open .cr-chevron { transform:rotate(90deg); }
+      .cost-row-v2 .cr-value { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:#e2e8f0; }
+      .cost-detail-v2 { overflow:hidden; transition:max-height 0.3s ease; max-height:0; }
+      .cost-detail-v2.open { max-height:600px; }
+      .svc-bar-card {
+        padding:12px 14px; border-radius:10px; margin-bottom:6px;
+        background:rgba(30,41,59,0.4); border:1px solid rgba(51,65,85,0.3);
+        transition:all 0.25s ease; cursor:default;
+      }
+      .svc-bar-card:hover { background:rgba(51,65,85,0.3); border-color:rgba(99,102,241,0.3); }
+      .svc-bar-track { height:6px; border-radius:3px; background:rgba(30,41,59,0.8); overflow:hidden; }
+      .svc-bar-fill { height:100%; border-radius:3px; transition:width 0.8s ease; }
+      .donut-chart { width:140px; height:140px; border-radius:50%; position:relative; }
+      .donut-hole { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:80px; height:80px; border-radius:50%; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .legend-item { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 0; }
+      .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+      .total-row-v2 { display:flex; justify-content:space-between; padding:8px 14px; font-weight:700; font-size:13px; border-top:1px solid #334155; margin-top:4px; }
+    </style>
+
     <!-- KPI Cards -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-      <div class="card p-4 stat-card">
-        <div class="stat-label text-xs">Ümumi Maya/ay</div>
-        <div class="stat-value text-lg mt-1">${_fmtAZN(s.grand_total_g || s.grand_total_cost)}</div>
-        <div class="text-xs text-slate-500">Əsas (F): ${_fmtAZN(s.grand_total_f || s.grand_total_cost)}</div>
+      <div class="kpi-card-v2">
+        <div class="kpi-icon" style="background:rgba(239,68,68,0.12);color:#f87171;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="kpi-label">Ümumi Maya/ay</div>
+        <div class="kpi-value" style="color:#f87171;">${_fmtAZN(s.grand_total_g || s.grand_total_cost)}</div>
+        <div class="kpi-sub">Əsas (F): ${_fmtAZN(s.grand_total_f || s.grand_total_cost)}</div>
       </div>
-      <div class="card p-4 stat-card">
-        <div class="stat-label text-xs">Ümumi Gəlir/ay</div>
-        <div class="stat-value text-lg mt-1">${_fmtAZN(s.total_revenue)}</div>
+      <div class="kpi-card-v2">
+        <div class="kpi-icon" style="background:rgba(34,197,94,0.12);color:#4ade80;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div class="kpi-label">Ümumi Gəlir/ay</div>
+        <div class="kpi-value" style="color:#4ade80;">${_fmtAZN(s.total_revenue)}</div>
       </div>
-      <div class="card p-4 stat-card">
-        <div class="stat-label text-xs">Marja/ay</div>
-        <div class="stat-value text-lg mt-1 ${marginColor}">${_fmtAZN(s.total_margin)}</div>
-        <div class="text-xs ${marginColor}">${s.margin_pct?.toFixed(1)}%</div>
+      <div class="kpi-card-v2" style="background:${marginBg};border-color:${marginBorder};">
+        <div class="kpi-icon" style="background:${marginBg};color:${s.total_margin>=0?'#4ade80':'#f87171'};">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div class="kpi-label">Marja/ay</div>
+        <div class="kpi-value ${marginColor}">${_fmtAZN(s.total_margin)}</div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;height:4px;border-radius:2px;background:rgba(100,116,139,0.2);">
+            <div style="width:${Math.min(marginPct,100)}%;height:4px;border-radius:2px;background:${s.total_margin>=0?'#4ade80':'#f87171'};transition:width 0.8s;"></div>
+          </div>
+          <span class="${marginColor}" style="font-size:12px;font-weight:700;">${s.margin_pct?.toFixed(1)}%</span>
+        </div>
       </div>
-      <div class="card p-4 stat-card">
-        <div class="stat-label text-xs">Mənfəətli Müştəri</div>
-        <div class="stat-value text-lg mt-1 text-green-400">${s.profitable_clients}</div>
-        <div class="text-xs text-red-400">Zərərli: ${s.loss_clients}</div>
+      <div class="kpi-card-v2">
+        <div class="kpi-icon" style="background:rgba(99,102,241,0.12);color:#818cf8;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="kpi-label">Mənfəətli Müştəri</div>
+        <div class="kpi-value" style="color:#4ade80;">${s.profitable_clients}</div>
+        <div class="kpi-sub" style="display:flex;gap:6px;align-items:center;">
+          <span style="display:inline-block;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,0.15);color:#f87171;font-size:10px;font-weight:600;">Zərərli: ${s.loss_clients}</span>
+        </div>
       </div>
-      <div class="card p-4 stat-card">
-        <div class="stat-label text-xs">Maya/1 İst.</div>
-        <div class="stat-value text-lg mt-1">${_fmtAZN(d.cost_per_user_f || d.cost_per_user)}</div>
-        <div class="text-xs text-indigo-400 font-semibold">İstifadəçi: ${d.portfolio_users || d.total_users} ist.</div>
+      <div class="kpi-card-v2">
+        <div class="kpi-icon" style="background:rgba(245,158,11,0.12);color:#fbbf24;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        </div>
+        <div class="kpi-label">Maya/1 İst.</div>
+        <div class="kpi-value" style="color:#fbbf24;">${_fmtAZN(d.cost_per_user_f || d.cost_per_user)}</div>
+        <div class="kpi-sub" style="color:#818cf8;font-weight:600;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-1px;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          ${d.portfolio_users || d.total_users} istifadəçi
+        </div>
       </div>
     </div>
 
     <!-- Cost breakdown + Service chart side by side -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
       <div class="card p-5">
-        <h3 class="font-semibold mb-4">Maya Tərkibi</h3>
-        <table style="width:100%;font-size:13px;">
-          <tbody>
-            <tr class="cursor-pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-              <td class="py-1 text-slate-400">
-                <span class="text-xs mr-1" id="adminOhToggle">▶</span>Admin Overhead
-                <span class="text-xs text-slate-600 ml-1">(klik — təfsilat)</span>
-              </td>
-              <td class="text-right font-mono">${_fmtAZN(d.admin_overhead)}</td>
-            </tr>
-            <tr style="display:none">
-              <td colspan="2" class="py-1 pl-5">
-                <div class="text-xs text-slate-500 space-y-0.5 pb-2" style="line-height:1.6;">
-                  ${(d.overhead_breakdown||[]).filter(o=>o.is_admin).map(o=>'<div class="flex justify-between"><span>• '+o.label+'</span><span class="font-mono text-slate-400">'+_fmtAZN(o.monthly_amount)+'</span></div>').join('')}
-                  <div class="flex justify-between border-t border-slate-700 pt-1 mt-1">
-                    <span class="font-semibold text-slate-400">+ BackOffice əməkhaqqı</span>
-                    <span class="text-slate-500 text-xs">(bax: İşçilər tab)</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="font-semibold text-slate-400">+ GRC birbaşa əməkhaqqı</span>
-                    <span class="text-slate-500 text-xs">(bax: İşçilər tab)</span>
-                  </div>
-                  <div class="text-slate-600 mt-1 italic">Headcount nisbətinə görə şöbələrə paylanır</div>
-                </div>
-              </td>
-            </tr>
-            <tr class="cursor-pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-              <td class="py-1 text-slate-400">
-                <span class="text-xs mr-1">▶</span>Texniki İnfrastruktur
-                <span class="text-xs text-slate-600 ml-1">(klik — təfsilat)</span>
-              </td>
-              <td class="text-right font-mono">${_fmtAZN(d.tech_infra_total)}</td>
-            </tr>
-            <tr style="display:none">
-              <td colspan="2" class="py-1 pl-5">
-                <div class="text-xs text-slate-500 space-y-0.5 pb-2" style="line-height:1.6;">
-                  ${(d.overhead_breakdown||[]).filter(o=>!o.is_admin).map(o=>'<div class="flex justify-between"><span>• '+o.label+'</span><span class="font-mono text-slate-400">'+_fmtAZN(o.monthly_amount)+'</span></div>').join('')}
-                  <div class="text-slate-600 mt-1 italic">Cloud → Bulud; MS → Daimi IT; Cortex + FW → InfoSec şöbəsinə birbaşa paylanır</div>
-                </div>
-              </td>
-            </tr>
-            <tr class="cursor-pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-              <td class="py-1 text-slate-400">
-                <span class="text-xs mr-1">▶</span>Birbaşa Əmək Xərcləri (şöbə üzrə)
-                <span class="text-xs text-slate-600 ml-1">(klik — təfsilat)</span>
-              </td>
-              <td class="text-right font-mono">${_fmtAZN(Object.values(d.dept_costs||{}).reduce((a,b)=>a+b,0))}</td>
-            </tr>
-            <tr style="display:none">
-              <td colspan="2" class="py-1 pl-5">
-                <div class="text-xs text-slate-500 space-y-0.5 pb-2" style="line-height:1.6;">
-                  ${Object.entries(d.dept_costs||{}).map(([k,v]) => '<div class="flex justify-between"><span>• '+k+' şöbəsi</span><span class="font-mono text-slate-400">'+_fmtAZN(v)+'</span></div>').join('')}
-                  <div class="text-slate-600 mt-1 italic">Net maaş → Gross (÷0.86) → Super Gross (×1.175 vergi) × nəfər sayı</div>
-                </div>
-              </td>
-            </tr>
-            <tr style="border-top:1px solid #334155;">
-              <td class="py-1 text-slate-400">Əsas Maya (Sec F)</td><td class="text-right font-mono">${_fmtAZN(d.section_f_subtotal)}</td></tr>
-            <tr class="cursor-pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-              <td class="py-1 text-slate-400">
-                <span class="text-xs mr-1">▶</span>Ezam ${((d.params?.misc_expense_rate||0)*100).toFixed(0)}%
-              </td>
-              <td class="text-right font-mono">${_fmtAZN(d.misc||0)}</td>
-            </tr>
-            <tr style="display:none">
-              <td colspan="2" class="pl-5 pb-1"><span class="text-xs text-slate-600 italic">Əsas Maya × ${((d.params?.misc_expense_rate||0)*100).toFixed(0)}% — ezamiyyət, səfər və digər əlavə xərclər</span></td>
-            </tr>
-            <tr class="cursor-pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-              <td class="py-1 text-slate-400">
-                <span class="text-xs mr-1">▶</span>Risk ${((d.params?.risk_rate||0)*100).toFixed(0)}%
-              </td>
-              <td class="text-right font-mono">${_fmtAZN(d.risk_cost||0)}</td>
-            </tr>
-            <tr style="display:none">
-              <td colspan="2" class="pl-5 pb-1"><span class="text-xs text-slate-600 italic">(Əsas Maya + Ezam) × ${((d.params?.risk_rate||0)*100).toFixed(0)}% — gözlənilməz xərclər üçün ehtiyat fondu</span></td>
-            </tr>
-            <tr style="border-top:1px solid #334155;font-weight:700;">
-              <td class="pt-2">Ümumi Maya (F)</td><td class="text-right font-mono pt-2">${_fmtAZN(d.grand_total_f)}</td></tr>
-            <tr style="display:none" id="secFDesc"><td colspan="2"></td></tr>
-            <tr style="font-weight:700;color:#94a3b8;">
-              <td class="pt-1">Tam Xidmət Maya (G)</td><td class="text-right font-mono pt-1">${_fmtAZN(d.grand_total_g)}</td></tr>
-          </tbody>
-        </table>
-        <div class="text-xs text-slate-600 mt-3 space-y-1" style="line-height:1.5;">
-          <div><b class="text-slate-500">Sec F</b> — Ümumi Maya: Admin OH + Tech Infra + IT/InfoSec əmək + Ezam + Risk. <i>Bir istifadəçinin minimum maya dəyəri.</i></div>
-          <div><b class="text-slate-500">Sec G</b> — Tam Xidmət Maya: Bütün şöbələr (IT, InfoSec, ERP, GRC, PM, HelpDesk) + admin overhead headcount nisbətinə görə + texniki infra birbaşa. <i>Müştəri marja hesablaması üçün istifadə olunur.</i></div>
-          <div><b class="text-slate-500">Paylama</b>: 25% sabit (bərabər hər müştəriyə) + 75% dəyişkən (istifadəçi sayına görə).</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 class="font-semibold" style="margin:0;">Maya Tərkibi</h3>
+          <span style="font-size:10px;color:#64748b;background:rgba(51,65,85,0.4);padding:2px 8px;border-radius:4px;">Sec G: ${_fmtAZN(d.grand_total_g)}</span>
+        </div>
+
+        <!-- Donut + Legend -->
+        <div style="display:flex;gap:20px;align-items:center;margin-bottom:18px;padding:12px;background:rgba(15,23,42,0.4);border-radius:10px;">
+          <div class="donut-chart" style="background:conic-gradient(${conicGrad});flex-shrink:0;">
+            <div class="donut-hole">
+              <span style="font-size:9px;color:#64748b;">Cəmi</span>
+              <span style="font-size:12px;font-weight:700;color:#e2e8f0;">${_fmtAZN(totalComposition)}</span>
+            </div>
+          </div>
+          <div style="flex:1;">
+            ${compItems.filter(ci=>ci.pct>0.5).map(ci=>`
+              <div class="legend-item">
+                <div class="legend-dot" style="background:${compColors[ci.key]};"></div>
+                <span style="color:#94a3b8;flex:1;">${ci.label}</span>
+                <span style="color:#cbd5e1;font-weight:600;font-size:11px;">${ci.pct.toFixed(1)}%</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Expandable Cost Rows -->
+        ${_costRowV2('admin','Admin Overhead',adminOH,compColors.admin,
+          `<div style="padding:8px 14px 12px 32px;">
+            <div style="font-size:11px;color:#94a3b8;line-height:1.8;">
+              ${(d.overhead_breakdown||[]).filter(o=>o.is_admin).map(o=>'<div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">'+o.label+'</span><span style="font-family:monospace;color:#94a3b8;">'+_fmtAZN(o.monthly_amount)+'</span></div>').join('')}
+              <div style="border-top:1px solid #1e293b;margin-top:6px;padding-top:6px;color:#475569;font-style:italic;">+ BackOffice + GRC əməkhaqqı (bax: Sотрудники tab)</div>
+              <div style="color:#475569;font-style:italic;">Headcount nisbəti ilə şöbələrə paylanır</div>
+            </div>
+          </div>`
+        )}
+        ${_costRowV2('tech','Texniki İnfrastruktur',techInfra,compColors.tech,
+          `<div style="padding:8px 14px 12px 32px;">
+            <div style="font-size:11px;color:#94a3b8;line-height:1.8;">
+              ${(d.overhead_breakdown||[]).filter(o=>!o.is_admin).map(o=>'<div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">'+o.label+'</span><span style="font-family:monospace;color:#94a3b8;">'+_fmtAZN(o.monthly_amount)+'</span></div>').join('')}
+              <div style="border-top:1px solid #1e293b;margin-top:6px;padding-top:6px;color:#475569;font-style:italic;">Cloud → Bulud; MS → Daimi IT; Cortex + FW → InfoSec</div>
+            </div>
+          </div>`
+        )}
+        ${_costRowV2('labor','Birbaşa Əmək Xərcləri',laborTotal,compColors.labor,
+          `<div style="padding:8px 14px 12px 32px;">
+            <div style="font-size:11px;color:#94a3b8;line-height:1.8;">
+              ${Object.entries(d.dept_costs||{}).map(([k,v]) => '<div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">'+k+' şöbəsi</span><span style="font-family:monospace;color:#94a3b8;">'+_fmtAZN(v)+'</span></div>').join('')}
+              <div style="border-top:1px solid #1e293b;margin-top:6px;padding-top:6px;color:#475569;font-style:italic;">Net → Gross (÷0.86) → Super Gross (×1.175) × nəfər</div>
+            </div>
+          </div>`
+        )}
+        ${_costRowV2('misc','Ezam '+((d.params?.misc_expense_rate||0)*100).toFixed(0)+'%',miscVal,compColors.misc,
+          `<div style="padding:4px 14px 8px 32px;font-size:11px;color:#475569;font-style:italic;">Əsas Maya × ${((d.params?.misc_expense_rate||0)*100).toFixed(0)}% — ezamiyyət və səfər xərcləri</div>`
+        )}
+        ${_costRowV2('risk','Risk '+((d.params?.risk_rate||0)*100).toFixed(0)+'%',riskVal,compColors.risk,
+          `<div style="padding:4px 14px 8px 32px;font-size:11px;color:#475569;font-style:italic;">(Əsas Maya + Ezam) × ${((d.params?.risk_rate||0)*100).toFixed(0)}% — ehtiyat fondu</div>`
+        )}
+
+        <div class="total-row-v2" style="margin-top:8px;">
+          <span style="color:#94a3b8;">Ümumi Maya (F)</span>
+          <span style="color:#e2e8f0;font-family:monospace;">${_fmtAZN(d.grand_total_f)}</span>
+        </div>
+        <div class="total-row-v2" style="border-top:none;background:rgba(99,102,241,0.06);border-radius:6px;margin-top:2px;">
+          <span style="color:#818cf8;">Tam Xidmət Maya (G)</span>
+          <span style="color:#a5b4fc;font-family:monospace;">${_fmtAZN(d.grand_total_g)}</span>
+        </div>
+
+        <div style="font-size:10px;color:#475569;margin-top:12px;line-height:1.6;padding:8px 12px;background:rgba(15,23,42,0.3);border-radius:6px;">
+          <b style="color:#64748b;">Sec F</b> — Min. maya: Admin OH + Tech + IT/InfoSec + Ezam + Risk<br>
+          <b style="color:#64748b;">Sec G</b> — Tam maya: Bütün şöbələr + admin paylanma + tech birbaşa<br>
+          <b style="color:#64748b;">Paylama</b>: 25% sabit + 75% dəyişkən (istifadəçi sayına görə)
         </div>
       </div>
+
       <div class="card p-5">
-        <h3 class="font-semibold mb-4">Xidmət üzrə Maya vs Gəlir</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 class="font-semibold" style="margin:0;">Xidmət üzrə Maya vs Gəlir</h3>
+        </div>
         <div id="costServiceBars">
           ${(d.service_analytics||[]).map(sa => {
             const maxVal = Math.max(sa.cost, sa.revenue, 1);
             const costPct = (sa.cost / maxVal * 100).toFixed(1);
             const revPct = (sa.revenue / maxVal * 100).toFixed(1);
-            const bal = sa.balance >= 0 ? `<span class="text-green-400">+${_fmtAZN(sa.balance)}</span>` : `<span class="text-red-400">${_fmtAZN(sa.balance)}</span>`;
+            const isProfitable = sa.balance >= 0;
+            const balColor = isProfitable ? '#4ade80' : '#f87171';
+            const balBg = isProfitable ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
             return `
-              <div class="mb-3">
-                <div class="flex justify-between text-xs mb-1">
-                  <span class="font-semibold">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
-                  <span>${bal}</span>
+              <div class="svc-bar-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <span style="font-size:13px;font-weight:600;color:#e2e8f0;">${COST_SERVICE_LABELS[sa.service]||sa.service}</span>
+                  <span style="font-size:12px;font-weight:700;color:${balColor};padding:2px 8px;border-radius:5px;background:${balBg};">
+                    ${isProfitable ? '+' : ''}${_fmtAZN(sa.balance)}
+                  </span>
                 </div>
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="text-slate-500 w-12">Maya</span>
-                    <div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">
-                      <div style="width:${costPct}%;background:#f87171;height:8px;border-radius:4px;"></div>
-                    </div>
-                    <span class="text-slate-400 w-24 text-right">${_fmtAZN(sa.cost)}</span>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+                  <span style="font-size:10px;color:#ef4444;width:36px;text-align:right;font-weight:600;">Maya</span>
+                  <div class="svc-bar-track" style="flex:1;">
+                    <div class="svc-bar-fill" style="width:${costPct}%;background:linear-gradient(90deg,#ef4444,#f87171);"></div>
                   </div>
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="text-slate-500 w-12">Gəlir</span>
-                    <div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">
-                      <div style="width:${revPct}%;background:#4ade80;height:8px;border-radius:4px;"></div>
-                    </div>
-                    <span class="text-slate-400 w-24 text-right">${_fmtAZN(sa.revenue)}</span>
+                  <span style="font-size:11px;color:#94a3b8;width:90px;text-align:right;font-family:monospace;">${_fmtAZN(sa.cost)}</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span style="font-size:10px;color:#22c55e;width:36px;text-align:right;font-weight:600;">Gəlir</span>
+                  <div class="svc-bar-track" style="flex:1;">
+                    <div class="svc-bar-fill" style="width:${revPct}%;background:linear-gradient(90deg,#22c55e,#4ade80);"></div>
                   </div>
+                  <span style="font-size:11px;color:#94a3b8;width:90px;text-align:right;font-family:monospace;">${_fmtAZN(sa.revenue)}</span>
                 </div>
               </div>
             `;

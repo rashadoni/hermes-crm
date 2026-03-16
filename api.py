@@ -1040,6 +1040,23 @@ def check_permission(module: str, action: str):
     return _checker
 
 
+def _check_resource_access(user: dict, row: dict, owner_fields=("assigned_to", "created_by")):
+    """Check if user has access to a resource. Admins always have access.
+    Returns True if allowed, raises 404 if not.
+    """
+    uid = user.get("user_id")
+    # Check if user is admin (from DB for freshness)
+    u = User.get(uid)
+    if u and u.get("role") == "admin":
+        return True
+    # Check ownership via any of the owner_fields
+    for field in owner_fields:
+        val = row.get(field) if isinstance(row, dict) else row[field] if hasattr(row, '__getitem__') else None
+        if val is not None and int(val) == int(uid):
+            return True
+    return False
+
+
 # ─── Auth Endpoints ──────────────────────────────────────────
 
 @app.post("/api/auth/login")
@@ -1520,6 +1537,8 @@ async def get_contact(contact_id: int, user=Depends(require_auth)):
     contact = Contact.get(contact_id)
     if not contact:
         _err("Contact not found", 404)
+    if not _check_resource_access(user, contact, ("assigned_to", "created_by")):
+        _err("Contact not found", 404)
     # Include activities
     activities = Activity.get_for_contact(contact_id, limit=20)
     contact["activities"] = activities
@@ -1547,6 +1566,11 @@ async def create_contact(request: Request, user=Depends(require_auth)):
 
 @app.put("/api/contacts/{contact_id}")
 async def update_contact(contact_id: int, request: Request, user=Depends(require_auth)):
+    existing = Contact.get(contact_id)
+    if not existing:
+        _err("Contact not found", 404)
+    if not _check_resource_access(user, existing, ("assigned_to", "created_by")):
+        _err("Contact not found", 404)
     data = await request.json()
     contact = Contact.update(contact_id, data)
     if not contact:
@@ -1948,6 +1972,8 @@ async def get_lead(lead_id: int, user=Depends(require_auth)):
         ).fetchone()
         if not row:
             _err("Lead not found", 404)
+        if not _check_resource_access(user, dict(row), ("assigned_to", "created_by")):
+            _err("Lead not found", 404)
         return _ok(dict(row))
 
 
@@ -2010,6 +2036,8 @@ async def update_lead(lead_id: int, request: Request, user=Depends(require_auth)
     with get_db() as conn:
         existing = conn.execute("SELECT * FROM leads WHERE id=?", [lead_id]).fetchone()
         if not existing:
+            _err("Lead not found", 404)
+        if not _check_resource_access(user, dict(existing), ("assigned_to", "created_by")):
             _err("Lead not found", 404)
         if existing["status"] == "converted":
             _err("Cannot edit a converted lead", 400)
@@ -2731,6 +2759,8 @@ async def get_deal(deal_id: int, user=Depends(require_auth)):
     deal = Deal.get(deal_id)
     if not deal:
         _err("Deal not found", 404)
+    if not _check_resource_access(user, deal, ("assigned_to", "created_by")):
+        _err("Deal not found", 404)
     return _ok(deal)
 
 
@@ -2766,6 +2796,11 @@ async def create_deal(request: Request, user=Depends(require_auth)):
 
 @app.put("/api/deals/{deal_id}")
 async def update_deal(deal_id: int, request: Request, user=Depends(require_auth)):
+    existing = Deal.get(deal_id)
+    if not existing:
+        _err("Deal not found", 404)
+    if not _check_resource_access(user, existing, ("assigned_to", "created_by")):
+        _err("Deal not found", 404)
     data = await request.json()
     deal = Deal.update(deal_id, data)
     if not deal:
@@ -7602,6 +7637,8 @@ async def get_ticket(ticket_id: int, user=Depends(require_auth)):
             "SELECT t.*, u.full_name as assigned_name, c.name as company_name, cr.full_name as creator_name FROM tickets t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN companies c ON t.company_id=c.id LEFT JOIN users cr ON t.created_by=cr.id LIMIT 0"
         ).description]
         ticket = _ticket_row_to_dict(row, cols)
+        if not _check_resource_access(user, ticket, ("assigned_to", "created_by")):
+            _err("Ticket not found", 404)
         # Get comments
         comments = conn.execute(
             """SELECT tc.*, u.full_name as user_name FROM ticket_comments tc
@@ -7637,8 +7674,11 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
         _err("No fields to update", 400)
     # Track status changes
     with get_db() as conn:
-        old = conn.execute("SELECT status, assigned_to FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        old = conn.execute("SELECT * FROM tickets WHERE id=?", [ticket_id]).fetchone()
         if not old:
+            _err("Ticket not found", 404)
+        old_dict = dict(zip([d[0] for d in conn.execute("SELECT * FROM tickets LIMIT 0").description], old))
+        if not _check_resource_access(user, old_dict, ("assigned_to", "created_by")):
             _err("Ticket not found", 404)
         # Set timestamps for status transitions
         new_status = updates.get("status")
@@ -10413,7 +10453,8 @@ async def portal_register(request: Request):
         existing = conn.execute("SELECT id FROM portal_users WHERE email=?", [email]).fetchone()
         if existing:
             _err("Account already exists", 409)
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        import bcrypt as _bc
+        pw_hash = _bc.hashpw(password.encode(), _bc.gensalt()).decode()
         conn.execute(
             "INSERT INTO portal_users (email, password_hash, full_name, company_id, contact_id) VALUES (?,?,?,?,?)",
             [email, pw_hash, full_name or email, contact[1], contact[0]]
@@ -10443,9 +10484,19 @@ async def portal_login(request: Request):
             _err("Invalid credentials", 401)
         cols = [d[0] for d in conn.execute("SELECT * FROM portal_users LIMIT 0").description]
         u = dict(zip(cols, user))
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
-        if u["password_hash"] != pw_hash:
-            _err("Invalid credentials", 401)
+        import bcrypt as _bc
+        stored_hash = u["password_hash"]
+        # Support both bcrypt ($2b$) and legacy SHA-256 (64-char hex)
+        if stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$"):
+            if not _bc.checkpw(password.encode(), stored_hash.encode()):
+                _err("Invalid credentials", 401)
+        else:
+            # Legacy SHA-256 check + auto-migrate to bcrypt
+            if hashlib.sha256(password.encode()).hexdigest() != stored_hash:
+                _err("Invalid credentials", 401)
+            # Migrate to bcrypt on successful login
+            new_hash = _bc.hashpw(password.encode(), _bc.gensalt()).decode()
+            conn.execute("UPDATE portal_users SET password_hash=? WHERE id=?", [new_hash, u["id"]])
         conn.execute("UPDATE portal_users SET last_login=datetime('now') WHERE id=?", [u["id"]])
     token = jwt.encode({
         "portal_user_id": u["id"], "email": u["email"], "company_id": u.get("company_id"),
@@ -10478,12 +10529,21 @@ async def portal_change_password(request: Request):
         _err("Both old and new password required", 400)
     if len(new_pw) < 6:
         _err("New password must be at least 6 characters", 400)
-    old_hash = hashlib.sha256(old_pw.encode()).hexdigest()
+    import bcrypt as _bc
     with get_db() as conn:
         row = conn.execute("SELECT password_hash FROM portal_users WHERE id=?", [user["portal_user_id"]]).fetchone()
-        if not row or row[0] != old_hash:
-            _err("Current password is incorrect", 401)
-        new_hash = hashlib.sha256(new_pw.encode()).hexdigest()
+        if not row:
+            _err("User not found", 404)
+        stored_hash = row[0]
+        # Verify old password (support both bcrypt and legacy SHA-256)
+        if stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$"):
+            if not _bc.checkpw(old_pw.encode(), stored_hash.encode()):
+                _err("Current password is incorrect", 401)
+        else:
+            if hashlib.sha256(old_pw.encode()).hexdigest() != stored_hash:
+                _err("Current password is incorrect", 401)
+        # Always store new password with bcrypt
+        new_hash = _bc.hashpw(new_pw.encode(), _bc.gensalt()).decode()
         conn.execute("UPDATE portal_users SET password_hash=? WHERE id=?", [new_hash, user["portal_user_id"]])
     return _ok({"message": "Password changed successfully"})
 
@@ -11985,13 +12045,13 @@ async def portal_chat(request: Request):
                 if tools_used:
                     conn.execute("UPDATE ai_chat_sessions SET tools_used=?, updated_at=datetime('now') WHERE id=?",
                                 [json.dumps(tools_used), session_id])
-                # ── Interaction Log (Phase 5) ──
+                # ── Interaction Log (Phase 5) ── (log masked version to protect PII)
                 conn.execute("""INSERT INTO ai_interaction_logs
                     (session_id, message_index, user_message, ai_response, latency_ms,
                      prompt_tokens, completion_tokens, cost_usd, model, tools_called,
                      tool_iterations, stop_reason, kb_articles_used, trace_json)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    [session_id, msg_index, user_message, ai_text, total_latency_ms,
+                    [session_id, msg_index, masked_user_message, ai_text, total_latency_ms,
                      total_prompt_tokens, total_completion_tokens, cost_usd, model_used,
                      json.dumps(tools_used), tool_iterations, final_stop_reason,
                      json.dumps(kb_articles_used, ensure_ascii=False),
@@ -13628,20 +13688,36 @@ Respond with ONLY raw JSON (no markdown, no code blocks, no backticks) in {lang_
         query_result = []
         query_error = None
 
-        # Execute the SQL safely
+        # Execute the SQL safely (read-only, restricted tables)
         if sql:
             sql_upper = sql.upper().strip()
-            forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "ATTACH", "DETACH", "PRAGMA", "VACUUM"]
-            is_safe = sql_upper.startswith("SELECT") and not any(_re.search(r'\b' + f + r'\b', sql_upper) for f in forbidden)
+            # Block dangerous SQL keywords (including UNION for data exfiltration)
+            forbidden_kw = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE",
+                            "ATTACH", "DETACH", "PRAGMA", "VACUUM", "REPLACE",
+                            "UNION", "INTO", "LOAD_EXTENSION"]
+            # Block access to sensitive tables
+            sensitive_tables = ["USERS", "PORTAL_USERS", "TOKEN_BLACKLIST", "API_KEYS",
+                                "CHANNEL_CONFIGS", "AI_INTERACTION_LOGS", "AI_CHAT_SESSIONS",
+                                "ROLES", "SESSIONS", "WEBHOOK_CONFIGS"]
+            is_safe = sql_upper.startswith("SELECT") and \
+                      not any(_re.search(r'\b' + f + r'\b', sql_upper) for f in forbidden_kw) and \
+                      not any(_re.search(r'\b' + t + r'\b', sql_upper) for t in sensitive_tables)
             if is_safe:
                 try:
-                    with get_db() as conn:
-                        rows = conn.execute(sql).fetchall()
-                        query_result = [dict(r) for r in rows[:100]]  # Limit to 100 rows
+                    import sqlite3 as _sqlite3
+                    # Use read-only connection to prevent any write operations
+                    ro_conn = _sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+                    ro_conn.row_factory = _sqlite3.Row
+                    try:
+                        rows = ro_conn.execute(sql).fetchall()
+                        query_result = [dict(r) for r in rows[:100]]
+                    finally:
+                        ro_conn.close()
                 except Exception as qe:
-                    query_error = str(qe)
+                    logger.warning("NL-Analytics query error: %s", qe)
+                    query_error = "Query execution failed"
             else:
-                query_error = "Unsafe query blocked"
+                query_error = "Query contains restricted operations or tables"
 
         # Generate final answer with query results
         if query_result and not query_error:
@@ -13690,7 +13766,7 @@ Respond with ONLY raw JSON:
 
         return _ok({
             "question": question,
-            "sql": sql,
+            "sql": "",
             "explanation": result.get("explanation", ""),
             "answer": result.get("answer", ""),
             "highlights": result.get("highlights", []),

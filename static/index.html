@@ -2864,7 +2864,9 @@ function safeHTML(el, html) {
       ADD_ATTR: ['onclick','onchange','oninput','onsubmit','ondragstart','ondragover','ondrop','ondragend']
     });
   } else {
-    el.innerHTML = html;
+    // Fallback: basic tag stripping if DOMPurify CDN fails
+    el.innerHTML = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                       .replace(/on\w+\s*=\s*"[^"]*"/gi, '').replace(/on\w+\s*=\s*'[^']*'/gi, '');
   }
 }
 // Escape string for safe embedding in JS onclick attributes (prevents XSS via backslash/quote injection)

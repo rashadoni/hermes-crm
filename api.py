@@ -10670,6 +10670,16 @@ def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, comp
         "closed": "has been closed"
     }
     msg = status_msg.get(new_status, f"status changed to {new_status}")
+    # Add a system comment to ticket_comments so portal users see it in chat
+    try:
+        system_comment = f"[System] Ticket {msg}. (Status: {old_status} → {new_status})"
+        conn.execute(
+            "INSERT INTO ticket_comments (ticket_id, user_id, content, is_internal) VALUES (?,?,?,?)",
+            [ticket_id, None, system_comment, 0]
+        )
+    except Exception as e:
+        logger.warning("Failed to add status change comment: %s", e)
+    # Send portal notifications
     if company_id:
         pusers = conn.execute("SELECT id FROM portal_users WHERE company_id=? AND is_active=1", [company_id]).fetchall()
         for pu in pusers:
@@ -10678,6 +10688,18 @@ def workflow_ticket_status_changed(conn, ticket_id, old_status, new_status, comp
                             [pu[0], company_id, "ticket_update", f"Ticket {tn} {msg}",
                              f"{subj} - {old_status} to {new_status}", "ticket", ticket_id])
             except: pass
+    # Also notify portal users linked by contact_id (no company)
+    try:
+        contact_id = conn.execute("SELECT contact_id FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if contact_id and contact_id[0]:
+            pusers2 = conn.execute("SELECT id FROM portal_users WHERE contact_id=? AND is_active=1", [contact_id[0]]).fetchall()
+            for pu in pusers2:
+                try:
+                    conn.execute("INSERT INTO portal_notifications (portal_user_id, company_id, type, title, message, entity_type, entity_id) VALUES (?,?,?,?,?,?,?)",
+                                [pu[0], company_id, "ticket_update", f"Ticket {tn} {msg}",
+                                 f"{subj} - {old_status} to {new_status}", "ticket", ticket_id])
+                except: pass
+    except: pass
 
 def workflow_ticket_comment_added(conn, ticket_id, company_id, author_name, is_from_portal=False):
     """Workflow: comment added to ticket."""

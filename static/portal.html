@@ -95,6 +95,7 @@
         .empty-text { font-size: 14px; color: #64748b; }
 
         .comment-item { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+        .comment-item.system-comment { background: #172554; border-left: 3px solid #3b82f6; }
         .comment-author { font-size: 13px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
         .comment-date { font-size: 11px; color: #475569; }
         .comment-text { font-size: 14px; color: #e2e8f0; }
@@ -568,7 +569,7 @@
                 '<div style="margin-bottom:24px"><div class="detail-label" style="margin-bottom:8px">' + t('description') + '</div><p style="font-size:14px;white-space:pre-wrap;color:#cbd5e1">' + esc(tk.description || '-') + '</p></div>' +
                 '<div><h3 style="font-size:16px;font-weight:600;margin-bottom:16px">' + t('comments') + ' (' + (tk.comments || []).length + ')</h3>' +
                 '<div style="max-height:400px;overflow-y:auto;margin-bottom:16px">' +
-                (tk.comments || []).map(c => '<div class="comment-item"><div class="comment-author"><span>' + esc(c.author || 'Support') + '</span><span class="comment-date">' + new Date(c.created_at).toLocaleString() + '</span></div><div class="comment-text">' + esc(c.comment || c.text || '') + '</div></div>').join('') +
+                (tk.comments || []).map(c => { const isSystem = (c.comment||'').startsWith('[System]'); const displayComment = isSystem ? (c.comment||'').replace('[System] ','') : (c.comment || c.text || ''); return '<div class="comment-item' + (isSystem ? ' system-comment' : '') + '"><div class="comment-author"><span>' + (isSystem ? '⚙️ System' : esc(c.author || 'Support')) + '</span><span class="comment-date">' + new Date(c.created_at).toLocaleString() + '</span></div><div class="comment-text">' + esc(displayComment) + '</div></div>'; }).join('') +
                 '</div>' +
                 (tk.status !== 'closed' ? '<form onsubmit="event.preventDefault();addComment(' + tk.id + ',document.getElementById(\'cm\').value);document.getElementById(\'cm\').value=\'\'">' +
                 '<textarea id="cm" class="input-field" style="margin-bottom:10px;min-height:80px" placeholder="' + t('add_comment') + '" required></textarea>' +

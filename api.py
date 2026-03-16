@@ -360,63 +360,12 @@ async def startup_event():
                 conn.execute("ALTER TABLE activities ADD COLUMN status TEXT DEFAULT 'completed'")
     except Exception:
         pass
-    # ─── Phase 3: Service Cloud tables ─────────────────────────
+    # ─── Phase 3: Service Cloud tables (now in SCHEMA_SQL) ─────
+    # Tables: tickets, ticket_comments, sla_policies, kb_articles
+    # are created by init_db() in database.py SCHEMA_SQL.
+    # Here we only seed default SLA policies if empty.
     try:
         with get_db() as conn:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS tickets (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    subject TEXT NOT NULL DEFAULT '',
-                    description TEXT DEFAULT '',
-                    status TEXT DEFAULT 'open',
-                    priority TEXT DEFAULT 'medium',
-                    category TEXT DEFAULT 'general',
-                    company_id INTEGER,
-                    contact_id INTEGER,
-                    assigned_to INTEGER,
-                    created_by INTEGER,
-                    sla_policy_id INTEGER,
-                    first_response_at TEXT,
-                    resolved_at TEXT,
-                    closed_at TEXT,
-                    sla_breach INTEGER DEFAULT 0,
-                    tags TEXT DEFAULT '[]',
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE TABLE IF NOT EXISTS ticket_comments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ticket_id INTEGER NOT NULL,
-                    user_id INTEGER,
-                    content TEXT DEFAULT '',
-                    is_internal INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE TABLE IF NOT EXISTS sla_policies (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL DEFAULT '',
-                    priority TEXT DEFAULT 'medium',
-                    first_response_hours REAL DEFAULT 4,
-                    resolution_hours REAL DEFAULT 24,
-                    is_active INTEGER DEFAULT 1,
-                    created_at TEXT DEFAULT (datetime('now'))
-                );
-                CREATE TABLE IF NOT EXISTS kb_articles (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL DEFAULT '',
-                    content TEXT DEFAULT '',
-                    category TEXT DEFAULT 'general',
-                    tags TEXT DEFAULT '[]',
-                    status TEXT DEFAULT 'draft',
-                    views INTEGER DEFAULT 0,
-                    helpful_yes INTEGER DEFAULT 0,
-                    helpful_no INTEGER DEFAULT 0,
-                    created_by INTEGER,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                );
-            """)
-            # Seed default SLA policies if empty
             existing = conn.execute("SELECT COUNT(*) FROM sla_policies").fetchone()[0]
             if existing == 0:
                 conn.executescript("""
@@ -426,7 +375,7 @@ async def startup_event():
                     INSERT INTO sla_policies (name, priority, first_response_hours, resolution_hours) VALUES ('Low SLA', 'low', 8, 48);
                 """)
     except Exception as e:
-        logger.warning("Phase 3 migration: %s", e)
+        logger.warning("Phase 3 SLA seeding: %s", e)
     # Seed currencies
     try:
         with get_db() as conn:

@@ -161,16 +161,6 @@ jobs:
 
             echo ""
             echo "═══════════════════════════════════════════════"
-            echo "  Phase 6.5: Diagnose tickets table"
-            echo "═══════════════════════════════════════════════"
-            if [ -d "/opt/hermes_crm/venv" ]; then
-              /opt/hermes_crm/venv/bin/python diag_tickets.py
-            else
-              python3 diag_tickets.py
-            fi
-
-            echo ""
-            echo "═══════════════════════════════════════════════"
             echo "  Phase 7: Restart service & verify"
             echo "═══════════════════════════════════════════════"
             systemctl restart hermes-crm

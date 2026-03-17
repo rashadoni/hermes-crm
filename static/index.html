@@ -15559,14 +15559,14 @@ async function showTicketDetail(ticketId) {
   const statusColors = {open:'#3b82f6',in_progress:'#f59e0b',waiting:'#8b5cf6',resolved:'#22c55e',closed:'#64748b'};
 
   const slaInfo = tk.sla ? `
-    <div style="background:#1e293b;border-radius:8px;padding:10px;margin-top:12px;">
+    <div style="background:var(--card-bg,#f1f5f9);border:1px solid var(--border-color,#e2e8f0);border-radius:8px;padding:10px;margin-top:12px;">
       <div class="text-xs text-slate-400 font-semibold mb-1">SLA: ${esc(tk.sla.name)}</div>
       <div class="text-xs text-slate-500">${_t('First response','Первый ответ','İlk cavab')}: ${tk.sla.first_response_hours}h · ${_t('Resolution','Решение','Həll')}: ${tk.sla.resolution_hours}h</div>
       ${tk.sla_breach ? '<div style="color:#ef4444;font-size:11px;font-weight:700;margin-top:4px;">⚠ SLA BREACHED</div>' : '<div style="color:#22c55e;font-size:11px;margin-top:4px;">✓ '+_t('Within SLA','В рамках SLA','SLA daxilində')+'</div>'}
     </div>` : '';
 
   const comments = (tk.comments || []).map(c => `
-    <div style="border-left:3px solid ${c.is_internal?'#f59e0b':'#6366f1'};padding:8px 12px;margin-bottom:8px;background:#1e293b;border-radius:0 8px 8px 0;">
+    <div style="border-left:3px solid ${c.is_internal?'#f59e0b':'#6366f1'};padding:8px 12px;margin-bottom:8px;background:var(--card-bg,#f1f5f9);border-radius:0 8px 8px 0;">
       <div class="flex justify-between text-xs text-slate-500 mb-1">
         <span class="font-semibold" style="color:${c.is_internal?'#fcd34d':'#a5b4fc'}">${esc(c.user_name||'System')} ${c.is_internal?'('+_t('Internal','Внутр.','Daxili')+')':''}</span>
         <span>${c.created_at?c.created_at.substring(0,16):''}</span>
@@ -15611,6 +15611,13 @@ async function showTicketDetail(ticketId) {
       </div>
       <div id="copilotResult" style="display:none;margin-top:10px"></div>
     </div>
+    <div id="ticketTraceSection" style="margin-top:12px;display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:14px">🔬</span>
+        <span class="font-semibold text-sm">${_t('AI Trace','AI Трассировка','AI İzləmə')}</span>
+      </div>
+      <div id="ticketTraceList" class="text-sm text-slate-500">${_t('Loading...','Загрузка...','Yüklənir...')}</div>
+    </div>
     <div class="flex gap-2 mt-4 flex-wrap" style="border-top:1px solid #334155;padding-top:12px;">
       <select id="tkStatusChange" class="form-input" style="width:auto;">
         ${['open','in_progress','waiting','resolved','closed'].map(s=>'<option value="'+s+'" '+(s===tk.status?'selected':'')+'>'+( statusLabels[s]||s)+'</option>').join('')}
@@ -15638,6 +15645,38 @@ async function showTicketDetail(ticketId) {
         });
       }
     } catch(e) {}
+  }
+  // Load AI traces for this ticket
+  loadTicketAITraces(ticketId);
+}
+
+async function loadTicketAITraces(ticketId) {
+  try {
+    const resp = await api.get('/api/tickets/' + ticketId + '/ai-traces');
+    const traces = resp.data || resp || [];
+    const section = document.getElementById('ticketTraceSection');
+    const list = document.getElementById('ticketTraceList');
+    if (!section || !list) return;
+    if (!traces.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    const L = currentLang;
+    const _t = (en,ru,az) => L==='ru'?ru:L==='az'?az:en;
+    list.innerHTML = traces.map(tr => {
+      const qColor = (tr.quality_score||0) >= 7 ? '#22c55e' : (tr.quality_score||0) >= 4 ? '#f59e0b' : '#94a3b8';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card-bg,#f1f5f9);border:1px solid var(--border-color,#e2e8f0);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor=\'#6366f1\'" onmouseout="this.style.borderColor=\'\'" onclick="showTraceViewer(' + tr.session_id + ')">' +
+        '<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔬</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _t('Session','Сессия','Sessiya') + ' #' + tr.session_id + '</div>' +
+          '<div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(tr.user_message || '') + '</div>' +
+        '</div>' +
+        (tr.quality_score ? '<span style="font-size:11px;font-weight:700;color:' + qColor + ';background:' + qColor + '15;padding:2px 8px;border-radius:6px">' + tr.quality_score + '/10</span>' : '') +
+        '<span style="font-size:11px;color:#64748b">' + (tr.latency_ms ? (tr.latency_ms/1000).toFixed(1) + 's' : '') + '</span>' +
+        '<span style="color:#6366f1;font-size:12px">🔍</span>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    const section = document.getElementById('ticketTraceSection');
+    if (section) section.style.display = 'none';
   }
 }
 
@@ -19399,6 +19438,49 @@ async function onLeadDrop(e, newStatus) {
 }
 
 
+    // ─── AI Light Theme Helper ──────────────────────────────
+    function lightifyAI(h) {
+      // Background: dark -> light
+      h = h.replace(/background:linear-gradient\(135deg,#0f172a,#0f172a\)/g, 'background:linear-gradient(135deg,#ffffff,#f8fafc)');
+      h = h.replace(/background:linear-gradient\(135deg,#0f172a,#131c33\)/g, 'background:linear-gradient(135deg,#ffffff,#f8fafc)');
+      h = h.replace(/background:linear-gradient\(180deg,#0f172a 0%,#1a1f3a 100%\)/g, 'background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%)');
+      h = h.replace(/background:linear-gradient\(180deg,#0f172a,#131c33\)/g, 'background:linear-gradient(180deg,#ffffff,#f8fafc)');
+      h = h.replace(/background:#0f172a/g, 'background:#ffffff');
+      h = h.replace(/background:#131c33/g, 'background:#f8fafc');
+      h = h.replace(/background:#1e293b/g, 'background:#f1f5f9');
+      h = h.replace(/background:#334155/g, 'background:#e2e8f0');
+      // Borders
+      h = h.replace(/border:1px solid #1e293b/g, 'border:1px solid #e2e8f0');
+      h = h.replace(/border:1px solid #2d3561/g, 'border:1px solid #e2e8f0');
+      h = h.replace(/border:2px solid #1e293b/g, 'border:2px solid #e2e8f0');
+      h = h.replace(/border:2px dashed #1e293b/g, 'border:2px dashed #e2e8f0');
+      h = h.replace(/border:1px solid #334155/g, 'border:1px solid #cbd5e1');
+      h = h.replace(/border:1px dashed #334155/g, 'border:1px dashed #cbd5e1');
+      h = h.replace(/border-bottom:1px solid #1e293b/g, 'border-bottom:1px solid #e2e8f0');
+      h = h.replace(/border-top:1px solid #1e293b/g, 'border-top:1px solid #e2e8f0');
+      h = h.replace(/border:1px dashed rgba\(239,68,68,0\.2\)/g, 'border:1px dashed rgba(239,68,68,0.3)');
+      // Text colors: light-on-dark -> dark-on-light
+      h = h.replace(/color:#e2e8f0/g, 'color:#1e293b');
+      h = h.replace(/color:#f1f5f9/g, 'color:#0f172a');
+      // Hover / alternating row backgrounds
+      h = h.replace(/rgba\(30,41,59,0\.3\)/g, 'rgba(241,245,249,0.6)');
+      h = h.replace(/rgba\(30,41,59,0\.5\)/g, 'rgba(241,245,249,0.8)');
+      h = h.replace(/rgba\(51,65,85,0\.3\)/g, 'rgba(226,232,240,0.5)');
+      // borderColor in JS handlers
+      h = h.replace(/borderColor=\\'#1e293b\\'/g, "borderColor=\\'#e2e8f0\\'");
+      h = h.replace(/borderColor='#1e293b'/g, "borderColor='#e2e8f0'");
+      h = h.replace(/borderColor=\\'#334155\\'/g, "borderColor=\\'#cbd5e1\\'");
+      h = h.replace(/borderColor='#334155'/g, "borderColor='#cbd5e1'");
+      // background in JS handlers
+      h = h.replace(/style\.background='#1e293b'/g, "style.background='#f1f5f9'");
+      h = h.replace(/style\.background='transparent'/g, "style.background='transparent'");
+      // Box shadow dark overlay
+      h = h.replace(/box-shadow:0 24px 64px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 24px 64px rgba(0,0,0,0.12)');
+      h = h.replace(/box-shadow:0 20px 60px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 20px 60px rgba(0,0,0,0.12)');
+      h = h.replace(/box-shadow:0 8px 32px rgba\(0,0,0,0\.3\)/g, 'box-shadow:0 8px 32px rgba(0,0,0,0.08)');
+      return h;
+    }
+
     // ─── AI Command Center ─────────────────────────────────
     async function renderAICommandCenter(el) {
       el.innerHTML = '<div style="text-align:center;padding:60px;color:#64748b"><div style="display:inline-block;width:32px;height:32px;border:3px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div><p style="margin-top:12px">Loading AI Command Center...</p></div>';
@@ -19444,7 +19526,7 @@ async function onLeadDrop(e, newStatus) {
         // Deflection rate bar
         const deflectBarColor = deflect >= 80 ? '#22c55e' : deflect >= 50 ? '#eab308' : '#ef4444';
 
-        el.innerHTML = '<div style="padding:28px 32px;max-width:1440px;margin:0 auto">' +
+        el.innerHTML = lightifyAI('<div style="padding:28px 32px;max-width:1440px;margin:0 auto">' +
           // Header with tabs
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
             '<div style="display:flex;align-items:center;gap:16px">' +
@@ -19552,7 +19634,7 @@ async function onLeadDrop(e, newStatus) {
           '<div id="ccBuilderContent" style="display:none">' +
             '<div id="agentBuilderRoot" style="color:#94a3b8;text-align:center;padding:40px">Loading Agent Builder...</div>' +
           '</div>' +
-          '</div>';
+          '</div>');
 
         setTimeout(() => renderAICharts(d), 100);
         renderAgentPerformance();
@@ -19563,7 +19645,7 @@ async function onLeadDrop(e, newStatus) {
     }
 
     function renderAICharts(d) {
-      const txtC = '#94a3b8', gridC = 'rgba(51,65,85,0.5)';
+      const txtC = '#64748b', gridC = 'rgba(203,213,225,0.4)';
 
       // Daily Sessions
       const dailyLabels = (d.daily_sessions||[]).map(x => (x.date||'').slice(5));
@@ -19588,7 +19670,7 @@ async function onLeadDrop(e, newStatus) {
               fill: true,
               pointRadius: 5,
               pointBackgroundColor: '#6366f1',
-              pointBorderColor: '#0f172a',
+              pointBorderColor: '#ffffff',
               pointBorderWidth: 2,
               pointHoverRadius: 7,
               tension: 0.4
@@ -19596,7 +19678,7 @@ async function onLeadDrop(e, newStatus) {
           },
           options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8, padding: 10 } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#ffffff', titleColor: '#1e293b', bodyColor: '#64748b', borderColor: '#e2e8f0', borderWidth: 1, cornerRadius: 8, padding: 10 } },
             scales: {
               y: { beginAtZero: true, ticks: { color: txtC, font: { size: 11 } }, grid: { color: gridC } },
               x: { ticks: { color: txtC, font: { size: 11 } }, grid: { display: false } }
@@ -19615,7 +19697,7 @@ async function onLeadDrop(e, newStatus) {
             datasets: [{
               data: [d.resolved_without_human || 0, d.escalated || 0],
               backgroundColor: ['#22c55e', '#ef4444'],
-              borderColor: '#0f172a',
+              borderColor: '#ffffff',
               borderWidth: 3,
               hoverOffset: 6
             }]
@@ -19625,7 +19707,7 @@ async function onLeadDrop(e, newStatus) {
             cutout: '65%',
             plugins: {
               legend: { position: 'bottom', labels: { color: txtC, padding: 16, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
-              tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8 }
+              tooltip: { backgroundColor: '#ffffff', titleColor: '#1e293b', bodyColor: '#64748b', borderColor: '#e2e8f0', borderWidth: 1, cornerRadius: 8 }
             }
           }
         });
@@ -19654,7 +19736,7 @@ async function onLeadDrop(e, newStatus) {
           options: {
             indexAxis: 'y',
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8', borderColor: '#334155', borderWidth: 1, cornerRadius: 8 } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#ffffff', titleColor: '#1e293b', bodyColor: '#64748b', borderColor: '#e2e8f0', borderWidth: 1, cornerRadius: 8 } },
             scales: {
               x: { beginAtZero: true, ticks: { color: txtC, font: { size: 11 } }, grid: { color: gridC } },
               y: { ticks: { color: txtC, font: { size: 11, weight: 600 } }, grid: { display: false } }
@@ -19695,7 +19777,7 @@ async function onLeadDrop(e, newStatus) {
           '</tbody></table></div>' :
           '<div style="color:#64748b;padding:32px;text-align:center">' + _t('No agents found','Агенты не найдены','Agent tapılmadı') + '</div>';
         const el = document.getElementById('agentPerfTable');
-        if (el) el.innerHTML = tableHtml;
+        if (el) el.innerHTML = lightifyAI(tableHtml);
       } catch (e) {
         const el = document.getElementById('agentPerfTable');
         if (el) el.innerHTML = '<div style="color:#f87171">' + e.message + '</div>';
@@ -19713,7 +19795,7 @@ async function onLeadDrop(e, newStatus) {
         if (!alerts.length) { el.innerHTML = '<div style="color:#64748b;text-align:center;padding:12px">No active alerts</div>'; return; }
         const sevIcon = {critical: '\u{1f534}', warning: '\u26a0\ufe0f'};
         const typeLabel = {low_quality: 'Low Quality', high_latency: 'High Latency', token_spike: 'Token Spike', escalation_surge: 'Escalation Surge'};
-        el.innerHTML = alerts.map(a => {
+        el.innerHTML = lightifyAI(alerts.map(a => {
           const ago = _timeAgo(a.created_at);
           return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(30,41,59,0.5);margin-bottom:6px;border:1px solid ' + (a.severity==='critical'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.15)') + '">' +
             '<span style="font-size:16px">' + (sevIcon[a.severity]||'\u26a0\ufe0f') + '</span>' +
@@ -19723,7 +19805,7 @@ async function onLeadDrop(e, newStatus) {
             '<span style="font-size:11px;color:#64748b">' + ago + '</span>' +
             (a.session_id ? '<a onclick="showTraceViewer(' + a.session_id + ')" style="font-size:11px;color:#60a5fa;cursor:pointer;text-decoration:underline">\u{1f50d} Trace</a>' : '') +
             '</div></div>';
-        }).join('');
+        }).join(''));
       } catch(e) {
         const el = document.getElementById('alertsList');
         if (el) el.innerHTML = '<div style="color:#f87171">' + e.message + '</div>';
@@ -19968,7 +20050,7 @@ async function onLeadDrop(e, newStatus) {
         h += '</div></div>'; // modal + overlay
 
         const traceEl = document.createElement('div');
-        traceEl.innerHTML = h;
+        traceEl.innerHTML = lightifyAI(h);
         document.body.appendChild(traceEl.firstChild);
       } catch(e) {
         alert('Ошибка загрузки трассировки: ' + e.message);
@@ -20090,7 +20172,7 @@ async function onLeadDrop(e, newStatus) {
           '<div style="font-size:13px;color:#64748b">Создайте первую конфигурацию, чтобы настроить поведение AI-агента</div></div>';
       }
 
-      root.innerHTML =
+      root.innerHTML = lightifyAI(
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
           '<div><h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 4px;display:flex;align-items:center;gap:8px">🛠️ Конфигурации агента</h3>' +
           '<p style="margin:0;font-size:12px;color:#64748b">Настройте модель, инструменты и поведение AI-агента</p></div>' +
@@ -20126,7 +20208,7 @@ async function onLeadDrop(e, newStatus) {
             '<button onclick="generateNLConfig()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🪄 Создать</button>' +
           '</div>' +
           '<div id="nlConfigResult" style="margin-top:12px"></div>' +
-        '</div>';
+        '</div>');
     }
 
     async function activateConfig(configId) {
@@ -20301,7 +20383,7 @@ async function onLeadDrop(e, newStatus) {
       }
 
       // ── Compose editor ──
-      panel.innerHTML =
+      panel.innerHTML = lightifyAI(
         '<div style="background:linear-gradient(180deg,#0f172a,#131c33);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:28px;margin-top:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">' +
           // Header
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
@@ -20334,7 +20416,7 @@ async function onLeadDrop(e, newStatus) {
             '<button onclick="document.getElementById(\'configEditorPanel\').innerHTML=\'\'" style="background:transparent;border:1px solid #334155;color:#94a3b8;padding:10px 24px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.borderColor=\'#475569\'" onmouseout="this.style.borderColor=\'#334155\'">Отмена</button>' +
             '<button onclick="saveConfig(' + configId + ')" style="background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;padding:10px 32px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">' + (configId > 0 ? '💾 Сохранить' : '✨ Создать') + '</button>' +
           '</div>' +
-        '</div>';
+        '</div>');
 
       panel.scrollIntoView({behavior:'smooth',block:'start'});
     }
@@ -20396,10 +20478,10 @@ async function onLeadDrop(e, newStatus) {
             const resp = await api.get('/api/ai/guardrails');
             const rules = (resp.data || resp).guardrails || [];
             if (!rules.length) {
-                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#0f172a;border:1px dashed #1e293b;border-radius:12px">Правила пока не добавлены</div>';
+                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:12px">Правила пока не добавлены</div>';
                 return;
             }
-            el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' + rules.map(r =>
+            el.innerHTML = lightifyAI('<div style="display:flex;flex-direction:column;gap:8px">' + rules.map(r =>
                 '<div style="background:#0f172a;border:1px solid ' + (r.is_active ? 'rgba(239,68,68,0.2)' : '#1e293b') + ';border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px">' +
                   '<span style="font-size:20px">🛡️</span>' +
                   '<div style="flex:1">' +
@@ -20408,7 +20490,7 @@ async function onLeadDrop(e, newStatus) {
                   '</div>' +
                   '<button onclick="deleteGuardrail(' + r.id + ')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);color:#fca5a5;padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer">🗑️</button>' +
                 '</div>'
-            ).join('') + '</div>';
+            ).join('') + '</div>');
         } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
     }
 
@@ -20416,7 +20498,7 @@ async function onLeadDrop(e, newStatus) {
         const overlay = document.createElement('div');
         overlay.id = 'guardrailModal';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        overlay.innerHTML = '<div style="background:#1e293b;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
+        overlay.innerHTML = lightifyAI('<div style="background:#1e293b;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:22px">🛡️</span><span style="font-size:16px;font-weight:700;color:#e2e8f0">Новое правило</span></div>' +
             '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Название правила</label>' +
             '<input id="grName" placeholder="Например: Запрет скидок" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none" />' +
@@ -20432,7 +20514,7 @@ async function onLeadDrop(e, newStatus) {
               '<button onclick="document.getElementById(\'guardrailModal\').remove()" style="padding:10px 20px;background:#334155;border:none;color:#94a3b8;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Отмена</button>' +
               '<button onclick="saveGuardrailFromModal()" style="padding:10px 20px;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;color:#fff;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Сохранить</button>' +
             '</div>' +
-        '</div>';
+        '</div>');
         document.body.appendChild(overlay);
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
         setTimeout(() => document.getElementById('grName')?.focus(), 100);
@@ -20468,10 +20550,10 @@ async function onLeadDrop(e, newStatus) {
             const resp = await api.get('/api/ai/kb-topics');
             const topics = (resp.data || resp).topics || [];
             if (!topics.length) {
-                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#0f172a;border:1px dashed #1e293b;border-radius:12px">Темы пока не добавлены</div>';
+                el.innerHTML = '<div style="text-align:center;padding:20px;color:#475569;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:12px">Темы пока не добавлены</div>';
                 return;
             }
-            el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' + topics.map(t =>
+            el.innerHTML = lightifyAI('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' + topics.map(t =>
                 '<div style="background:#0f172a;border:1px solid rgba(34,211,238,0.15);border-radius:12px;padding:14px 18px">' +
                   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
                     '<span style="font-size:14px;font-weight:600;color:#e2e8f0">📂 ' + esc(t.name) + '</span>' +
@@ -20480,7 +20562,7 @@ async function onLeadDrop(e, newStatus) {
                   '<div style="font-size:11px;color:#64748b">' + esc(t.description || '') + '</div>' +
                   (t.keywords ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + t.keywords.split(',').map(k => '<span style="background:#1e293b;color:#22d3ee;padding:2px 8px;border-radius:6px;font-size:10px">' + esc(k.trim()) + '</span>').join('') + '</div>' : '') +
                 '</div>'
-            ).join('') + '</div>';
+            ).join('') + '</div>');
         } catch(e) { el.innerHTML = '<div style="color:#f87171">Ошибка: ' + e.message + '</div>'; }
     }
 
@@ -20488,7 +20570,7 @@ async function onLeadDrop(e, newStatus) {
         const overlay = document.createElement('div');
         overlay.id = 'topicModal';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        overlay.innerHTML = '<div style="background:#1e293b;border:1px solid rgba(34,211,238,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
+        overlay.innerHTML = lightifyAI('<div style="background:#1e293b;border:1px solid rgba(34,211,238,0.3);border-radius:16px;padding:28px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)">' +
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="font-size:22px">📂</span><span style="font-size:16px;font-weight:700;color:#e2e8f0">Новая тема</span></div>' +
             '<label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600">Название темы</label>' +
             '<input id="topicName" placeholder="Например: Биллинг" style="width:100%;box-sizing:border-box;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#e2e8f0;font-size:13px;margin-bottom:14px;outline:none" />' +
@@ -20500,7 +20582,7 @@ async function onLeadDrop(e, newStatus) {
               '<button onclick="document.getElementById(\'topicModal\').remove()" style="padding:10px 20px;background:#334155;border:none;color:#94a3b8;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600">Отмена</button>' +
               '<button onclick="saveTopicFromModal()" style="padding:10px 20px;background:linear-gradient(135deg,#22d3ee,#06b6d4);border:none;color:#0f172a;border-radius:10px;font-size:13px;cursor:pointer;font-weight:700">Сохранить</button>' +
             '</div>' +
-        '</div>';
+        '</div>');
         document.body.appendChild(overlay);
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
         setTimeout(() => document.getElementById('topicName')?.focus(), 100);
@@ -20540,12 +20622,12 @@ async function onLeadDrop(e, newStatus) {
             const resp = await api.post('/api/ai/agent-configs/generate', {description: desc});
             const cfg = (resp.data || resp).generated_config;
             if (!cfg) throw new Error('No config returned');
-            result.innerHTML = '<div style="background:#0f172a;border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px;text-align:left;margin-top:10px">' +
+            result.innerHTML = lightifyAI('<div style="background:#0f172a;border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px;text-align:left;margin-top:10px">' +
               '<div style="font-size:13px;font-weight:600;color:#e2e8f0;margin-bottom:8px">✅ ' + esc(cfg.config_name || 'Generated Config') + '</div>' +
               '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Модель: ' + esc(cfg.model || '') + ' • Токены: ' + (cfg.max_tokens||1024) + ' • Температура: ' + (cfg.temperature||1) + '</div>' +
               (cfg.guardrails && cfg.guardrails.length ? '<div style="font-size:11px;color:#fca5a5;margin-bottom:8px">Правила: ' + cfg.guardrails.map(g => esc(g)).join(', ') + '</div>' : '') +
               '<button onclick="applyGeneratedConfig()" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:8px 20px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">✅ Создать эту конфигурацию</button>' +
-            '</div>';
+            '</div>');
             window._generatedConfig = cfg;
         } catch(e) { result.innerHTML = '<div style="color:#f87171;font-size:12px">Ошибка: ' + e.message + '</div>'; }
     }

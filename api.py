@@ -7868,6 +7868,96 @@ async def delete_ticket(ticket_id: int, request: Request, user=Depends(require_a
     return _ok({"deleted": True})
 
 
+@app.get("/api/tickets/{ticket_id}/ai-traces")
+async def get_ticket_ai_traces(ticket_id: int, user=Depends(require_auth)):
+    """Find AI interaction traces related to this ticket."""
+    try:
+        with get_db() as conn:
+            _ensure_ai_tables(conn)
+            tk = conn.execute("SELECT id, subject, created_at, tags, description FROM tickets WHERE id=?", [ticket_id]).fetchone()
+            if not tk:
+                return _err("Ticket not found", 404)
+            tk_subject = tk[1] or ""
+            tk_created = tk[2] or ""
+            tk_tags = tk[3] or "[]"
+            tk_desc = tk[4] or ""
+
+            results = []
+
+            # Strategy 1: Find logs where tools_called includes create_ticket and response mentions this ticket
+            raw = conn._conn if hasattr(conn, '_conn') else conn
+            cur = raw.cursor()
+            cur.execute("SAVEPOINT ai_trace_search")
+            try:
+                rows = cur.execute("""
+                    SELECT DISTINCT l.session_id, l.created_at, l.user_message, l.quality_score, l.latency_ms
+                    FROM ai_interaction_logs l
+                    WHERE l.tools_called LIKE %s
+                    AND (l.ai_response LIKE %s OR l.ai_response LIKE %s)
+                    ORDER BY l.created_at DESC LIMIT 5
+                """, ['%create_ticket%', f'%{ticket_id}%', f'%TK-{ticket_id:04d}%']).fetchall()
+                for r in rows:
+                    results.append({"session_id": r[0], "created_at": r[1], "user_message": (r[2] or "")[:100], "quality_score": r[3], "latency_ms": r[4]})
+                cur.execute("RELEASE SAVEPOINT ai_trace_search")
+            except Exception:
+                cur.execute("ROLLBACK TO SAVEPOINT ai_trace_search")
+            finally:
+                cur.close()
+
+            # Strategy 2: If no results, find AI sessions around the ticket creation time
+            if not results and tk_created:
+                raw2 = conn._conn if hasattr(conn, '_conn') else conn
+                cur2 = raw2.cursor()
+                cur2.execute("SAVEPOINT ai_trace_search2")
+                try:
+                    rows2 = cur2.execute("""
+                        SELECT DISTINCT l.session_id, l.created_at, l.user_message, l.quality_score, l.latency_ms
+                        FROM ai_interaction_logs l
+                        WHERE l.created_at >= %s::timestamp - interval '10 minutes'
+                        AND l.created_at <= %s::timestamp + interval '10 minutes'
+                        ORDER BY l.created_at DESC LIMIT 5
+                    """, [tk_created, tk_created]).fetchall()
+                    for r in rows2:
+                        if r[0] not in [x["session_id"] for x in results]:
+                            results.append({"session_id": r[0], "created_at": r[1], "user_message": (r[2] or "")[:100], "quality_score": r[3], "latency_ms": r[4]})
+                    cur2.execute("RELEASE SAVEPOINT ai_trace_search2")
+                except Exception:
+                    cur2.execute("ROLLBACK TO SAVEPOINT ai_trace_search2")
+                finally:
+                    cur2.close()
+
+            # Strategy 3: If ticket is AI-created, extract portal user from description and find their sessions
+            if not results and "ai-created" in tk_tags:
+                import re as _re
+                m = _re.search(r'portal user #(\d+)', tk_desc)
+                if m:
+                    portal_uid = int(m.group(1))
+                    raw3 = conn._conn if hasattr(conn, '_conn') else conn
+                    cur3 = raw3.cursor()
+                    cur3.execute("SAVEPOINT ai_trace_search3")
+                    try:
+                        rows3 = cur3.execute("""
+                            SELECT DISTINCT l.session_id, l.created_at, l.user_message, l.quality_score, l.latency_ms
+                            FROM ai_interaction_logs l
+                            JOIN ai_chat_sessions s ON l.session_id = s.id
+                            WHERE s.portal_user_id = %s
+                            ORDER BY l.created_at DESC LIMIT 5
+                        """, [portal_uid]).fetchall()
+                        for r in rows3:
+                            if r[0] not in [x["session_id"] for x in results]:
+                                results.append({"session_id": r[0], "created_at": r[1], "user_message": (r[2] or "")[:100], "quality_score": r[3], "latency_ms": r[4]})
+                        cur3.execute("RELEASE SAVEPOINT ai_trace_search3")
+                    except Exception:
+                        cur3.execute("ROLLBACK TO SAVEPOINT ai_trace_search3")
+                    finally:
+                        cur3.close()
+
+            return _ok(results)
+    except Exception as e:
+        logger.error("Ticket AI traces error: %s", e)
+        return _err(str(e), 500)
+
+
 @app.post("/api/tickets/{ticket_id}/comments")
 async def add_ticket_comment(ticket_id: int, request: Request, user=Depends(require_auth)):
     data = await request.json()

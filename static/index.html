@@ -122,20 +122,23 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* AI Builder range slider styling */
-  input[type="range"] {
-    -webkit-appearance: none; appearance: none;
+  input[type="range"].ai-slider {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 4px; outline: none; cursor: pointer; border: none;
   }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  input[type="range"].ai-slider::-webkit-slider-runnable-track {
+    height: 8px; border-radius: 4px; background: inherit;
   }
-  input[type="range"]::-moz-range-thumb {
-    width: 18px; height: 18px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  input[type="range"].ai-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.2); margin-top: -6px;
   }
-  input[type="range"]::-webkit-slider-runnable-track {
-    background: transparent; height: 6px;
+  input[type="range"].ai-slider::-moz-range-track {
+    height: 8px; border-radius: 4px; background: inherit;
   }
-  input[type="range"]::-moz-range-track {
-    background: transparent; height: 6px;
+  input[type="range"].ai-slider::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  }
+  input[type="range"].ai-slider::-moz-range-progress {
+    background: #6366f1; height: 8px; border-radius: 4px;
   }
 
   /* Focus visible outlines */
@@ -19494,8 +19497,6 @@ async function onLeadDrop(e, newStatus) {
       h = h.replace(/\.background='#334155'/g, ".background='#cbd5e1'");
       h = h.replace(/\.background=\\'#334155\\'/g, ".background=\\'#cbd5e1\\'");
       h = h.replace(/\.background=\\'#1e293b\\'/g, ".background=\\'#e2e8f0\\'");
-      // Slider track unfilled color in gradients
-      h = h.replace(/linear-gradient\(to right,(#[a-f0-9]+) (\d+(?:\.\d+)?%),#1e293b/g, 'linear-gradient(to right,$1 $2,#cbd5e1');
       // Box shadow dark overlay
       h = h.replace(/box-shadow:0 24px 64px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 24px 64px rgba(0,0,0,0.12)');
       h = h.replace(/box-shadow:0 20px 60px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 20px 60px rgba(0,0,0,0.12)');
@@ -20332,13 +20333,9 @@ async function onLeadDrop(e, newStatus) {
             '<span style="font-size:10px;color:#475569;margin-left:8px">' + hint + '</span></div>' +
             '<span id="' + id + '_val" style="font-size:14px;font-weight:700;color:#a78bfa;min-width:50px;text-align:right">' + val + (unit||'') + '</span>' +
           '</div>' +
-          '<div style="position:relative;height:24px;display:flex;align-items:center">' +
-            '<div style="position:absolute;left:0;right:0;height:6px;background:#cbd5e1;border-radius:3px"></div>' +
-            '<div id="' + id + '_fill" style="position:absolute;left:0;height:6px;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:3px;width:' + pct + '%;pointer-events:none"></div>' +
-            '<input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" ' +
-              'oninput="document.getElementById(\'' + id + '_val\').textContent=this.value+\'' + (unit||'') + '\';document.getElementById(\'' + id + '_fill\').style.width=((this.value-' + min + ')/' + (max-min) + '*100)+\'%\'" ' +
-              'style="position:relative;width:100%;height:24px;-webkit-appearance:none;background:transparent;outline:none;cursor:pointer;margin:0;z-index:1" />' +
-          '</div>' +
+          '<input type="range" class="ai-slider" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" ' +
+            'oninput="document.getElementById(\'' + id + '_val\').textContent=this.value+\'' + (unit||'') + '\';var p=((this.value-' + min + ')/' + (max-min) + '*100);this.style.background=\'linear-gradient(to right,#6366f1 \'+p+\'%,#cbd5e1 \'+p+\'%)\'" ' +
+            'style="background:linear-gradient(to right,#6366f1 ' + pct + '%,#cbd5e1 ' + pct + '%)" />' +
           '<div style="display:flex;justify-content:space-between;font-size:10px;color:#475569;margin-top:3px"><span>' + min + '</span><span>' + max + '</span></div>' +
         '</div>';
       }
@@ -20378,7 +20375,7 @@ async function onLeadDrop(e, newStatus) {
       '</div>' +
       '<div id="kbSettings" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;opacity:' + (cfg.kb_enabled ? '1' : '0.4') + ';pointer-events:' + (cfg.kb_enabled ? 'auto' : 'none') + ';transition:opacity 0.2s">' +
         '<div><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">📊 Макс. статей</label>' +
-        '<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;position:relative;height:24px;display:flex;align-items:center"><div style="position:absolute;left:0;right:0;height:6px;background:#cbd5e1;border-radius:3px"></div><div id="cfgKbMax_fill" style="position:absolute;left:0;height:6px;background:linear-gradient(90deg,#22d3ee,#67e8f9);border-radius:3px;width:' + ((cfg.kb_max_articles-1)/9*100) + '%;pointer-events:none"></div><input id="cfgKbMax" type="range" min="1" max="10" value="' + cfg.kb_max_articles + '" oninput="document.getElementById(\'kbMaxV\').textContent=this.value;document.getElementById(\'cfgKbMax_fill\').style.width=((this.value-1)/9*100)+\'%\'" style="position:relative;width:100%;height:24px;background:transparent;outline:none;cursor:pointer;margin:0;z-index:1"></div><span id="kbMaxV" style="font-size:16px;font-weight:700;color:#22d3ee;min-width:20px;text-align:right">' + cfg.kb_max_articles + '</span></div>' +
+        '<div style="display:flex;align-items:center;gap:10px"><input id="cfgKbMax" class="ai-slider" type="range" min="1" max="10" value="' + cfg.kb_max_articles + '" oninput="document.getElementById(\'kbMaxV\').textContent=this.value;var p=((this.value-1)/9*100);this.style.background=\'linear-gradient(to right,#22d3ee \'+p+\'%,#cbd5e1 \'+p+\'%)\'" style="flex:1;background:linear-gradient(to right,#22d3ee ' + ((cfg.kb_max_articles-1)/9*100) + '%,#cbd5e1 ' + ((cfg.kb_max_articles-1)/9*100) + '%)"><span id="kbMaxV" style="font-size:16px;font-weight:700;color:#22d3ee;min-width:20px;text-align:right">' + cfg.kb_max_articles + '</span></div>' +
         '<div style="font-size:10px;color:#475569;margin-top:3px">Сколько статей AI получает для контекста</div></div>' +
         '<div><label style="font-size:12px;color:#94a3b8;font-weight:600;display:block;margin-bottom:6px">🎚️ Мин. релевантность</label>' +
         '<input id="cfgKbMin" type="number" value="' + cfg.kb_min_score + '" min="0" max="1" step="0.001" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;box-sizing:border-box">' +

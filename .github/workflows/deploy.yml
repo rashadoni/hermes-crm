@@ -68,7 +68,9 @@ jobs:
             cp api.py api.py.bak
             cp database.py database.py.bak 2>/dev/null || true
             cp static/index.html static/index.html.bak
-            git pull origin main
+            git stash 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
 
             # Ensure DejaVu fonts are installed for PDF generation
             dpkg -l fonts-dejavu-core >/dev/null 2>&1 || apt-get install -y -qq fonts-dejavu-core || true

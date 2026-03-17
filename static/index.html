@@ -560,6 +560,153 @@
   body.light-theme [style*="background:#475569"][style*="border-radius"] { background:#ECEBEA !important;color:#3E3E3C !important; }
   body.light-theme [style*="background:#1e293b"][style*="border-radius"] { background:#EBF5FF !important;color:#0176D3 !important; }
 
+  /* ▸ ADDITIONAL TAILWIND CLASS OVERRIDES ──────────── */
+  /* Slate-700 backgrounds (activity icons, toggles, inputs) */
+  body.light-theme .bg-slate-700 { background:#E5E5E5 !important; }
+  body.light-theme .bg-slate-700\/30 { background:#F3F2F2 !important; }
+  body.light-theme .bg-slate-600 { background:#E5E5E5 !important; }
+  body.light-theme .bg-slate-800\/80 { background:#F3F2F2 !important; }
+  body.light-theme .bg-slate-800\/30 { background:#FAFAF9 !important; }
+  body.light-theme .bg-slate-900\/50 { background:#FAFAF9 !important; }
+  body.light-theme .bg-gray-800 { background:#FFFFFF !important; }
+  body.light-theme .bg-gray-900 { background:#FFFFFF !important; }
+  /* Hover backgrounds — all dark hovers to light */
+  body.light-theme .hover\:bg-slate-700:hover { background:#F3F2F2 !important; }
+  body.light-theme .hover\:bg-slate-700\/50:hover { background:#F3F2F2 !important; }
+  body.light-theme .hover\:bg-slate-800\/30:hover { background:#F3F2F2 !important; }
+  body.light-theme .hover\:bg-gray-700:hover { background:#F3F2F2 !important; }
+  body.light-theme .hover\:bg-gray-800:hover { background:#F3F2F2 !important; }
+  /* Additional text color classes */
+  body.light-theme .text-slate-300 { color:#3E3E3C !important; }
+  body.light-theme .text-slate-600 { color:#706E6B !important; }
+  body.light-theme .text-gray-500 { color:#706E6B !important; }
+  body.light-theme .text-gray-200 { color:#181818 !important; }
+  body.light-theme .text-gray-100 { color:#181818 !important; }
+  /* Ring & focus states */
+  body.light-theme .ring-slate-700 { --tw-ring-color:#DDDBDA !important; }
+  body.light-theme .focus\:ring-indigo-500:focus { --tw-ring-color:#0176D3 !important; }
+  /* Divide colors */
+  body.light-theme .divide-slate-700 > :not([hidden]) ~ :not([hidden]) { border-color:#DDDBDA !important; }
+  body.light-theme .divide-slate-700\/50 > :not([hidden]) ~ :not([hidden]) { border-color:#F3F2F2 !important; }
+
+  /* ▸ DEEP INLINE STYLE OVERRIDES ────────────────── */
+  /* Channel config cards, omnichannel items */
+  body.light-theme [style*="background:#0f172a;border:1px solid"] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  body.light-theme [style*="background:#1e293b;border:1px solid"] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  body.light-theme [style*="background:#1e293b;padding"] { background:#FFFFFF !important; }
+  /* Searchable dropdown dark backgrounds */
+  body.light-theme [style*="background:#1e293b;border:1px solid #475569"] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  /* Sort select dark backgrounds */
+  body.light-theme [style*="background:#0f172a;border:1px solid #334155"] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  /* Dark RGBA border patterns */
+  body.light-theme [style*="border:1px solid rgba(255,255,255,0.1)"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(255,255,255,0.05)"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(255,255,255,0.15)"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(255,255,255,0.2)"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border-bottom:1px solid rgba(255,255,255"] { border-bottom-color:#F3F2F2 !important; }
+  /* Additional background #475569 (medium slate) */
+  body.light-theme [style*="background:#475569"] { background:#ECEBEA !important; }
+  /* Background #64748b (lighter slate) */
+  body.light-theme [style*="background:#64748b"] { background:#E5E5E5 !important; }
+  /* Background #6b7280 (gray) */
+  body.light-theme [style*="background:#6b7280"] { background:#E5E5E5 !important; }
+  /* Background #374151 (gray-700) */
+  body.light-theme [style*="background:#374151"] { background:#F3F2F2 !important; }
+  /* Additional background for guardrail/topic modals */
+  body.light-theme [style*="linear-gradient(135deg, #0f172a 0%, #1a1a2e"] { background:#FFFFFF !important; }
+  body.light-theme [style*="linear-gradient(135deg,#0f172a 0%,#1a1a2e"] { background:#FFFFFF !important; }
+  /* RGBA light white text → dark for light mode */
+  body.light-theme [style*="color:rgba(255,255,255,0.6)"] { color:#706E6B !important; }
+  body.light-theme [style*="color:rgba(255,255,255,0.7)"] { color:#706E6B !important; }
+  body.light-theme [style*="color:rgba(255,255,255,0.8)"] { color:#3E3E3C !important; }
+  body.light-theme [style*="color:rgba(255,255,255,0.9)"] { color:#181818 !important; }
+  body.light-theme [style*="color:#fff"] { color:#181818 !important; }
+  body.light-theme [style*="color:white"] { color:#181818 !important; }
+  body.light-theme [style*="color:#ffffff"] { color:#181818 !important; }
+  body.light-theme [style*="color:#FFFFFF"] { color:#181818 !important; }
+  /* Specific text color patterns used in icons/badges */
+  body.light-theme [style*="color:#e0e7ff"] { color:#0176D3 !important; }
+  body.light-theme [style*="color:#c7d2fe"] { color:#0176D3 !important; }
+  body.light-theme [style*="color:#ddd6fe"] { color:#7C3AED !important; }
+  body.light-theme [style*="color:#d9f99d"] { color:#2E844A !important; }
+  body.light-theme [style*="color:#fef08a"] { color:#CA8A04 !important; }
+  body.light-theme [style*="color:#fed7aa"] { color:#CA8A04 !important; }
+  body.light-theme [style*="color:#fecdd3"] { color:#C23030 !important; }
+  body.light-theme [style*="color:#bfdbfe"] { color:#0176D3 !important; }
+  body.light-theme [style*="color:#7dd3fc"] { color:#0176D3 !important; }
+  body.light-theme [style*="color:#67e8f9"] { color:#0176D3 !important; }
+
+  /* ▸ OFFER STATUS BADGES — specific overrides ──── */
+  /* These are inline pills with background:#334155 or #475569 and border-radius */
+  body.light-theme span[style*="background:#334155"] { background:#F3F2F2 !important;color:#3E3E3C !important; }
+  body.light-theme span[style*="background:#475569"] { background:#ECEBEA !important;color:#3E3E3C !important; }
+  body.light-theme span[style*="background:#1e293b"] { background:#EBF5FF !important;color:#0176D3 !important; }
+  body.light-theme span[style*="background:#0f172a"] { background:#EBF5FF !important;color:#0176D3 !important; }
+
+  /* ▸ CAMPAIGN MODAL — contact list rows ─────────── */
+  body.light-theme div[style*="border:1px solid #334155;border-radius:8px"] { border-color:#DDDBDA !important;background:#FFFFFF !important; }
+  body.light-theme div[style*="border:1px solid #334155;border-radius:8px"] div { background:#FFFFFF !important; }
+
+  /* ▸ OMNICHANNEL — message items ────────────────── */
+  body.light-theme [style*="background:#0f172a;border:1px solid rgba"] { background:#FFFFFF !important;border-color:#DDDBDA !important; }
+  body.light-theme [style*="background:#1e293b;border-radius"] { background:#F3F2F2 !important; }
+
+  /* ▸ TICKET CARD BACKGROUNDS ────────────────────── */
+  body.light-theme [style*="background:linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)"] { background:#FFFFFF !important; }
+
+  /* ▸ DASHBOARD ACTIVITY — icon badges ───────────── */
+  /* Activity icons use bg-slate-700 rounded-full — override the container */
+  body.light-theme .rounded-full.bg-slate-700 { background:#E5E5E5 !important; }
+  body.light-theme [class*="bg-slate-700"].rounded-full { background:#E5E5E5 !important; }
+  body.light-theme [class*="bg-slate-700"].rounded-lg { background:#F3F2F2 !important; }
+
+  /* ▸ TOGGLE SWITCHES ────────────────────────────── */
+  body.light-theme .rounded-full.bg-slate-700 { background:#C9C7C5 !important; }
+
+  /* ▸ RGBA HOVER STATE OVERRIDES ─────────────────── */
+  body.light-theme [style*="background:rgba(99,102,241,0.05)"] { background:rgba(1,118,211,0.04) !important; }
+  body.light-theme [style*="background:rgba(99,102,241,0.08)"] { background:rgba(1,118,211,0.06) !important; }
+  body.light-theme [style*="background:rgba(99,102,241,0.12)"] { background:rgba(1,118,211,0.08) !important; }
+  body.light-theme [style*="background:rgba(99,102,241,0.2)"] { background:rgba(1,118,211,0.12) !important; }
+
+  /* ▸ ONMOUSEOVER INLINE HOVER FIX (CSS overrides) */
+  /* Target common hover patterns using :hover on elements with typical dark classes */
+  body.light-theme [onmouseover]:hover { background:#F3F2F2 !important; }
+  /* Prevent dark hover on rating/action buttons */
+  body.light-theme button[onmouseover]:hover { background:#F3F2F2 !important;color:#0176D3 !important; }
+
+  /* ▸ CATCH-ALL DARK BACKGROUNDS ─────────────────── */
+  /* Wildcard selectors for any remaining dark bg classes */
+  body.light-theme [class*="bg-slate-900"] { background:#FFFFFF !important; }
+  body.light-theme [class*="bg-slate-700"] { background:#F3F2F2 !important; }
+  body.light-theme [class*="bg-gray-800"] { background:#FFFFFF !important; }
+  body.light-theme [class*="bg-gray-900"] { background:#FFFFFF !important; }
+  /* Ensure icon containers get light treatment */
+  body.light-theme [class*="bg-slate-700"][class*="rounded"] { background:#E5E5E5 !important; }
+  body.light-theme [class*="bg-slate-800"][class*="rounded"] { background:#F3F2F2 !important; }
+
+  /* ▸ ADDITIONAL BORDER OVERRIDES ────────────────── */
+  body.light-theme [style*="border-bottom:1px solid #1e293b"] { border-bottom-color:#DDDBDA !important; }
+  body.light-theme [style*="border-top:1px solid #334155"] { border-top-color:#DDDBDA !important; }
+  body.light-theme [style*="border-left:3px solid"] { border-left-color:inherit; }
+  body.light-theme [style*="border-right:1px solid #334155"] { border-right-color:#DDDBDA !important; }
+  /* Border with rgba dark */
+  body.light-theme [style*="border:1px solid rgba(148,163,184"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(100,116,139"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(71,85,105"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:1px solid rgba(51,65,85"] { border-color:#DDDBDA !important; }
+  body.light-theme [style*="border:2px solid rgba(99,102,241"] { border-color:#0176D3 !important; }
+
+  /* ▸ INDIGO ACCENT BACKGROUNDS — shift to Salesforce blue */
+  body.light-theme [style*="background:rgba(99,102,241,0.06)"] { background:rgba(1,118,211,0.04) !important; }
+  body.light-theme [style*="background:rgba(99,102,241,0.04)"] { background:rgba(1,118,211,0.03) !important; }
+  body.light-theme [style*="background:#312e81"] { background:rgba(1,118,211,0.08) !important; }
+
+  /* ▸ EMBER TEXT STYLING IN ICONS ─────────────────── */
+  /* Emoji/icon font size elements inside dark containers — ensure proper color */
+  body.light-theme [style*="font-size:1"] { color:inherit !important; }
+  body.light-theme [style*="font-size:2"] { color:inherit !important; }
+
   /* ▸ MOBILE RESPONSIVE ──────────────────────────── */
   @media (max-width: 768px) {
     body.light-theme .nav-links { background:#FFFFFF !important;border-bottom-color:#DDDBDA !important; }
@@ -704,16 +851,48 @@ function applyTheme(theme) {
   document.body.classList.toggle('light-theme', theme === 'light');
   var track = document.getElementById('themeToggle');
   if (track) track.classList.toggle('light', theme === 'light');
-  // Fix inline styles on dynamic content
   if (theme === 'light') _patchInlineStyles();
+  else _restoreInlineHovers();
 }
 function toggleTheme() {
   applyTheme(_currentTheme === 'dark' ? 'light' : 'dark');
 }
 function _patchInlineStyles() {
-  // CSS-only approach: no inline mutations to avoid dark-mode revert issues.
-  // We only need to add a data attribute for the MutationObserver to re-trigger CSS.
+  // Trigger CSS re-evaluation
   document.body.setAttribute('data-theme-ts', Date.now());
+  // Fix onmouseover/onmouseout inline handlers that set dark hover colors
+  var darkHoverMap = {
+    '#0f172a':'#F3F2F2','#1e293b':'#F3F2F2','#334155':'#F3F2F2',
+    '#0f172aee':'#F3F2F2','#312e81':'rgba(1,118,211,0.1)','#1e1b4b':'rgba(1,118,211,0.06)',
+    "'#0f172a'":"'#F3F2F2'","'#1e293b'":"'#F3F2F2'","'#334155'":"'#F3F2F2'",
+    "'#312e81'":"'rgba(1,118,211,0.1)'","'#1e1b4b'":"'rgba(1,118,211,0.06)'"
+  };
+  var darkTextMap = {
+    "'#e2e8f0'":"'#181818'","'#94a3b8'":"'#706E6B'","'#334155'":"'#DDDBDA'","'#1e293b'":"'#DDDBDA'"
+  };
+  document.querySelectorAll('[onmouseover]').forEach(function(el) {
+    if (!el._origMouseOver) {
+      el._origMouseOver = el.getAttribute('onmouseover');
+      el._origMouseOut = el.getAttribute('onmouseout');
+    }
+    if (_currentTheme === 'light') {
+      var ov = el._origMouseOver || '';
+      var ou = el._origMouseOut || '';
+      for (var dk in darkHoverMap) { ov = ov.split(dk).join(darkHoverMap[dk]); ou = ou.split(dk).join(darkHoverMap[dk]); }
+      for (var dt in darkTextMap) { ov = ov.split(dt).join(darkTextMap[dt]); ou = ou.split(dt).join(darkTextMap[dt]); }
+      el.setAttribute('onmouseover', ov);
+      el.setAttribute('onmouseout', ou);
+    } else {
+      if (el._origMouseOver) el.setAttribute('onmouseover', el._origMouseOver);
+      if (el._origMouseOut) el.setAttribute('onmouseout', el._origMouseOut);
+    }
+  });
+}
+function _restoreInlineHovers() {
+  document.querySelectorAll('[onmouseover]').forEach(function(el) {
+    if (el._origMouseOver) el.setAttribute('onmouseover', el._origMouseOver);
+    if (el._origMouseOut) el.setAttribute('onmouseout', el._origMouseOut);
+  });
 }
 // Apply saved theme on load
 document.addEventListener('DOMContentLoaded', function() { applyTheme(_currentTheme); });

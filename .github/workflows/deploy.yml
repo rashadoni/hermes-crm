@@ -99,6 +99,9 @@ jobs:
             SMTP_PASS=dcbwjuomvjpjsrtv
             SMTP_FROM=rashadrahimsoy@gmail.com
             SMTP_EOF
+            # Force correct BASE_URL (migrated from hermescrm.xyz)
+            sed -i '/^BASE_URL/d' .env
+            echo "BASE_URL=https://leaddrivecrm.org" >> .env
             # Twilio SMS settings
             sed -i '/^TWILIO_/d' .env
             echo "TWILIO_SID=ACf33431223261aecf78755c892baebd3d" >> .env

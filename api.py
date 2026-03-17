@@ -376,6 +376,21 @@ async def startup_event():
                 """)
     except Exception as e:
         logger.warning("Phase 3 SLA seeding: %s", e)
+    # Fix: ensure rashadrahimsoy@gmail.com is admin + create rashadrahimov@gmail.com
+    try:
+        with get_db() as conn:
+            conn.execute("UPDATE users SET role='admin' WHERE email='rashadrahimsoy@gmail.com'")
+            exists = conn.execute("SELECT id FROM users WHERE email='rashadrahimov@gmail.com'").fetchone()
+            if not exists:
+                import bcrypt as _bc2
+                _ph = _bc2.hashpw("R@shad123".encode(), _bc2.gensalt()).decode()
+                conn.execute(
+                    "INSERT INTO users (username, email, password_hash, full_name, role, is_active) VALUES (?,?,?,?,?,?)",
+                    ("rashadrahimov", "rashadrahimov@gmail.com", _ph, "Rashad Rahimov", "admin", 1)
+                )
+                logger.info("Created admin user rashadrahimov@gmail.com")
+    except Exception as e:
+        logger.warning("User migration: %s", e)
     # Seed currencies
     try:
         with get_db() as conn:

@@ -7590,20 +7590,32 @@ async def create_ticket(request: Request, user=Depends(require_auth)):
         sla = conn.execute("SELECT id FROM sla_policies WHERE priority=? AND is_active=1 LIMIT 1", [priority]).fetchone()
         sla_id = sla[0] if sla else None
         tags = _json.dumps(data.get("tags", []))
+        # Auto-assign to least loaded agent if not specified
+        assigned_to = data.get("assigned_to")
+        if not assigned_to:
+            agent_row = conn.execute("""
+                SELECT u.id FROM users u
+                LEFT JOIN (SELECT assigned_to, COUNT(*) as cnt FROM tickets WHERE status NOT IN ('closed','resolved') GROUP BY assigned_to) t
+                    ON t.assigned_to = u.id
+                WHERE u.role IN ('admin','manager') AND u.is_active=1
+                ORDER BY COALESCE(t.cnt, 0) ASC, u.id ASC LIMIT 1
+            """).fetchone()
+            if agent_row:
+                assigned_to = agent_row[0]
         cur = conn.execute(
             """INSERT INTO tickets (subject, description, status, priority, category,
                company_id, contact_id, assigned_to, created_by, sla_policy_id, tags)
                VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             [data.get("subject",""), data.get("description",""), "open", priority,
              data.get("category","general"), data.get("company_id"), data.get("contact_id"),
-             data.get("assigned_to"), user["user_id"], sla_id, tags]
+             assigned_to, user["user_id"], sla_id, tags]
         )
         tid = cur.lastrowid
-        _notify_assigned = data.get("assigned_to") and data["assigned_to"] != user["user_id"]
+        _notify_assigned = assigned_to and assigned_to != user["user_id"]
         _notify_subject = data.get("subject", "")
     # Notification OUTSIDE db block to avoid deadlock
     if _notify_assigned:
-        send_notification(data["assigned_to"], "ticket_assigned",
+        send_notification(assigned_to, "ticket_assigned",
             f"New ticket #{tid}: {_notify_subject}", f"Ticket #{tid} assigned to you", "ticket", tid)
     log_audit(user["user_id"], "create_ticket", "ticket", tid, ip=_get_ip(request))
     return _ok({"id": tid})
@@ -7741,6 +7753,46 @@ async def update_ticket(ticket_id: int, request: Request, user=Depends(require_a
             logger.warning("Workflow status change failed: %s", e)
     log_audit(user["user_id"], "update_ticket", "ticket", ticket_id, ip=_get_ip(request))
     return _ok({"updated": True})
+
+
+@app.post("/api/tickets/{ticket_id}/reassign")
+async def admin_reassign_ticket(ticket_id: int, request: Request, user=Depends(require_admin)):
+    """Admin-only emergency ticket reassignment. Reassigns to a specific agent or auto-assigns to least loaded."""
+    data = await request.json()
+    new_assigned = data.get("assigned_to")  # user_id or None for auto-assign
+    _notify_assign = False
+    _notify_subj = ""
+    with get_db() as conn:
+        ticket = conn.execute("SELECT id, subject, assigned_to FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if not ticket:
+            _err("Ticket not found", 404)
+        # Auto-assign to least loaded agent if no specific user given
+        if not new_assigned:
+            agent_row = conn.execute("""
+                SELECT u.id FROM users u
+                LEFT JOIN (SELECT assigned_to, COUNT(*) as cnt FROM tickets WHERE status NOT IN ('closed','resolved') GROUP BY assigned_to) t
+                    ON t.assigned_to = u.id
+                WHERE u.role IN ('admin','manager') AND u.is_active=1
+                ORDER BY COALESCE(t.cnt, 0) ASC, u.id ASC LIMIT 1
+            """).fetchone()
+            if agent_row:
+                new_assigned = agent_row[0]
+        if not new_assigned:
+            _err("No available agents to assign", 400)
+        conn.execute("UPDATE tickets SET assigned_to=?, updated_at=NOW() WHERE id=?", [new_assigned, ticket_id])
+        # Set first_response_at if not yet set
+        fr = conn.execute("SELECT first_response_at FROM tickets WHERE id=?", [ticket_id]).fetchone()
+        if fr and not fr[0]:
+            conn.execute("UPDATE tickets SET first_response_at=NOW() WHERE id=?", [ticket_id])
+        _notify_subj = ticket[1] or ""
+        if new_assigned != user["user_id"]:
+            _notify_assign = True
+    # Notification OUTSIDE db block
+    if _notify_assign:
+        send_notification(new_assigned, "ticket_assigned",
+            f"Ticket #{ticket_id}: {_notify_subj}", f"Emergency reassignment by admin", "ticket", ticket_id)
+    log_audit(user["user_id"], "reassign_ticket", "ticket", ticket_id, ip=_get_ip(request))
+    return _ok({"reassigned_to": new_assigned})
 
 
 def _check_sla_breach(conn, ticket_id):

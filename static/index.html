@@ -15616,8 +15616,46 @@ async function showTicketDetail(ticketId) {
         ${['open','in_progress','waiting','resolved','closed'].map(s=>'<option value="'+s+'" '+(s===tk.status?'selected':'')+'>'+( statusLabels[s]||s)+'</option>').join('')}
       </select>
       <button class="btn btn-primary btn-sm" onclick="updateTicketStatus(${tk.id})">${_t('Update Status','Обновить статус','Statusu yenilə')}</button>
+      ${currentUser && currentUser.role === 'admin' ? `
+        <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
+          <select id="tkReassignTo" class="form-input" style="width:auto;font-size:12px;"></select>
+          <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);font-size:12px" onclick="adminReassignTicket(${tk.id})">🔄 ${_t('Reassign','Переназначить','Yenidən təyin et')}</button>
+          <button class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);font-size:12px" onclick="adminAutoReassignTicket(${tk.id})">⚡ ${_t('Auto','Авто','Avto')}</button>
+        </div>
+        <script>
+          (async()=>{
+            const {data:users} = await api.get('/api/users');
+            const sel = document.getElementById('tkReassignTo');
+            if(sel){
+              sel.innerHTML = '<option value="">${_t('— Select agent —','— Выберите агента —','— Agent seçin —')}</option>';
+              (users||[]).filter(u=>u.is_active&&(u.role==='admin'||u.role==='manager')).forEach(u=>{
+                sel.innerHTML += '<option value="'+u.id+'" '+(u.id===${tk.assigned_to||0}?'selected':'')+'>'+u.full_name+'</option>';
+              });
+            }
+          })();
+        </script>
+      ` : ''}
     </div>
   `);
+}
+
+async function adminReassignTicket(ticketId) {
+  const sel = document.getElementById('tkReassignTo');
+  const userId = sel ? parseInt(sel.value) : null;
+  if (!userId) { showToast(t('select_user_first') || 'Select an agent first', 'error'); return; }
+  try {
+    await api.post('/api/tickets/' + ticketId + '/reassign', { assigned_to: userId });
+    showToast(t('ticket_reassigned') || 'Ticket reassigned', 'success');
+    showTicketDetail(ticketId);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function adminAutoReassignTicket(ticketId) {
+  try {
+    await api.post('/api/tickets/' + ticketId + '/reassign', {});
+    showToast(t('ticket_auto_reassigned') || 'Ticket auto-assigned to least loaded agent', 'success');
+    showTicketDetail(ticketId);
+  } catch(e) { showToast(e.message, 'error'); }
 }
 
 async function addTicketComment(ticketId, isInternal) {

@@ -15622,21 +15622,23 @@ async function showTicketDetail(ticketId) {
           <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);font-size:12px" onclick="adminReassignTicket(${tk.id})">🔄 ${_t('Reassign','Переназначить','Yenidən təyin et')}</button>
           <button class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);font-size:12px" onclick="adminAutoReassignTicket(${tk.id})">⚡ ${_t('Auto','Авто','Avto')}</button>
         </div>
-        <script>
-          (async()=>{
-            const {data:users} = await api.get('/api/users');
-            const sel = document.getElementById('tkReassignTo');
-            if(sel){
-              sel.innerHTML = '<option value="">${_t('— Select agent —','— Выберите агента —','— Agent seçin —')}</option>';
-              (users||[]).filter(u=>u.is_active&&(u.role==='admin'||u.role==='manager')).forEach(u=>{
-                sel.innerHTML += '<option value="'+u.id+'" '+(u.id===${tk.assigned_to||0}?'selected':'')+'>'+u.full_name+'</option>';
-              });
-            }
-          })();
-        </script>
       ` : ''}
     </div>
   `);
+  // Load agent dropdown for admin reassignment
+  if (currentUser && currentUser.role === 'admin') {
+    try {
+      const {data:users} = await api.get('/api/users');
+      const sel = document.getElementById('tkReassignTo');
+      if (sel) {
+        const _t2 = (en,ru,az) => currentLang==='ru'?ru:currentLang==='az'?az:en;
+        sel.innerHTML = '<option value="">' + _t2('— Select agent —','— Выберите агента —','— Agent seçin —') + '</option>';
+        (users||[]).filter(u => u.is_active && (u.role==='admin'||u.role==='manager')).forEach(u => {
+          sel.innerHTML += '<option value="'+u.id+'" '+(u.id===(tk.assigned_to||0)?'selected':'')+'>'+u.full_name+'</option>';
+        });
+      }
+    } catch(e) {}
+  }
 }
 
 async function adminReassignTicket(ticketId) {

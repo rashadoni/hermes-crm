@@ -247,6 +247,8 @@
   body.light-theme input::placeholder,
   body.light-theme textarea::placeholder { color:#939393 !important; }
   body.light-theme input[type="checkbox"] { accent-color:#0176D3 !important; }
+  body.light-theme [style*="accent-color:#6366f1"] { accent-color:#0176D3 !important; }
+  body.light-theme [style*="accent-color:#8b5cf6"] { accent-color:#7C3AED !important; }
 
   /* ▸ BUTTONS ────────────────────────────────────── */
   body.light-theme .btn-primary { background:#0176D3 !important;color:#FFFFFF !important; }
@@ -531,6 +533,12 @@
   body.light-theme .text-slate-200 { color:#181818 !important; }
   body.light-theme .text-slate-100 { color:#181818 !important; }
   body.light-theme .text-white { color:#181818 !important; }
+  /* Keep white text on buttons and solid color backgrounds */
+  body.light-theme .btn-primary .text-white,
+  body.light-theme .bg-indigo-600 .text-white,
+  body.light-theme button.bg-indigo-600.text-white,
+  body.light-theme [style*="background:#0176D3"] .text-white,
+  body.light-theme [style*="background:#2E844A"] .text-white { color:#FFFFFF !important; }
   body.light-theme .text-gray-400 { color:#706E6B !important; }
   body.light-theme .text-gray-300 { color:#3E3E3C !important; }
   body.light-theme .text-emerald-400 { color:#2E844A !important; }
@@ -559,6 +567,38 @@
   body.light-theme [style*="background:#334155"][style*="border-radius"] { background:#F3F2F2 !important;color:#3E3E3C !important; }
   body.light-theme [style*="background:#475569"][style*="border-radius"] { background:#ECEBEA !important;color:#3E3E3C !important; }
   body.light-theme [style*="background:#1e293b"][style*="border-radius"] { background:#EBF5FF !important;color:#0176D3 !important; }
+
+  /* ▸ OFFER STATUS BADGES — pastel style like Nurturing ── */
+  body.light-theme .bg-slate-600.rounded { background:#F3F2F2 !important;color:#706E6B !important; }
+  body.light-theme .bg-blue-600.rounded { background:#EBF5FF !important;color:#0176D3 !important; }
+  body.light-theme .bg-green-600.rounded { background:#E8F5E9 !important;color:#2E844A !important; }
+  body.light-theme .bg-red-600.rounded { background:#FEE2E2 !important;color:#C23030 !important; }
+  body.light-theme span.bg-slate-600 { background:#F3F2F2 !important;color:#706E6B !important; }
+  body.light-theme span.bg-blue-600 { background:#EBF5FF !important;color:#0176D3 !important; }
+  body.light-theme span.bg-green-600 { background:#E8F5E9 !important;color:#2E844A !important; }
+  body.light-theme span.bg-red-600 { background:#FEE2E2 !important;color:#C23030 !important; }
+  /* General colored bg badges → pastel in light mode */
+  body.light-theme .bg-blue-600 { background:#0176D3 !important; }
+  body.light-theme .bg-green-600 { background:#2E844A !important; }
+  body.light-theme .bg-red-600 { background:#C23030 !important; }
+  body.light-theme .bg-yellow-600 { background:#CA8A04 !important; }
+  body.light-theme .bg-purple-600 { background:#7C3AED !important; }
+  /* Gradient stat cards (nurturing-style) */
+  body.light-theme .from-blue-500\/20 { --tw-gradient-from:rgba(1,118,211,0.12) !important; }
+  body.light-theme .to-blue-600\/5 { --tw-gradient-to:rgba(1,118,211,0.03) !important; }
+  body.light-theme .from-green-500\/20 { --tw-gradient-from:rgba(46,132,74,0.12) !important; }
+  body.light-theme .to-green-600\/5 { --tw-gradient-to:rgba(46,132,74,0.03) !important; }
+  body.light-theme .from-amber-500\/20 { --tw-gradient-from:rgba(202,138,4,0.12) !important; }
+  body.light-theme .to-amber-600\/5 { --tw-gradient-to:rgba(202,138,4,0.03) !important; }
+  body.light-theme .from-red-500\/20 { --tw-gradient-from:rgba(194,48,48,0.12) !important; }
+  body.light-theme .to-red-600\/5 { --tw-gradient-to:rgba(194,48,48,0.03) !important; }
+  body.light-theme .from-purple-500\/20 { --tw-gradient-from:rgba(124,58,237,0.12) !important; }
+  body.light-theme .to-purple-600\/5 { --tw-gradient-to:rgba(124,58,237,0.03) !important; }
+  body.light-theme .border-blue-500\/20 { border-color:rgba(1,118,211,0.2) !important; }
+  body.light-theme .border-green-500\/20 { border-color:rgba(46,132,74,0.2) !important; }
+  body.light-theme .border-amber-500\/20 { border-color:rgba(202,138,4,0.2) !important; }
+  body.light-theme .border-red-500\/20 { border-color:rgba(194,48,48,0.2) !important; }
+  body.light-theme .border-purple-500\/20 { border-color:rgba(124,58,237,0.2) !important; }
 
   /* ▸ ADDITIONAL TAILWIND CLASS OVERRIDES ──────────── */
   /* Slate-700 backgrounds (activity icons, toggles, inputs) */
@@ -702,10 +742,24 @@
   body.light-theme [style*="background:rgba(99,102,241,0.04)"] { background:rgba(1,118,211,0.03) !important; }
   body.light-theme [style*="background:#312e81"] { background:rgba(1,118,211,0.08) !important; }
 
-  /* ▸ EMBER TEXT STYLING IN ICONS ─────────────────── */
-  /* Emoji/icon font size elements inside dark containers — ensure proper color */
-  body.light-theme [style*="font-size:1"] { color:inherit !important; }
-  body.light-theme [style*="font-size:2"] { color:inherit !important; }
+  /* ▸ GRADIENT ICON CONTAINERS → Salesforce style ── */
+  body.light-theme [style*="linear-gradient(135deg,#6366f1,#8b5cf6)"] { background:linear-gradient(135deg,#0176D3,#0B5CAB) !important; }
+  body.light-theme [style*="linear-gradient(135deg, #6366f1, #8b5cf6)"] { background:linear-gradient(135deg,#0176D3,#0B5CAB) !important; }
+  body.light-theme [style*="linear-gradient(135deg,#ec4899,#f43f5e)"] { background:linear-gradient(135deg,#E8006D,#C23030) !important; }
+  body.light-theme [style*="linear-gradient(135deg, #ec4899, #f43f5e)"] { background:linear-gradient(135deg,#E8006D,#C23030) !important; }
+  body.light-theme [style*="linear-gradient(135deg,#1e40af,#3b82f6)"] { background:linear-gradient(135deg,#0176D3,#47A3F3) !important; }
+  body.light-theme [style*="linear-gradient(135deg, #1e40af, #3b82f6)"] { background:linear-gradient(135deg,#0176D3,#47A3F3) !important; }
+  body.light-theme [style*="linear-gradient(135deg,#065f46,#10b981)"] { background:linear-gradient(135deg,#1B5E20,#2E844A) !important; }
+  body.light-theme [style*="linear-gradient(135deg, #065f46, #10b981)"] { background:linear-gradient(135deg,#1B5E20,#2E844A) !important; }
+  body.light-theme [style*="linear-gradient(135deg,#92400e,#f59e0b)"] { background:linear-gradient(135deg,#CA8A04,#F59E0B) !important; }
+  body.light-theme [style*="linear-gradient(135deg, #92400e, #f59e0b)"] { background:linear-gradient(135deg,#CA8A04,#F59E0B) !important; }
+  /* Hex suffix color backgrounds (e.g. #8b5cf622) — used for icon circles */
+  body.light-theme [style*="background:#8b5cf622"] { background:rgba(124,58,237,0.1) !important; }
+  body.light-theme [style*="background:#8b5cf615"] { background:rgba(124,58,237,0.08) !important; }
+  body.light-theme [style*="background:#3b82f615"] { background:rgba(1,118,211,0.08) !important; }
+  body.light-theme [style*="background:#f59e0b15"] { background:rgba(202,138,4,0.08) !important; }
+  body.light-theme [style*="background:#ef444415"] { background:rgba(194,48,48,0.08) !important; }
+  body.light-theme [style*="background:#22c55e15"] { background:rgba(46,132,74,0.08) !important; }
 
   /* ▸ MOBILE RESPONSIVE ──────────────────────────── */
   @media (max-width: 768px) {
@@ -862,13 +916,22 @@ function _patchInlineStyles() {
   document.body.setAttribute('data-theme-ts', Date.now());
   // Fix onmouseover/onmouseout inline handlers that set dark hover colors
   var darkHoverMap = {
-    '#0f172a':'#F3F2F2','#1e293b':'#F3F2F2','#334155':'#F3F2F2',
-    '#0f172aee':'#F3F2F2','#312e81':'rgba(1,118,211,0.1)','#1e1b4b':'rgba(1,118,211,0.06)',
     "'#0f172a'":"'#F3F2F2'","'#1e293b'":"'#F3F2F2'","'#334155'":"'#F3F2F2'",
-    "'#312e81'":"'rgba(1,118,211,0.1)'","'#1e1b4b'":"'rgba(1,118,211,0.06)'"
+    "'#0f172aee'":"'#F3F2F2'","'#312e81'":"'rgba(1,118,211,0.1)'","'#1e1b4b'":"'rgba(1,118,211,0.06)'",
+    "'#4338ca'":"'rgba(1,118,211,0.15)'","'#6366f1'":"'#0176D3'",
+    "'#5c1010'":"'#FEE2E2'","'#7f1d1d'":"'#FEE2E2'",
+    "'#6366f115'":"'rgba(1,118,211,0.08)'","'#6366f120'":"'rgba(1,118,211,0.12)'",
+    "'#6366f112'":"'rgba(1,118,211,0.06)'","'#10b98115'":"'rgba(46,132,74,0.08)'",
+    "'#8b5cf608'":"'rgba(124,58,237,0.06)'"
   };
   var darkTextMap = {
-    "'#e2e8f0'":"'#181818'","'#94a3b8'":"'#706E6B'","'#334155'":"'#DDDBDA'","'#1e293b'":"'#DDDBDA'"
+    "'#e2e8f0'":"'#181818'","'#94a3b8'":"'#706E6B'","'#cbd5e1'":"'#3E3E3C'",
+    "'#f59e0b'":"'#CA8A04'","'#334155'":"'#DDDBDA'","'#1e293b'":"'#DDDBDA'",
+    "'#fff'":"'#181818'","'#8b5cf6'":"'#7C3AED'"
+  };
+  var darkBorderMap = {
+    "'#1e293b'":"'#DDDBDA'","'#334155'":"'#DDDBDA'","'#475569'":"'#DDDBDA'",
+    "'#6366f1'":"'#0176D3'","'rgba(139,92,246,0.25)'":"'rgba(1,118,211,0.25)'"
   };
   document.querySelectorAll('[onmouseover]').forEach(function(el) {
     if (!el._origMouseOver) {
@@ -880,6 +943,7 @@ function _patchInlineStyles() {
       var ou = el._origMouseOut || '';
       for (var dk in darkHoverMap) { ov = ov.split(dk).join(darkHoverMap[dk]); ou = ou.split(dk).join(darkHoverMap[dk]); }
       for (var dt in darkTextMap) { ov = ov.split(dt).join(darkTextMap[dt]); ou = ou.split(dt).join(darkTextMap[dt]); }
+      for (var db in darkBorderMap) { ov = ov.split(db).join(darkBorderMap[db]); ou = ou.split(db).join(darkBorderMap[db]); }
       el.setAttribute('onmouseover', ov);
       el.setAttribute('onmouseout', ou);
     } else {
@@ -16487,11 +16551,11 @@ function showCampaignDetail(id) {
           <div id="campDetailList" style="max-height:200px;overflow-y:auto;border:1px solid #334155;border-radius:8px;padding:4px;"></div>
         </div>
       </div>
-      <div class="flex gap-2 mt-4">
-        <button class="btn flex-1" onclick="updateCampaignDraft(${id})" style="background:#4338ca;color:white;">${t('common_save')}</button>
-        <button class="btn btn-primary flex-1" onclick="sendCampaign(${id})">${t('campaign_send_btn')}</button>
-        <button class="btn btn-danger flex-1" onclick="deleteCampaign(${id})" style="background:#7f1d1d">${t('common_delete')}</button>
-        <button class="btn btn-secondary flex-1" onclick="closeModal()">${t('common_cancel')}</button>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap;">
+        <button onclick="closeModal()" style="padding:8px 16px;border-radius:8px;border:1px solid #DDDBDA;background:transparent;color:#706E6B;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background=_currentTheme==='light'?'#F3F2F2':'#334155'" onmouseout="this.style.background='transparent'">${t('common_cancel')}</button>
+        <button onclick="deleteCampaign(${id})" style="padding:8px 16px;border-radius:8px;border:1px solid #C23030;background:transparent;color:#C23030;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#FEE2E2'" onmouseout="this.style.background='transparent'">${t('common_delete')}</button>
+        <button onclick="updateCampaignDraft(${id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0176D3;color:white;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#014486'" onmouseout="this.style.background='#0176D3'">${t('common_save')}</button>
+        <button onclick="sendCampaign(${id})" style="padding:8px 16px;border-radius:8px;border:none;background:#2E844A;color:white;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#1B5E20'" onmouseout="this.style.background='#2E844A'">${t('campaign_send_btn')}</button>
       </div>
     `);
     // Load recipients for editing

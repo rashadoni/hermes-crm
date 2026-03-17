@@ -21118,7 +21118,7 @@ async function onLeadDrop(e, newStatus) {
             });
             if (!journeys.length) h += '<div style="padding:40px;text-align:center;color:#64748b;background:#0f172a;border-radius:12px">Нет путей. Нажмите "+ Создать путь"</div>';
             h += '</div>';
-            document.getElementById('jbRoot').innerHTML = h;
+            document.getElementById('jbRoot').innerHTML = (document.body.classList.contains('light-theme') ? lightifyAI(h) : h);
         } catch(e) { document.getElementById('jbRoot').innerHTML = '<div style="color:#ef4444;padding:20px">Ошибка: '+e.message+'</div>'; }
     }
 
@@ -21126,14 +21126,19 @@ async function onLeadDrop(e, newStatus) {
         const o = document.createElement('div');
         o.id='journeyModal';
         o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        o.innerHTML=`<div style="background:#1e293b;border:1px solid rgba(139,92,246,0.3);border-radius:16px;padding:28px;width:520px">
-            <h3 style="color:#e2e8f0;margin:0 0 20px">🛤️ ${id?'Редактировать':'Создать'} путь</h3>
-            <label style="color:#94a3b8;font-size:13px">Название *</label>
-            <input id="jName" placeholder="Напр: Onboarding нового клиента" style="${_jbx.inp}">
-            <label style="color:#94a3b8;font-size:13px">Описание</label>
-            <textarea id="jDesc" rows="2" placeholder="Описание..." style="${_jbx.inp};resize:vertical"></textarea>
-            <label style="color:#94a3b8;font-size:13px">Триггер запуска</label>
-            <select id="jTrigger" style="${_jbx.inp}">
+        const _lt = document.body.classList.contains('light-theme');
+        const _mBg = _lt ? 'background:#fff;color:#1e293b' : 'background:#1e293b';
+        const _mInp = _lt ? _jbx.inp.replace('#0f172a','#f1f5f9').replace('#e2e8f0','#1e293b').replace('rgba(255,255,255,0.15)','#cbd5e1') : _jbx.inp;
+        const _mLbl = _lt ? 'color:#475569;font-size:13px' : 'color:#94a3b8;font-size:13px';
+        const _mH3 = _lt ? 'color:#1e293b;margin:0 0 20px' : 'color:#e2e8f0;margin:0 0 20px';
+        o.innerHTML=`<div style="${_mBg};border:1px solid rgba(139,92,246,0.3);border-radius:16px;padding:28px;width:520px">
+            <h3 style="${_mH3}">🛤️ ${id?'Редактировать':'Создать'} путь</h3>
+            <label style="${_mLbl}">Название *</label>
+            <input id="jName" placeholder="Напр: Onboarding нового клиента" style="${_mInp}">
+            <label style="${_mLbl}">Описание</label>
+            <textarea id="jDesc" rows="2" placeholder="Описание..." style="${_mInp};resize:vertical"></textarea>
+            <label style="${_mLbl}">Триггер запуска</label>
+            <select id="jTrigger" style="${_mInp}">
                 <option value="manual">🖐 Ручная регистрация</option>
                 <option value="lead_created">📥 Новый лид создан</option>
                 <option value="deal_stage_changed">🔄 Этап сделки изменился</option>
@@ -21161,7 +21166,8 @@ async function onLeadDrop(e, newStatus) {
     async function openJourneyDetail(journeyId) {
         const o=document.createElement('div');o.id='journeyDetailModal';
         o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
-        o.innerHTML='<div style="background:#1e293b;border-radius:16px;padding:28px;width:800px;max-height:85vh;overflow-y:auto;border:1px solid rgba(139,92,246,0.2)" id="journeyDetailContent"><div class="loading">Загрузка...</div></div>';
+        const _jbBg = document.body.classList.contains('light-theme') ? 'background:#ffffff;color:#1e293b' : 'background:#1e293b';
+        o.innerHTML='<div style="'+_jbBg+';border-radius:16px;padding:28px;width:800px;max-height:85vh;overflow-y:auto;border:1px solid rgba(139,92,246,0.2)" id="journeyDetailContent"><div class="loading">Загрузка...</div></div>';
         document.body.appendChild(o);
         o.addEventListener('click',e=>{if(e.target===o)o.remove();});
         try {
@@ -21238,7 +21244,7 @@ async function onLeadDrop(e, newStatus) {
             } else h+='<div style="color:#64748b;font-size:13px">Нет записанных лидов. Нажмите "Записать лида"</div>';
             h+='</div>';
 
-            document.getElementById('journeyDetailContent').innerHTML=h;
+            document.getElementById('journeyDetailContent').innerHTML=(document.body.classList.contains('light-theme') ? lightifyAI(h) : h);
         }catch(e){document.getElementById('journeyDetailContent').innerHTML='<div style="color:#ef4444">Ошибка: '+e.message+'</div>';}
     }
 
@@ -21246,7 +21252,8 @@ async function onLeadDrop(e, newStatus) {
     async function openEnrollModal(journeyId) {
         const o=document.createElement('div');o.id='enrollModal';
         o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center';
-        o.innerHTML=`<div style="background:#1e293b;border-radius:12px;padding:24px;width:520px;max-height:70vh;overflow-y:auto" id="enrollContent"><div class="loading">Загрузка лидов...</div></div>`;
+        const _enBg = document.body.classList.contains('light-theme') ? 'background:#fff;color:#1e293b' : 'background:#1e293b';
+        o.innerHTML=`<div style="${_enBg};border-radius:12px;padding:24px;width:520px;max-height:70vh;overflow-y:auto" id="enrollContent"><div class="loading">Загрузка лидов...</div></div>`;
         document.body.appendChild(o);
         o.addEventListener('click',e=>{if(e.target===o)o.remove();});
         try{
@@ -21293,8 +21300,10 @@ async function onLeadDrop(e, newStatus) {
     function openAddStepModal(journeyId,stepOrder) {
         const m=document.createElement('div');m.id='addStepModal';
         m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center';
-        m.innerHTML=`<div style="background:#1e293b;border-radius:14px;padding:24px;width:560px;max-height:80vh;overflow-y:auto">
-            <h4 style="color:#e2e8f0;margin:0 0 16px">Добавить шаг #${stepOrder}</h4>
+        const _asBg = document.body.classList.contains('light-theme') ? 'background:#fff;color:#1e293b' : 'background:#1e293b';
+        const _asH4 = document.body.classList.contains('light-theme') ? 'color:#1e293b;margin:0 0 16px' : 'color:#e2e8f0;margin:0 0 16px';
+        m.innerHTML=`<div style="${_asBg};border-radius:14px;padding:24px;width:560px;max-height:80vh;overflow-y:auto">
+            <h4 style="${_asH4}">Добавить шаг #${stepOrder}</h4>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px" id="stepTypeGrid"></div>
             <div id="stepConfigFields" style="min-height:60px"></div>
             <div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end">
@@ -21432,7 +21441,9 @@ async function onLeadDrop(e, newStatus) {
             const val=config.duration_minutes||config.wait_days||1;const isMin=!!config.duration_minutes;
             fields+=`<label style="color:#94a3b8;font-size:12px">Длительность</label><div style="display:flex;gap:8px"><input id="editWaitVal" type="number" value="${val}" style="${_jbx.inp};flex:1"><select id="editWaitUnit" style="${_jbx.inp};flex:1"><option value="minutes" ${isMin?'selected':''}>Минут</option><option value="days" ${!isMin?'selected':''}>Дней</option></select></div>`;
         }else{fields=`<div style="color:#64748b;font-size:13px;padding:12px">Редактирование этого типа шага скоро</div>`;}
-        m.innerHTML=`<div style="background:#1e293b;border-radius:14px;padding:24px;width:520px"><h4 style="color:#e2e8f0;margin:0 0 16px">✏️ Редактировать шаг</h4>${fields}<div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end"><button onclick="document.getElementById('editStepModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Отмена</button><button onclick="updateJourneyStep(${stepId},${journeyId},'${stepType}')" style="${_jbx.btn('#8b5cf6')}">Сохранить</button></div></div>`;
+        const _esBg = document.body.classList.contains('light-theme') ? 'background:#fff;color:#1e293b' : 'background:#1e293b';
+        const _esH4 = document.body.classList.contains('light-theme') ? 'color:#1e293b;margin:0 0 16px' : 'color:#e2e8f0;margin:0 0 16px';
+        m.innerHTML=`<div style="${_esBg};border-radius:14px;padding:24px;width:520px"><h4 style="${_esH4}">✏️ Редактировать шаг</h4>${fields}<div style="display:flex;gap:12px;margin-top:16px;justify-content:flex-end"><button onclick="document.getElementById('editStepModal')?.remove()" style="${_jbx.btn('#334155','#e2e8f0')}">Отмена</button><button onclick="updateJourneyStep(${stepId},${journeyId},'${stepType}')" style="${_jbx.btn('#8b5cf6')}">Сохранить</button></div></div>`;
         document.body.appendChild(m);
         }catch(e){showToast('Ошибка: '+e.message,'error');}
     }

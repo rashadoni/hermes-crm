@@ -16453,6 +16453,7 @@ async function renderCampaigns(el) {
                 <div class="text-xs text-slate-500 mt-2">
                   <span style="color:${statusColors[c.status]||'#64748b'};font-weight:600">${statusLabels[c.status]||c.status}</span>
                   <span class="ml-3">📧 ${typeLabels[c.type]||c.type}</span>
+                  ${c.target_type==='segment' ? '<span class="ml-3">📊 ' + _t('Segment','Сегмент','Seqment') + '</span>' : ''}
                   <span class="ml-3">👥 ${c.total_recipients||0}</span>
                 </div>
               </div>
@@ -16474,6 +16475,7 @@ async function loadCampaignRecipientCount() {
   var targetType = document.getElementById('campTarget') ? document.getElementById('campTarget').value : 'all';
   var countEl = document.getElementById('campRecipientCount');
   if (!countEl) return;
+  if (targetType === 'segment') { /* count updated by onCampSegmentSelect */ return; }
   countEl.textContent = '...';
   try {
     var cResp = await api.get('/api/contacts?limit=1');
@@ -16517,9 +16519,17 @@ function showCreateCampaignModal() {
           <option value="all">${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
           <option value="contacts">${_t('Contacts only','Только контакты','Yalnız kontaktlar')}</option>
           <option value="leads">${_t('Leads only','Только лиды','Yalnız lidlər')}</option>
+          <option value="segment">📊 ${_t('By segment','По сегменту','Seqmentə görə')}</option>
           <option value="custom">${_t('Select manually','Выбрать вручную','Əl ilə seçin')}</option>
         </select>
         <div class="text-xs text-slate-500 mt-1">${_t('Will be sent to','Будет отправлено','Göndəriləcək')}: <span id="campRecipientCount" style="color:#6366f1;font-weight:600;">...</span> ${_t('recipients','получателям','alıcıya')}</div>
+      </div>
+      <div id="campSegmentPicker" style="display:none;">
+        <select id="campSegmentSelect" class="form-input w-full" onchange="onCampSegmentSelect('create')">
+          <option value="">${_t('— Select segment —','— Выберите сегмент —','— Seqment seçin —')}</option>
+        </select>
+        <div id="campSegmentInfo" style="margin-top:6px;"></div>
+        ${_hint('Send only to contacts matching this segment\'s filter conditions','Отправить только контактам, соответствующим условиям этого сегмента','Yalnız bu seqmentin filtr şərtlərinə uyğun kontaktlara göndərin')}
       </div>
       <div id="campCustomRecipients" style="display:none;">
         <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -16576,9 +16586,16 @@ function showCampaignDetail(id) {
             <option value="all" ${campaign.target_type==='all'?'selected':''}>${_t('All contacts + leads','Все контакты + лиды','Bütün kontaktlar + lidlər')}</option>
             <option value="contacts" ${campaign.target_type==='contacts'?'selected':''}>${_t('Contacts only','Только контакты','Yalnız kontaktlar')}</option>
             <option value="leads" ${campaign.target_type==='leads'?'selected':''}>${_t('Leads only','Только лиды','Yalnız lidlər')}</option>
+            <option value="segment" ${campaign.target_type==='segment'?'selected':''}>📊 ${_t('By segment','По сегменту','Seqmentə görə')}</option>
             <option value="custom" ${campaign.target_type==='custom'?'selected':''}>${_t('Select manually','Выбрать вручную','Əl ilə seçin')}</option>
           </select>
           <div class="text-xs text-slate-500 mt-1">${_t('Will be sent to','Будет отправлено','Göndəriləcək')}: <span id="campDetailCount" style="color:#6366f1;font-weight:600;">...</span> ${_t('recipients','получателям','alıcıya')}</div>
+        </div>
+        <div id="campDetailSegment" style="display:${campaign.target_type==='segment'?'block':'none'};">
+          <select id="campDetailSegmentSelect" class="form-input w-full" onchange="onCampSegmentSelect('detail')">
+            <option value="">${_t('— Select segment —','— Выберите сегмент —','— Seqment seçin —')}</option>
+          </select>
+          <div id="campDetailSegmentInfo" style="margin-top:6px;"></div>
         </div>
         <div id="campDetailCustom" style="display:${campaign.target_type==='custom'?'block':'none'};">
           <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -16600,6 +16617,19 @@ function showCampaignDetail(id) {
     {
       loadAllCampaignRecipients('detail');
       loadCampDetailCount();
+      // If segment, load segments and pre-select
+      if (campaign.target_type === 'segment') {
+        loadCampSegments('detail').then(() => {
+          try {
+            var filter = typeof campaign.target_filter === 'string' ? JSON.parse(campaign.target_filter) : campaign.target_filter;
+            if (filter && filter.segment_id) {
+              var sel = document.getElementById('campDetailSegmentSelect');
+              if (sel) sel.value = filter.segment_id;
+              onCampSegmentSelect('detail');
+            }
+          } catch(e) {}
+        });
+      }
       // If custom, pre-select saved recipients
       if (campaign.target_type === 'custom' && campaign.target_filter) {
         try {
@@ -16620,7 +16650,11 @@ async function saveNewCampaign() {
   if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
   var targetType = document.getElementById('campTarget')?.value||'all';
   var targetFilter = {};
-  if (targetType === 'custom') {
+  if (targetType === 'segment') {
+    var segId = document.getElementById('campSegmentSelect')?.value;
+    if (!segId) { showToast(_t('Select a segment','Выберите сегмент','Seqment seçin'),'error'); return; }
+    targetFilter = {segment_id: parseInt(segId)};
+  } else if (targetType === 'custom') {
     var checked = document.querySelectorAll('#campRecipientList input[type=checkbox]:checked');
     var selectedIds = Array.from(checked).map(c => ({type: c.dataset.rtype, id: parseInt(c.dataset.rid), email: c.dataset.email, name: c.dataset.rname}));
     if (selectedIds.length === 0) { showToast(_t('Select at least one recipient','Выберите хотя бы одного получателя','Ən azı bir alıcı seçin'),'error'); return; }
@@ -16752,8 +16786,12 @@ function updateCampCustomCount(mode) {
 function onCampTargetChange() {
   var val = document.getElementById('campTarget')?.value;
   var customDiv = document.getElementById('campCustomRecipients');
+  var segDiv = document.getElementById('campSegmentPicker');
   if (customDiv) customDiv.style.display = val === 'custom' ? 'block' : 'none';
-  if (val === 'custom') {
+  if (segDiv) segDiv.style.display = val === 'segment' ? 'block' : 'none';
+  if (val === 'segment') {
+    loadCampSegments('create');
+  } else if (val === 'custom') {
     updateCampCustomCount('create');
   } else {
     loadCampaignRecipientCount();
@@ -16763,11 +16801,81 @@ function onCampTargetChange() {
 function onCampDetailTargetChange() {
   var val = document.getElementById('campDetailTarget')?.value;
   var customDiv = document.getElementById('campDetailCustom');
+  var segDiv = document.getElementById('campDetailSegment');
   if (customDiv) customDiv.style.display = val === 'custom' ? 'block' : 'none';
-  if (val === 'custom') {
+  if (segDiv) segDiv.style.display = val === 'segment' ? 'block' : 'none';
+  if (val === 'segment') {
+    loadCampSegments('detail');
+  } else if (val === 'custom') {
     updateCampCustomCount('detail');
   } else {
     loadCampDetailCount();
+  }
+}
+
+// ─── Segment picker for campaigns ─────────────────────────
+async function loadCampSegments(mode) {
+  try {
+    var resp = await api.get('/api/contact-segments');
+    var segments = resp.data || resp || [];
+    var selId = mode === 'detail' ? 'campDetailSegmentSelect' : 'campSegmentSelect';
+    var sel = document.getElementById(selId);
+    if (!sel) return;
+    var L = currentLang;
+    var _t = function(en,ru,az) { return L==='ru'?ru:L==='az'?az:en; };
+    // Keep first placeholder option, remove rest
+    while (sel.options.length > 1) sel.remove(1);
+    segments.forEach(function(s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name + ' (' + (s.contact_count || 0) + ' ' + _t('contacts','контактов','kontakt') + ')';
+      if (s.is_dynamic) opt.textContent += ' ⚡';
+      sel.appendChild(opt);
+    });
+    if (segments.length === 0) {
+      var infoId = mode === 'detail' ? 'campDetailSegmentInfo' : 'campSegmentInfo';
+      var infoEl = document.getElementById(infoId);
+      if (infoEl) infoEl.innerHTML = '<div style="color:#f59e0b;font-size:12px;padding:6px 0;">⚠️ ' + _t('No segments. Create one in the Segments section first.','Нет сегментов. Сначала создайте в разделе Сегменты.','Seqment yoxdur. Əvvəlcə Seqmentlər bölməsində yaradın.') + ' <a href="#/segments" onclick="closeModal()" style="color:#6366f1;text-decoration:underline">' + _t('Go to Segments','Перейти к Сегментам','Seqmentlərə keç') + '</a></div>';
+    }
+  } catch(e) { console.error('loadCampSegments', e); }
+}
+
+async function onCampSegmentSelect(mode) {
+  var selId = mode === 'detail' ? 'campDetailSegmentSelect' : 'campSegmentSelect';
+  var infoId = mode === 'detail' ? 'campDetailSegmentInfo' : 'campSegmentInfo';
+  var countId = mode === 'detail' ? 'campDetailCount' : 'campRecipientCount';
+  var sel = document.getElementById(selId);
+  var infoEl = document.getElementById(infoId);
+  var countEl = document.getElementById(countId);
+  if (!sel || !sel.value) {
+    if (infoEl) infoEl.innerHTML = '';
+    if (countEl) countEl.textContent = '0';
+    return;
+  }
+  try {
+    var L = currentLang;
+    var _t = function(en,ru,az) { return L==='ru'?ru:L==='az'?az:en; };
+    var resp = await api.get('/api/contact-segments/' + sel.value);
+    var seg = resp.data || resp;
+    var contacts = seg.contacts || [];
+    if (countEl) countEl.textContent = contacts.length;
+    if (infoEl) {
+      var condStr = '';
+      try {
+        var conds = typeof seg.conditions === 'string' ? JSON.parse(seg.conditions) : seg.conditions;
+        if (conds && conds.field) condStr = _t('Filter','Фильтр','Filtr') + ': ' + conds.field + ' ' + (conds.operator||'') + ' ' + (conds.value||'');
+        if (conds && conds.rules) condStr = _t('Rules','Правила','Qaydalar') + ': ' + conds.rules.length;
+      } catch(e) {}
+      infoEl.innerHTML = '<div style="font-size:12px;padding:8px 12px;border-radius:8px;background:' + (_currentTheme==='light'?'#EBF5FF':'#1e293b') + ';border:1px solid ' + (_currentTheme==='light'?'#DDDBDA':'#334155') + ';">' +
+        '<div style="font-weight:600;color:' + (_currentTheme==='light'?'#0176D3':'#818cf8') + ';">📊 ' + esc(seg.name||'') + '</div>' +
+        '<div style="color:' + (_currentTheme==='light'?'#706E6B':'#94a3b8') + ';margin-top:2px;">' + (seg.description||'') + '</div>' +
+        '<div style="margin-top:4px;color:' + (_currentTheme==='light'?'#181818':'#e2e8f0') + ';font-weight:600;">👥 ' + contacts.length + ' ' + _t('matching contacts with email','контактов с email','e-poçtu olan kontakt') + '</div>' +
+        (condStr ? '<div style="color:' + (_currentTheme==='light'?'#706E6B':'#64748b') + ';font-size:11px;margin-top:2px;">' + condStr + '</div>' : '') +
+        (seg.is_dynamic ? '<div style="color:#f59e0b;font-size:11px;margin-top:2px;">⚡ ' + _t('Dynamic — auto-updates','Динамический — обновляется автоматически','Dinamik — avtomatik yenilənir') + '</div>' : '') +
+        '</div>';
+    }
+  } catch(e) {
+    if (infoEl) infoEl.innerHTML = '<div style="color:#ef4444;font-size:12px;">Error loading segment</div>';
   }
 }
 
@@ -16775,6 +16883,7 @@ async function loadCampDetailCount() {
   var targetType = document.getElementById('campDetailTarget')?.value || 'all';
   var countEl = document.getElementById('campDetailCount');
   if (!countEl) return;
+  if (targetType === 'segment') { /* count updated by onCampSegmentSelect */ return; }
   if (targetType === 'custom') { updateCampCustomCount('detail'); return; }
   countEl.textContent = '...';
   try {
@@ -16795,7 +16904,11 @@ async function updateCampaignDraft(id) {
   if (!name) { showToast(_t('Name required','Название обязательно','Ad tələb olunur'),'error'); return; }
   var targetType = document.getElementById('campDetailTarget')?.value || 'all';
   var targetFilter = {};
-  if (targetType === 'custom') {
+  if (targetType === 'segment') {
+    var segId = document.getElementById('campDetailSegmentSelect')?.value;
+    if (!segId) { showToast(_t('Select a segment','Выберите сегмент','Seqment seçin'),'error'); return; }
+    targetFilter = {segment_id: parseInt(segId)};
+  } else if (targetType === 'custom') {
     var checked = document.querySelectorAll('#campDetailList input[type=checkbox]:checked');
     var selectedIds = Array.from(checked).map(c => ({type: c.dataset.rtype, id: parseInt(c.dataset.rid), email: c.dataset.email, name: c.dataset.rname}));
     if (selectedIds.length === 0) { showToast(_t('Select at least one recipient','Выберите хотя бы одного получателя','Ən azı bir alıcı seçin'),'error'); return; }

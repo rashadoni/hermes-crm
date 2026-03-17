@@ -8176,7 +8176,25 @@ async def send_campaign(campaign_id: int, request: Request, user=Depends(require
             target_type = campaign["target_type"] or "all"
             now = datetime.utcnow().isoformat() + "Z"
 
-            if target_type == "custom":
+            if target_type == "segment":
+                # Resolve recipients from a segment
+                try:
+                    tf = _json.loads(campaign["target_filter"]) if campaign["target_filter"] else {}
+                    seg_id = tf.get("segment_id")
+                    if seg_id:
+                        seg_row = conn.execute("SELECT conditions FROM contact_segments WHERE id=?", [seg_id]).fetchone()
+                        if seg_row:
+                            conditions = _json.loads(seg_row[0]) if seg_row[0] else {}
+                            seg_contacts = _evaluate_segment(conn, conditions)
+                            for sc in seg_contacts:
+                                if sc.get("email"):
+                                    conn.execute(
+                                        "INSERT INTO campaign_recipients (campaign_id, recipient_type, recipient_id, email, status, sent_at) VALUES (?,?,?,?,?,?)",
+                                        [campaign_id, "contact", sc["id"], sc["email"], "pending", now]
+                                    )
+                except Exception as e:
+                    logger.warning("Segment campaign resolve: %s", e)
+            elif target_type == "custom":
                 try:
                     tf = _json.loads(campaign["target_filter"]) if campaign["target_filter"] else {}
                     selected = tf.get("selected_ids", [])

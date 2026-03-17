@@ -422,6 +422,13 @@
   body.light-theme [style*="background:#78350f"] { background:#FFF8E1 !important; }
   body.light-theme [style*="background:#92400e"] { background:#FFF8E1 !important; }
 
+  /* Semi-transparent dark hex backgrounds (hex+alpha suffix) */
+  body.light-theme [style*="background:#0f172a80"] { background:rgba(243,242,242,0.5) !important; }
+  body.light-theme [style*="background:#0f172aee"] { background:#F3F2F2 !important; }
+  body.light-theme [style*="background:#1e293b80"] { background:rgba(255,255,255,0.5) !important; }
+  body.light-theme [style*="background:#33415580"] { background:rgba(243,242,242,0.5) !important; }
+  body.light-theme [style*="background:#0f172a40"] { background:rgba(243,242,242,0.3) !important; }
+
   /* RGBA dark backgrounds → light */
   body.light-theme [style*="background:rgba(15,23,42"] { background:rgba(243,242,242,0.5) !important; }
   body.light-theme [style*="background:rgba(30,41,59"] { background:#FFFFFF !important; }
@@ -941,16 +948,21 @@ function _patchInlineStyles() {
     "'#5c1010'":"'#FEE2E2'","'#7f1d1d'":"'#FEE2E2'",
     "'#6366f115'":"'rgba(1,118,211,0.08)'","'#6366f120'":"'rgba(1,118,211,0.12)'",
     "'#6366f112'":"'rgba(1,118,211,0.06)'","'#10b98115'":"'rgba(46,132,74,0.08)'",
-    "'#8b5cf608'":"'rgba(124,58,237,0.06)'"
+    "'#8b5cf608'":"'rgba(124,58,237,0.06)'",
+    "'#0f172a80'":"'rgba(243,242,242,0.5)'","'#0f172aee'":"'#F3F2F2'",
+    "'#475569'":"'#ECEBEA'"
   };
   var darkTextMap = {
-    "'#e2e8f0'":"'#181818'","'#94a3b8'":"'#706E6B'","'#cbd5e1'":"'#3E3E3C'",
+    "'#e2e8f0'":"'#181818'","'#f8fafc'":"'#181818'","'#f1f5f9'":"'#181818'",
+    "'#94a3b8'":"'#706E6B'","'#cbd5e1'":"'#3E3E3C'","'#64748b'":"'#706E6B'",
     "'#f59e0b'":"'#CA8A04'","'#334155'":"'#DDDBDA'","'#1e293b'":"'#DDDBDA'",
-    "'#fff'":"'#181818'","'#8b5cf6'":"'#7C3AED'"
+    "'#fff'":"'#181818'","'white'":"'#181818'","'#8b5cf6'":"'#7C3AED'",
+    "'#818cf8'":"'#0176D3'","'#a5b4fc'":"'#0176D3'","'#6366f1'":"'#0176D3'"
   };
   var darkBorderMap = {
     "'#1e293b'":"'#DDDBDA'","'#334155'":"'#DDDBDA'","'#475569'":"'#DDDBDA'",
-    "'#6366f1'":"'#0176D3'","'rgba(139,92,246,0.25)'":"'rgba(1,118,211,0.25)'"
+    "'#6366f1'":"'#0176D3'","'#4338ca'":"'#0176D3'",
+    "'rgba(139,92,246,0.25)'":"'rgba(1,118,211,0.25)'"
   };
   document.querySelectorAll('[onmouseover]').forEach(function(el) {
     if (!el._origMouseOver) {

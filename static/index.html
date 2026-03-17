@@ -19447,8 +19447,8 @@ async function onLeadDrop(e, newStatus) {
       h = h.replace(/background:linear-gradient\(180deg,#0f172a,#131c33\)/g, 'background:linear-gradient(180deg,#ffffff,#f8fafc)');
       h = h.replace(/background:#0f172a/g, 'background:#ffffff');
       h = h.replace(/background:#131c33/g, 'background:#f8fafc');
-      h = h.replace(/background:#1e293b/g, 'background:#f1f5f9');
-      h = h.replace(/background:#334155/g, 'background:#e2e8f0');
+      h = h.replace(/background:#1e293b/g, 'background:#e2e8f0');
+      h = h.replace(/background:#334155/g, 'background:#cbd5e1');
       // Borders
       h = h.replace(/border:1px solid #1e293b/g, 'border:1px solid #e2e8f0');
       h = h.replace(/border:1px solid #2d3561/g, 'border:1px solid #e2e8f0');
@@ -19471,9 +19471,14 @@ async function onLeadDrop(e, newStatus) {
       h = h.replace(/borderColor='#1e293b'/g, "borderColor='#e2e8f0'");
       h = h.replace(/borderColor=\\'#334155\\'/g, "borderColor=\\'#cbd5e1\\'");
       h = h.replace(/borderColor='#334155'/g, "borderColor='#cbd5e1'");
-      // background in JS handlers
-      h = h.replace(/style\.background='#1e293b'/g, "style.background='#f1f5f9'");
+      // background in JS handlers (toggle switches, hover handlers)
+      h = h.replace(/style\.background='#1e293b'/g, "style.background='#e2e8f0'");
       h = h.replace(/style\.background='transparent'/g, "style.background='transparent'");
+      h = h.replace(/\.background='#334155'/g, ".background='#cbd5e1'");
+      h = h.replace(/\.background=\\'#334155\\'/g, ".background=\\'#cbd5e1\\'");
+      h = h.replace(/\.background=\\'#1e293b\\'/g, ".background=\\'#e2e8f0\\'");
+      // Slider track unfilled color in gradients
+      h = h.replace(/linear-gradient\(to right,(#[a-f0-9]+) (\d+(?:\.\d+)?%),#1e293b/g, 'linear-gradient(to right,$1 $2,#cbd5e1');
       // Box shadow dark overlay
       h = h.replace(/box-shadow:0 24px 64px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 24px 64px rgba(0,0,0,0.12)');
       h = h.replace(/box-shadow:0 20px 60px rgba\(0,0,0,0\.5\)/g, 'box-shadow:0 20px 60px rgba(0,0,0,0.12)');

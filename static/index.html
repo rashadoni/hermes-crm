@@ -726,26 +726,28 @@
 
   /* ▸ TICKET CARD BACKGROUNDS ────────────────────── */
   body.light-theme [style*="background:linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)"] { background:#FFFFFF !important; }
-  /* Ticket list item cards — dark gradient → white card */
-  body.light-theme [style*="background:linear-gradient(135deg,rgba(30,41,59"] {
+  /* Ticket list item cards — using .tk-card class for reliable targeting */
+  body.light-theme .tk-card {
     background:#FFFFFF !important; border-color:#E5E5E5 !important; box-shadow:0 1px 3px rgba(0,0,0,0.06) !important;
   }
-  body.light-theme [style*="background:linear-gradient(135deg,rgba(30,41,59"] [style*="color:#f1f5f9"] { color:#181818 !important; }
-  body.light-theme [style*="background:linear-gradient(135deg,rgba(30,41,59"] [style*="color:#64748b"] { color:#706E6B !important; }
+  body.light-theme .tk-card:hover {
+    background:#F3F2F2 !important; border-color:#0176D3 !important; box-shadow:0 4px 12px rgba(1,118,211,0.1) !important;
+  }
+  body.light-theme .tk-card .tk-title { color:#181818 !important; }
+  body.light-theme .tk-card .tk-meta { color:#706E6B !important; }
   /* Ticket page title & subtitle */
-  body.light-theme [style*="font-size:28px"][style*="color:#f1f5f9"] { color:#181818 !important; }
+  body.light-theme .tk-page-title { color:#181818 !important; }
+  body.light-theme .tk-page-subtitle { color:#706E6B !important; }
   /* Tab buttons — dark inactive bg → light */
-  body.light-theme [style*="background:#1e293b"][style*="border-radius"] { background:#F3F2F2 !important; }
+  body.light-theme .tk-tab { background:#F3F2F2 !important; }
+  body.light-theme .tk-tab-active { --tw-ring-offset-color:#FFFFFF !important; }
   /* Sort buttons — dark text/bg → light */
-  body.light-theme [style*="color:#c4b5fd"] { color:#0176D3 !important; }
-  /* Sort button active bg */
-  body.light-theme [style*="background:rgba(99,102,241,0.12)"][style*="border-radius:8px"] { background:rgba(1,118,211,0.08) !important; border-color:rgba(1,118,211,0.3) !important; }
+  body.light-theme .tk-sort-active { color:#0176D3 !important; background:rgba(1,118,211,0.08) !important; border-color:rgba(1,118,211,0.3) !important; }
+  body.light-theme .tk-sort { color:#706E6B !important; }
   /* Ticket page: create button gradient → Salesforce blue */
-  body.light-theme [style*="background:linear-gradient(135deg,#6366f1,#8b5cf6)"] { background:#0176D3 !important; box-shadow:0 4px 15px rgba(1,118,211,0.3) !important; }
-  /* Empty state text */
-  body.light-theme [style*="text-align:center"][style*="color:#64748b"][style*="padding:60px"] { color:#706E6B !important; }
-  /* Ring offset for active tab in light mode */
-  body.light-theme .ring-offset-slate-900 { --tw-ring-offset-color:#FFFFFF !important; }
+  body.light-theme .tk-create-btn { background:#0176D3 !important; box-shadow:0 4px 15px rgba(1,118,211,0.3) !important; }
+  /* Stat card text */
+  body.light-theme .tk-stat-label { color:#706E6B !important; }
 
   /* ▸ DASHBOARD ACTIVITY — icon badges ───────────── */
   /* Activity icons use bg-slate-700 rounded-full — override the container */
@@ -15376,7 +15378,7 @@ async function renderTicketsPage(el) {
   const tabBtn = (key, label, count) => {
     const active = _tf === key;
     const color = statusColors[key] || '#6366f1';
-    return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900':''}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._ticketFilter='${key}';renderTicketsPage(document.getElementById('app'))">${label} <span class="opacity-70">(${count})</span></button>`;
+    return `<button class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${active?'ring-2 ring-offset-1 ring-offset-slate-900 tk-tab-active':'tk-tab'}" style="background:${active?color:'#1e293b'};color:${active?'#fff':color};border:1px solid ${color}40" onclick="window._ticketFilter='${key}';renderTicketsPage(document.getElementById('app'))">${label} <span class="opacity-70">(${count})</span></button>`;
   };
 
   // Premium tickets layout
@@ -15384,9 +15386,9 @@ async function renderTicketsPage(el) {
 
   // Header
   _tkHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
-  _tkHTML += '<div><h1 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_tickets') + '</h1>';
-  _tkHTML += '<p style="color:#64748b;font-size:14px;margin-top:4px">' + (stats.total||0) + ' ' + _t('tickets total','тикетов всего','cəmi tiket') + ' — ' + _t('Track and resolve client issues and requests','Отслеживайте и решайте обращения клиентов','Müştəri müraciətlərini izləyin və həll edin') + '</p></div>';
-  _tkHTML += '<button onclick="showCreateTicketModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(99,102,241,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(99,102,241,0.3)\'">+ ' + _t('New Ticket','Новый тикет','Yeni tiket') + '</button>';
+  _tkHTML += '<div><h1 class="tk-page-title" style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.5px">' + t('nav_tickets') + '</h1>';
+  _tkHTML += '<p class="tk-page-subtitle" style="color:#64748b;font-size:14px;margin-top:4px">' + (stats.total||0) + ' ' + _t('tickets total','тикетов всего','cəmi tiket') + ' — ' + _t('Track and resolve client issues and requests','Отслеживайте и решайте обращения клиентов','Müştəri müraciətlərini izləyin və həll edin') + '</p></div>';
+  _tkHTML += '<button class="tk-create-btn" onclick="showCreateTicketModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 25px rgba(99,102,241,0.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 15px rgba(99,102,241,0.3)\'">+ ' + _t('New Ticket','Новый тикет','Yeni tiket') + '</button>';
   _tkHTML += '</div>';
 
   // Stats
@@ -15421,7 +15423,7 @@ async function renderTicketsPage(el) {
     const isActive = (window._sortState.tickets||{}).field === o.f;
     const dir = isActive ? ((window._sortState.tickets||{}).dir || 'asc') : '';
     const arrow = isActive ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
-    _tkHTML += '<button onclick="_toggleSort(\'tickets\',\'' + o.f + '\');renderTicketsPage(document.getElementById(\'app\'))" style="padding:4px 10px;border-radius:8px;border:1px solid ' + (isActive ? 'rgba(99,102,241,0.4)' : 'rgba(71,85,105,0.2)') + ';background:' + (isActive ? 'rgba(99,102,241,0.12)' : 'transparent') + ';color:' + (isActive ? '#c4b5fd' : '#64748b') + ';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s">' + o.l + arrow + '</button>';
+    _tkHTML += '<button class="' + (isActive ? 'tk-sort-active' : 'tk-sort') + '" onclick="_toggleSort(\'tickets\',\'' + o.f + '\');renderTicketsPage(document.getElementById(\'app\'))" style="padding:4px 10px;border-radius:8px;border:1px solid ' + (isActive ? 'rgba(99,102,241,0.4)' : 'rgba(71,85,105,0.2)') + ';background:' + (isActive ? 'rgba(99,102,241,0.12)' : 'transparent') + ';color:' + (isActive ? '#c4b5fd' : '#64748b') + ';font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s">' + o.l + arrow + '</button>';
   });
   _tkHTML += '</div>';
 
@@ -15435,15 +15437,15 @@ async function renderTicketsPage(el) {
     _tkHTML += '<div style="display:flex;flex-direction:column;gap:8px">';
     sortedTickets.forEach(function(tk) {
       var sc = statusColors[tk.status] || '#64748b';
-      _tkHTML += '<div onclick="showTicketDetail(' + tk.id + ')" style="background:linear-gradient(135deg,rgba(30,41,59,0.7),' + sc + '05);border:1px solid rgba(71,85,105,0.2);border-radius:14px;padding:16px 20px;cursor:pointer;transition:all 0.25s ease;display:flex;align-items:center;gap:16px" ';
+      _tkHTML += '<div class="tk-card" onclick="showTicketDetail(' + tk.id + ')" style="background:linear-gradient(135deg,rgba(30,41,59,0.7),' + sc + '05);border:1px solid rgba(71,85,105,0.2);border-radius:14px;padding:16px 20px;cursor:pointer;transition:all 0.25s ease;display:flex;align-items:center;gap:16px" ';
       _tkHTML += 'onmouseover="this.style.borderColor=\'' + sc + '40\';this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 15px ' + sc + '10\'" ';
       _tkHTML += 'onmouseout="this.style.borderColor=\'rgba(71,85,105,0.2)\';this.style.transform=\'none\';this.style.boxShadow=\'none\'">';
       // Status badge
       _tkHTML += '<div style="min-width:70px;text-align:center"><span style="font-size:10px;font-weight:700;color:' + sc + ';background:' + sc + '18;padding:4px 10px;border-radius:8px;text-transform:uppercase;letter-spacing:0.3px">' + (statusLabels[tk.status] || tk.status) + '</span></div>';
       // Content
       _tkHTML += '<div style="flex:1;min-width:0">';
-      _tkHTML += '<div style="font-size:15px;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#' + tk.id + ' ' + esc(tk.subject) + '</div>';
-      _tkHTML += '<div style="font-size:12px;color:#64748b;margin-top:4px">';
+      _tkHTML += '<div class="tk-title" style="font-size:15px;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#' + tk.id + ' ' + esc(tk.subject) + '</div>';
+      _tkHTML += '<div class="tk-meta" style="font-size:12px;color:#64748b;margin-top:4px">';
       if (tk.company_name) _tkHTML += '<span>' + String.fromCodePoint(127970) + ' ' + esc(tk.company_name) + '</span> · ';
       if (tk.assigned_name) _tkHTML += '<span>' + String.fromCodePoint(128100) + ' ' + esc(tk.assigned_name) + '</span> · ';
       else _tkHTML += '<span style="color:#ef4444">' + String.fromCodePoint(9888) + ' ' + _t('Unassigned','Не назначен','Təyin edilməyib') + '</span> · ';

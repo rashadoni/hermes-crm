@@ -15616,7 +15616,7 @@ async function showTicketDetail(ticketId) {
         ${['open','in_progress','waiting','resolved','closed'].map(s=>'<option value="'+s+'" '+(s===tk.status?'selected':'')+'>'+( statusLabels[s]||s)+'</option>').join('')}
       </select>
       <button class="btn btn-primary btn-sm" onclick="updateTicketStatus(${tk.id})">${_t('Update Status','Обновить статус','Statusu yenilə')}</button>
-      ${currentUser && currentUser.role === 'admin' ? `
+      ${isAdmin() ? `
         <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
           <select id="tkReassignTo" class="form-input" style="width:auto;font-size:12px;"></select>
           <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);font-size:12px" onclick="adminReassignTicket(${tk.id})">🔄 ${_t('Reassign','Переназначить','Yenidən təyin et')}</button>
@@ -15626,7 +15626,7 @@ async function showTicketDetail(ticketId) {
     </div>
   `);
   // Load agent dropdown for admin reassignment
-  if (currentUser && currentUser.role === 'admin') {
+  if (isAdmin()) {
     try {
       const {data:users} = await api.get('/api/users');
       const sel = document.getElementById('tkReassignTo');

@@ -20892,12 +20892,15 @@ async function onLeadDrop(e, newStatus) {
             h += '<div style="display:grid;gap:12px">';
             const icons = {telegram:'✈️',whatsapp:'💚',email:'📧',sms:'📱'};
             configs.forEach(c => {
-                h += `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px">`;
+                const _clLt = document.body.classList.contains('light-theme');
+                const _clBg = _clLt ? 'background:#fff;border:1px solid #e2e8f0' : 'background:#0f172a;border:1px solid rgba(255,255,255,0.1)';
+                const _clNm = _clLt ? 'color:#1e293b;font-weight:600' : 'color:#e2e8f0;font-weight:600';
+                h += `<div style="${_clBg};border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px">`;
                 h += `<span style="font-size:32px">${icons[c.channel_type]||'📡'}</span>`;
-                h += `<div style="flex:1"><div style="color:#e2e8f0;font-weight:600">${esc(c.config_name)}</div>`;
+                h += `<div style="flex:1"><div style="${_clNm}">${esc(c.config_name)}</div>`;
                 h += `<div style="color:#64748b;font-size:13px">${c.channel_type.toUpperCase()} · ${c.is_active?'🟢 Активен':'🔴 Неактивен'}</div></div>`;
-                h += `<button onclick="openChannelConfigModal(${c.id})" style="padding:6px 12px;border-radius:6px;background:#334155;color:#e2e8f0;border:none;cursor:pointer">✏️</button>`;
-                h += `<button onclick="deleteChannelConfig(${c.id})" style="padding:6px 12px;border-radius:6px;background:#7f1d1d;color:#fca5a5;border:none;cursor:pointer">🗑️</button>`;
+                h += `<button onclick="openChannelConfigModal(${c.id})" style="padding:6px 12px;border-radius:6px;background:${_clLt?'#e2e8f0':'#334155'};color:${_clLt?'#1e293b':'#e2e8f0'};border:none;cursor:pointer">✏️</button>`;
+                h += `<button onclick="deleteChannelConfig(${c.id})" style="padding:6px 12px;border-radius:6px;background:${_clLt?'#fee2e2':'#7f1d1d'};color:${_clLt?'#dc2626':'#fca5a5'};border:none;cursor:pointer">🗑️</button>`;
                 h += '</div>';
             });
             if (configs.length === 0) h += '<div style="padding:40px;text-align:center;color:#64748b">Нет настроенных каналов</div>';
@@ -20910,13 +20913,18 @@ async function onLeadDrop(e, newStatus) {
         const overlay = document.createElement('div');
         overlay.id = 'channelConfigModal';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:28px;width:480px">
-            <h3 style="color:#e2e8f0;margin:0 0 20px">${id?'Редактировать':'Добавить'} канал</h3>
-            <label style="color:#94a3b8;font-size:13px">Название</label>
-            <input id="chCfgName" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">
+        const _chLt = document.body.classList.contains('light-theme');
+        const _chBg = _chLt ? 'background:#fff;color:#1e293b' : 'background:#1e293b';
+        const _chInp = _chLt ? 'width:100%;padding:10px;border-radius:8px;background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1;margin:4px 0 12px;box-sizing:border-box' : 'width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box';
+        const _chH3 = _chLt ? 'color:#1e293b;margin:0 0 20px' : 'color:#e2e8f0;margin:0 0 20px';
+        const _chLbl = _chLt ? 'color:#475569;font-size:13px' : 'color:#94a3b8;font-size:13px';
+        overlay.innerHTML = `<div style="${_chBg};border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:28px;width:480px">
+            <h3 style="${_chH3}">${id?'Редактировать':'Добавить'} канал</h3>
+            <label style="${_chLbl}">Название</label>
+            <input id="chCfgName" style="${_chInp}">
             ${_hint('Descriptive name for this channel configuration - helps identify it in lists', 'Описательное название этой конфигурации канала - для идентификации в списках', 'Bu kanal konfiqurasiyası üçün təsviri ad - siyahılarda identifikasiya üçün')}
-            <label style="color:#94a3b8;font-size:13px">Тип канала</label>
-            <select id="chCfgType" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box" onchange="toggleChannelFields()">
+            <label style="${_chLbl}">Тип канала</label>
+            <select id="chCfgType" style="${_chInp}" onchange="toggleChannelFields()">
                 <option value="telegram">✈️ Telegram</option>
                 <option value="whatsapp">💚 WhatsApp</option>
                 <option value="email">📧 Email</option>
@@ -20937,18 +20945,21 @@ async function onLeadDrop(e, newStatus) {
         const type = document.getElementById('chCfgType')?.value;
         const container = document.getElementById('chCfgFields');
         if (!container) return;
+        const _lt = document.body.classList.contains('light-theme');
+        const _is = _lt ? 'width:100%;padding:10px;border-radius:8px;background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1;margin:4px 0 12px;box-sizing:border-box' : 'width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box';
+        const _lb = _lt ? 'color:#475569;font-size:13px' : 'color:#94a3b8;font-size:13px';
         let h = '';
         if (type === 'telegram') {
-            h += '<label style="color:#94a3b8;font-size:13px">Bot Token</label>';
-            h += '<input id="chCfgToken" placeholder="123456:ABC-DEF..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">';
+            h += '<label style="'+_lb+'">Bot Token</label>';
+            h += '<input id="chCfgToken" placeholder="123456:ABC-DEF..." style="'+_is+'">';
         } else if (type === 'whatsapp') {
-            h += '<label style="color:#94a3b8;font-size:13px">API Key</label>';
-            h += '<input id="chCfgApiKey" placeholder="API ключ" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">';
-            h += '<label style="color:#94a3b8;font-size:13px">Номер телефона</label>';
-            h += '<input id="chCfgPhone" placeholder="+994..." style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">';
+            h += '<label style="'+_lb+'">API Key</label>';
+            h += '<input id="chCfgApiKey" placeholder="API ключ" style="'+_is+'">';
+            h += '<label style="'+_lb+'">Номер телефона</label>';
+            h += '<input id="chCfgPhone" placeholder="+994..." style="'+_is+'">';
         } else if (type === 'sms') {
-            h += '<label style="color:#94a3b8;font-size:13px">API Key</label>';
-            h += '<input id="chCfgApiKey" placeholder="SMS API ключ" style="width:100%;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);margin:4px 0 12px;box-sizing:border-box">';
+            h += '<label style="'+_lb+'">API Key</label>';
+            h += '<input id="chCfgApiKey" placeholder="SMS API ключ" style="'+_is+'">';
         }
         container.innerHTML = h;
     }
@@ -20963,11 +20974,14 @@ async function onLeadDrop(e, newStatus) {
         };
         if (!data.config_name) { showToast('Введите название', 'error'); return; }
         try {
-            if (id) await api.put('/api/channels/configs/'+id, data);
-            else await api.post('/api/channels/configs', data);
+            const headers = api._getHeaders();
+            const url = '/api/channels/configs' + (id ? '/'+id : '');
+            const method = id ? 'PUT' : 'POST';
+            const r = await fetch(url, {method, headers, body: JSON.stringify(data)});
+            if (!r.ok) { const err = await r.text(); throw new Error(err); }
             document.getElementById('channelConfigModal')?.remove();
-            location.hash='#/channel-configs';
             showToast('Канал сохранён!', 'success');
+            renderChannelConfigsPage(document.getElementById('app'));
         } catch(e) { showToast('Ошибка: '+e.message, 'error'); }
     }
 

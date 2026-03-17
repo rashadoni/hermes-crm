@@ -13147,10 +13147,23 @@ async def rate_chat_session(request: Request):
     try:
         with get_db() as conn:
             _ensure_ai_tables(conn)
-            conn.execute(
-                "UPDATE ai_chat_sessions SET satisfaction=? WHERE id=?",
-                [rating, session_id]
-            )
+            # Use explicit SAVEPOINT to protect rating update
+            raw = conn._conn if hasattr(conn, '_conn') else conn
+            cur = raw.cursor()
+            cur.execute("SAVEPOINT csat_rating")
+            try:
+                cur.execute(
+                    "UPDATE ai_chat_sessions SET satisfaction=%s WHERE id=%s",
+                    (rating, session_id)
+                )
+                cur.execute("RELEASE SAVEPOINT csat_rating")
+                logger.info("CSAT rating saved: session=%s rating=%s", session_id, rating)
+            except Exception as inner_e:
+                cur.execute("ROLLBACK TO SAVEPOINT csat_rating")
+                logger.error("CSAT rating UPDATE failed: %s", inner_e)
+                raise inner_e
+            finally:
+                cur.close()
         return _ok({"success": True, "rating": rating, "session_id": session_id})
     except Exception as e:
         logger.error("CSAT rating error: %s", e)

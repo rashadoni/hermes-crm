@@ -6040,7 +6040,7 @@ def _ensure_cost_model_tables(conn):
         changed_at TEXT DEFAULT (datetime('now'))
     )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS cost_model_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         snapshot_month TEXT NOT NULL,
         total_cost REAL DEFAULT 0,
         total_revenue REAL DEFAULT 0,
@@ -6051,7 +6051,7 @@ def _ensure_cost_model_tables(conn):
         profitable_clients INTEGER DEFAULT 0,
         loss_clients INTEGER DEFAULT 0,
         data_json TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(snapshot_month)
     )""")
     # Add columns if missing (PostgreSQL-safe using information_schema)
@@ -6994,11 +6994,11 @@ async def save_cost_model_snapshot(request: Request, user=Depends(require_admin)
                 conn.execute("""UPDATE cost_model_snapshots
                     SET total_cost=?, total_revenue=?, margin=?, margin_pct=?,
                         overhead_total=?, employee_cost=?, profitable_clients=?, loss_clients=?,
-                        data_json=?, created_at=?
+                        data_json=?, created_at=CURRENT_TIMESTAMP
                     WHERE snapshot_month=?""",
                     [snapshot['total_cost'], snapshot['total_revenue'], snapshot['margin'], snapshot['margin_pct'],
                      snapshot['overhead_total'], snapshot['employee_cost'], snapshot['profitable_clients'], snapshot['loss_clients'],
-                     json.dumps(data, default=str), datetime.now().isoformat(), month_str])
+                     json.dumps(data, default=str), month_str])
             else:
                 conn.execute("""INSERT INTO cost_model_snapshots
                     (snapshot_month, total_cost, total_revenue, margin, margin_pct, overhead_total, employee_cost, profitable_clients, loss_clients, data_json)
@@ -7042,7 +7042,7 @@ async def get_cost_model_snapshot(month: str, user=Depends(require_auth)):
             row = conn.execute("SELECT * FROM cost_model_snapshots WHERE snapshot_month=?", [month]).fetchone()
             if not row:
                 return _err("Snapshot not found", 404)
-            cols = [d[0] for d in conn.execute("PRAGMA table_info(cost_model_snapshots)").fetchall()]
+            cols = [desc[0] for desc in conn.execute("SELECT * FROM cost_model_snapshots LIMIT 0").description]
             d = dict(zip(cols, row))
             try:
                 d['data_json'] = json.loads(d.get('data_json', '{}'))

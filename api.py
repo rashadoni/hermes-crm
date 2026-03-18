@@ -5731,7 +5731,8 @@ def _compute_cost_model(conn):
     # to avoid double-counting (they're already in svc_tech_costs)
     tech_in_admin = 0.0
     for oh in overhead_breakdown:
-        if oh.get("is_admin", 1) and TECH_DEPT_MAP.get(oh["category"]):
+        target_svc = (oh.get("target_service") or "").strip() or _TECH_DEPT_FALLBACK.get(oh["category"])
+        if oh.get("is_admin", 1) and target_svc:
             tech_in_admin += oh["monthly_amount"]
     admin_for_g_adjusted = admin_for_g - tech_in_admin
 

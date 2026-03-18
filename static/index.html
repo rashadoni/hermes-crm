@@ -4174,6 +4174,12 @@ async function renderPage(page) {
         }
     }
   } catch(e) { app.innerHTML = `<div class="card p-6"><h2 class="text-red-400">${t('error_title')}</h2><p class="text-slate-400 mt-2">${esc(e.message)}</p></div>`; }
+
+  // Apply light theme transformation to all pages
+  if (document.body.classList.contains('light-theme')) {
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.innerHTML = lightifyAI(appEl.innerHTML);
+  }
 }
 
 // ─── Pagination ─────────────────────────────────────────────

@@ -12996,10 +12996,11 @@ function _costRowV2(key, label, value, dotColor, detailHtml) {
 // ─── Cost Model Snapshot Functions ─────────────────────────────────────
 async function loadCostSnapshots() {
     try {
-        const res = await api.get('/api/cost-model/snapshots');
-        return res.data || res || [];
+        const r = await fetch('/api/cost-model/snapshots', {headers: api._getHeaders()});
+        if (!r.ok) return [];
+        const j = await r.json();
+        return j.data || j || [];
     } catch(e) {
-        console.error("Load snapshots error:", e);
         return [];
     }
 }
@@ -13894,7 +13895,8 @@ async function submitAddOverhead() {
 
   try {
     const _hdr = api._getHeaders();
-    const _r = await fetch('/api/cost-model/overhead', {method:'POST', headers:_hdr, body: JSON.stringify({label, amount, is_admin, is_annual, has_vat, notes})});
+    const category = label.toLowerCase().replace(/\s+/g, '_').substring(0, 50);
+    const _r = await fetch('/api/cost-model/overhead', {method:'POST', headers:_hdr, body: JSON.stringify({category, label, amount, is_admin, is_annual, has_vat, notes})});
     if (!_r.ok) throw new Error(await _r.text());
     document.getElementById('addOverheadModal')?.remove();
     _costModelData = null;

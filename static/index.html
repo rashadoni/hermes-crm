@@ -13706,9 +13706,15 @@ function _renderCostOverhead(d) {
           <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">+ƏDV</span>
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
-          <select onchange="updateOverhead(${oh.id}, 'is_admin', this.value)" style="padding:4px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:11px;color:#94a3b8;cursor:pointer;">
-            <option value="1" ${oh.is_admin ? 'selected' : ''}>Admin</option>
-            <option value="0" ${!oh.is_admin ? 'selected' : ''}>Texniki</option>
+          <select onchange="updateOverheadService(${oh.id}, this.value)" style="padding:4px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:11px;color:#94a3b8;cursor:pointer;max-width:100px;">
+            <option value="admin" ${oh.is_admin && !oh.target_service ? 'selected' : ''}>Overhead</option>
+            <option value="infosec" ${oh.target_service==='infosec' ? 'selected' : ''}>InfoSec</option>
+            <option value="permanent_it" ${oh.target_service==='permanent_it' ? 'selected' : ''}>IT</option>
+            <option value="cloud" ${oh.target_service==='cloud' ? 'selected' : ''}>Cloud</option>
+            <option value="erp" ${oh.target_service==='erp' ? 'selected' : ''}>ERP</option>
+            <option value="helpdesk" ${oh.target_service==='helpdesk' ? 'selected' : ''}>HelpDesk</option>
+            <option value="pm" ${oh.target_service==='pm' ? 'selected' : ''}>PM</option>
+            <option value="grc" ${oh.target_service==='grc' ? 'selected' : ''}>GRC</option>
           </select>
           <button onclick="deleteOverhead(${oh.id}, '${esc(oh.label).replace(/'/g, "&apos;")}')" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px;transition:all 0.2s;" onmouseenter="this.style.backgroundColor='#f43f5e22';this.style.color='#f43f5e';" onmouseleave="this.style.backgroundColor='transparent';this.style.color='#94a3b8';">🗑</button>
         </div>
@@ -13789,6 +13795,25 @@ async function updateOverhead(id, field, value) {
   } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
 }
 
+async function updateOverheadService(id, value) {
+  try {
+    const payload = {};
+    if (value === 'admin') {
+      payload.is_admin = 1;
+      payload.target_service = '';
+    } else {
+      payload.is_admin = 0;
+      payload.target_service = value;
+    }
+    const headers = api._getHeaders();
+    const r = await fetch('/api/cost-model/overhead/' + id, {method:'PUT', headers, body: JSON.stringify(payload)});
+    if (!r.ok) throw new Error(await r.text());
+    _costModelData = null;
+    await renderCostModel(document.getElementById('app'));
+    showToast('Xərc yeniləndi', 'success');
+  } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
+}
+
 async function deleteOverhead(id, label) {
   if (!confirm(`"${label}" xərci silmək istədiniz?`)) return;
   try {
@@ -13855,8 +13880,14 @@ function openAddOverheadModal() {
           <div>
             <label class="text-xs text-slate-400 block mb-1">Kateqoriya</label>
             <select id="ohCategory" style="width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:13px;color:#e2e8f0;">
-              <option value="1">Admin</option>
-              <option value="0">Texniki İnfrastruktur</option>
+              <option value="admin">Ümumi Overhead</option>
+              <option value="infosec">InfoSec</option>
+              <option value="permanent_it">IT</option>
+              <option value="cloud">Cloud</option>
+              <option value="erp">ERP</option>
+              <option value="helpdesk">HelpDesk</option>
+              <option value="pm">PM</option>
+              <option value="grc">GRC</option>
             </select>
           </div>
         </div>
@@ -13885,7 +13916,9 @@ function openAddOverheadModal() {
 async function submitAddOverhead() {
   const label = document.getElementById('ohLabel').value.trim();
   const amount = parseFloat(document.getElementById('ohAmount').value || 0);
-  const is_admin = parseInt(document.getElementById('ohCategory').value);
+  const catValue = document.getElementById('ohCategory').value;
+  const is_admin = catValue === 'admin' ? 1 : 0;
+  const target_service = catValue === 'admin' ? '' : catValue;
   const is_annual = document.getElementById('ohAnnual').checked ? 1 : 0;
   const has_vat = document.getElementById('ohVat').checked ? 1 : 0;
   const notes = document.getElementById('ohNotes').value.trim();
@@ -13896,7 +13929,7 @@ async function submitAddOverhead() {
   try {
     const _hdr = api._getHeaders();
     const category = label.toLowerCase().replace(/\s+/g, '_').substring(0, 50);
-    const _r = await fetch('/api/cost-model/overhead', {method:'POST', headers:_hdr, body: JSON.stringify({category, label, amount, is_admin, is_annual, has_vat, notes})});
+    const _r = await fetch('/api/cost-model/overhead', {method:'POST', headers:_hdr, body: JSON.stringify({category, label, amount, is_admin, is_annual, has_vat, notes, target_service})});
     if (!_r.ok) throw new Error(await _r.text());
     document.getElementById('addOverheadModal')?.remove();
     _costModelData = null;

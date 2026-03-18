@@ -5711,21 +5711,19 @@ def _compute_cost_model(conn):
         "cloud": [],
     }
 
-    # Tech items assigned to specific departments (matches Excel Section G)
-    # Cloud + MS → IT direct; Cortex + FW_amort → InfoSec direct
-    TECH_DEPT_MAP = {
-        "cloud_servers": "cloud",
-        "ms_license": "permanent_it",
-        "cortex": "infosec",
-        "firewall_amort": "infosec",
-        "palo_alto": "infosec",
-        "service_desk": "permanent_it",
-        "pam": "infosec",
+    # Tech items assigned to specific services — now reads from DB field target_service
+    # Fallback to hardcoded map for backward compatibility
+    _TECH_DEPT_FALLBACK = {
+        "cloud_servers": "cloud", "cloud": "cloud",
+        "ms_license": "permanent_it", "service_desk": "permanent_it",
+        "cortex": "infosec", "firewall_amort": "infosec", "fw_amort": "infosec",
+        "palo_alto": "infosec", "fw_license": "infosec", "pam": "infosec",
     }
     # Build per-service tech costs from overhead breakdown
     svc_tech_costs = {}
     for oh in overhead_breakdown:
-        target_svc = TECH_DEPT_MAP.get(oh["category"])
+        # Use DB target_service if set, otherwise fallback to hardcoded map
+        target_svc = (oh.get("target_service") or "").strip() or _TECH_DEPT_FALLBACK.get(oh["category"])
         if target_svc:
             svc_tech_costs[target_svc] = svc_tech_costs.get(target_svc, 0.0) + oh["monthly_amount"]
 
@@ -6057,6 +6055,16 @@ def _ensure_cost_model_tables(conn):
     # Add columns if missing (PostgreSQL-safe using information_schema)
     from database import safe_add_column
     safe_add_column(conn, "overhead_costs", "is_admin", "INTEGER", "1")
+    safe_add_column(conn, "overhead_costs", "target_service", "TEXT", "''")
+    # Migrate: set target_service from hardcoded TECH_DEPT_MAP for existing tech items
+    _tech_service_map = {
+        "cloud": "cloud", "cloud_servers": "cloud",
+        "cortex": "infosec", "firewall_amort": "infosec", "fw_amort": "infosec",
+        "fw_license": "infosec", "palo_alto": "infosec", "pam": "infosec",
+        "ms_license": "permanent_it", "service_desk": "permanent_it",
+    }
+    for cat, svc in _tech_service_map.items():
+        conn.execute("UPDATE overhead_costs SET target_service=? WHERE category=? AND (target_service IS NULL OR target_service='')", [svc, cat])
     safe_add_column(conn, "companies", "user_count", "INTEGER", "0")
     safe_add_column(conn, "companies", "cost_code", "TEXT", "''")
     safe_add_column(conn, "campaigns", "cost", "REAL", "0")
@@ -6212,9 +6220,9 @@ async def add_overhead_cost(request: Request, user=Depends(require_admin)):
     with get_db() as conn:
         max_sort = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM overhead_costs").fetchone()[0]
         cur = conn.execute(
-            "INSERT INTO overhead_costs (category, label, amount, is_annual, has_vat, sort_order, notes, is_admin) VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO overhead_costs (category, label, amount, is_annual, has_vat, sort_order, notes, is_admin, target_service) VALUES (?,?,?,?,?,?,?,?,?)",
             [category, label, round(amount, 2), int(body.get("is_annual", 0)), int(body.get("has_vat", 0)),
-             max_sort + 1, body.get("notes", ""), int(body.get("is_admin", 1))]
+             max_sort + 1, body.get("notes", ""), int(body.get("is_admin", 1)), body.get("target_service", "")]
         )
         row = conn.execute("SELECT * FROM overhead_costs WHERE id=?", [cur.lastrowid]).fetchone()
         _invalidate_ai_cache()
@@ -6226,7 +6234,7 @@ async def update_overhead_cost(oh_id: int, request: Request, user=Depends(requir
     body = await request.json()
     if "amount" in body:
         body["amount"] = _validate_numeric(body["amount"], "amount")
-    allowed = ["label", "amount", "is_annual", "has_vat", "notes", "is_admin"]
+    allowed = ["label", "amount", "is_annual", "has_vat", "notes", "is_admin", "target_service"]
     with get_db() as conn:
         for key, val in body.items():
             if key in allowed:

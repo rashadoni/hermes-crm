@@ -6039,6 +6039,21 @@ def _ensure_cost_model_tables(conn):
         changed_by INTEGER REFERENCES users(id),
         changed_at TEXT DEFAULT (datetime('now'))
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS cost_model_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        snapshot_month TEXT NOT NULL,
+        total_cost REAL DEFAULT 0,
+        total_revenue REAL DEFAULT 0,
+        margin REAL DEFAULT 0,
+        margin_pct REAL DEFAULT 0,
+        overhead_total REAL DEFAULT 0,
+        employee_cost REAL DEFAULT 0,
+        profitable_clients INTEGER DEFAULT 0,
+        loss_clients INTEGER DEFAULT 0,
+        data_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(snapshot_month)
+    )""")
     # Add columns if missing (PostgreSQL-safe using information_schema)
     from database import safe_add_column
     safe_add_column(conn, "overhead_costs", "is_admin", "INTEGER", "1")
@@ -6188,16 +6203,13 @@ async def get_overhead_costs(user=Depends(require_auth)):
 @app.post("/api/cost-model/overhead")
 async def add_overhead_cost(request: Request, user=Depends(require_admin)):
     body = await request.json()
-    category = body.get("category", "").strip()
     label = body.get("label", "").strip()
-    if not category or not label:
-        raise HTTPException(400, "Kateqoriya və ad boş ola bilməz")
+    if not label:
+        raise HTTPException(400, "Xərc adı boş ola bilməz")
     amount = _validate_numeric(body.get("amount", 0), "amount")
+    # Generate category from label (for internal use)
+    category = label.lower().replace(" ", "_")[:50]
     with get_db() as conn:
-        # Duplicate check: same category
-        existing = conn.execute("SELECT id, label FROM overhead_costs WHERE category=?", [category]).fetchone()
-        if existing:
-            raise HTTPException(400, f"'{category}' kateqoriyası artıq mövcuddur: '{existing['label']}' (id={existing['id']}). Mövcud sətri redaktə edin.")
         max_sort = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM overhead_costs").fetchone()[0]
         cur = conn.execute(
             "INSERT INTO overhead_costs (category, label, amount, is_annual, has_vat, sort_order, notes, is_admin) VALUES (?,?,?,?,?,?,?,?)",
@@ -6949,6 +6961,97 @@ async def ai_cost_model_analysis(request: Request, user=Depends(require_auth)):
     except Exception as e:
         logging.error(f"AI analysis error: {e}")
         _err("Analysis error", 500)
+
+
+# ─── Cost Model Snapshot Endpoints ──────────────────────────────────────
+@app.post("/api/cost-model/snapshot")
+async def save_cost_model_snapshot(request: Request, user=Depends(require_admin)):
+    """Save current month's cost model data as a snapshot."""
+    try:
+        with get_db() as conn:
+            _ensure_cost_model_tables(conn)
+            data = _compute_cost_model(conn)
+            if not data:
+                return _err("Cost model not initialized", 400)
+
+            now = datetime.now()
+            month_str = now.strftime('%Y-%m')
+
+            snapshot = {
+                'total_cost': data.get('grand_total_g', data.get('grand_total', 0)),
+                'total_revenue': data.get('summary', {}).get('total_revenue', 0),
+                'margin': data.get('summary', {}).get('total_margin', 0),
+                'margin_pct': data.get('summary', {}).get('margin_pct', 0),
+                'overhead_total': data.get('total_overhead', 0),
+                'employee_cost': sum(d.get('total_labor_cost', 0) for d in (data.get('employees', []) or [])),
+                'profitable_clients': data.get('summary', {}).get('profitable_clients', 0),
+                'loss_clients': data.get('summary', {}).get('loss_clients', 0),
+            }
+
+            # Upsert - update if month already exists
+            existing = conn.execute("SELECT id FROM cost_model_snapshots WHERE snapshot_month=?", [month_str]).fetchone()
+            if existing:
+                conn.execute("""UPDATE cost_model_snapshots
+                    SET total_cost=?, total_revenue=?, margin=?, margin_pct=?,
+                        overhead_total=?, employee_cost=?, profitable_clients=?, loss_clients=?,
+                        data_json=?, created_at=?
+                    WHERE snapshot_month=?""",
+                    [snapshot['total_cost'], snapshot['total_revenue'], snapshot['margin'], snapshot['margin_pct'],
+                     snapshot['overhead_total'], snapshot['employee_cost'], snapshot['profitable_clients'], snapshot['loss_clients'],
+                     json.dumps(data, default=str), datetime.now().isoformat(), month_str])
+            else:
+                conn.execute("""INSERT INTO cost_model_snapshots
+                    (snapshot_month, total_cost, total_revenue, margin, margin_pct, overhead_total, employee_cost, profitable_clients, loss_clients, data_json)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    [month_str, snapshot['total_cost'], snapshot['total_revenue'], snapshot['margin'], snapshot['margin_pct'],
+                     snapshot['overhead_total'], snapshot['employee_cost'], snapshot['profitable_clients'], snapshot['loss_clients'],
+                     json.dumps(data, default=str)])
+            conn.commit()
+
+        return _ok({"month": month_str, **snapshot})
+    except Exception as e:
+        logger.error("save_cost_model_snapshot: %s", e, exc_info=True)
+        return _err(str(e), 500)
+
+
+@app.get("/api/cost-model/snapshots")
+async def get_cost_model_snapshots(user=Depends(require_auth)):
+    """List all monthly snapshots (summary only, no full data_json)."""
+    try:
+        with get_db() as conn:
+            _ensure_cost_model_tables(conn)
+            rows = conn.execute("""
+                SELECT id, snapshot_month, total_cost, total_revenue, margin, margin_pct,
+                       overhead_total, employee_cost, profitable_clients, loss_clients, created_at
+                FROM cost_model_snapshots ORDER BY snapshot_month DESC
+            """).fetchall()
+            cols = ['id', 'snapshot_month', 'total_cost', 'total_revenue', 'margin', 'margin_pct',
+                    'overhead_total', 'employee_cost', 'profitable_clients', 'loss_clients', 'created_at']
+        return _ok([dict(zip(cols, r)) for r in rows])
+    except Exception as e:
+        logger.error("get_cost_model_snapshots: %s", e)
+        return _ok([])
+
+
+@app.get("/api/cost-model/snapshots/{month}")
+async def get_cost_model_snapshot(month: str, user=Depends(require_auth)):
+    """Get full snapshot data for a specific month."""
+    try:
+        with get_db() as conn:
+            _ensure_cost_model_tables(conn)
+            row = conn.execute("SELECT * FROM cost_model_snapshots WHERE snapshot_month=?", [month]).fetchone()
+            if not row:
+                return _err("Snapshot not found", 404)
+            cols = [d[0] for d in conn.execute("PRAGMA table_info(cost_model_snapshots)").fetchall()]
+            d = dict(zip(cols, row))
+            try:
+                d['data_json'] = json.loads(d.get('data_json', '{}'))
+            except:
+                d['data_json'] = {}
+        return _ok(d)
+    except Exception as e:
+        logger.error("get_cost_model_snapshot: %s", e)
+        return _err(str(e), 500)
 
 
 # ─── Admin Deploy Endpoint ──────────────────────────────────────────────

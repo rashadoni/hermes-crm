@@ -12790,6 +12790,22 @@ function _renderCostModelPage(el) {
     ${content}
   `;
 
+  // Load snapshots and populate the dropdown (only for analytics tab)
+  if (_costModelTab === 'analytics') {
+    setTimeout(async () => {
+      const snapshots = await loadCostSnapshots();
+      const select = document.getElementById('snapshotMonth');
+      if (select) {
+        snapshots.forEach(snap => {
+          const opt = document.createElement('option');
+          opt.value = snap.snapshot_month;
+          opt.textContent = snap.snapshot_month;
+          select.appendChild(opt);
+        });
+      }
+    }, 50);
+  }
+
   // Auto-load AI analysis (cached) for the active tab — does NOT regenerate, only shows existing cache
   if (_costModelTab !== 'settings') {
     setTimeout(() => runAiAnalysis(_costModelTab, false), 100);
@@ -12977,6 +12993,92 @@ function _costRowV2(key, label, value, dotColor, detailHtml) {
   `;
 }
 
+// ─── Cost Model Snapshot Functions ─────────────────────────────────────
+async function loadCostSnapshots() {
+    try {
+        const res = await api.get('/api/cost-model/snapshots');
+        return res.data || res || [];
+    } catch(e) {
+        logger.error("Load snapshots error:", e);
+        return [];
+    }
+}
+
+async function saveCostSnapshot() {
+    try {
+        const headers = api._getHeaders ? api._getHeaders() : {'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')};
+        const r = await fetch('/api/cost-model/snapshot', {method:'POST', headers, body:'{}'});
+        if (!r.ok) throw new Error(await r.text());
+        showToast('Снимок сохранён!', 'success');
+        await renderCostModel(document.getElementById('app'));
+    } catch(e) {
+        showToast('Ошибка: ' + e.message, 'error');
+        logger.error("Save snapshot error:", e);
+    }
+}
+
+async function loadSnapshotComparison(month) {
+    try {
+        if (month === 'current') return null;
+        const res = await api.get('/api/cost-model/snapshots/' + month);
+        return res.data || res || null;
+    } catch(e) {
+        logger.error("Load snapshot comparison error:", e);
+        return null;
+    }
+}
+
+async function _onSnapshotMonthChange(month) {
+    const compDiv = document.getElementById('snapshotComparison');
+    if (month === 'current') {
+        compDiv.style.display = 'none';
+        return;
+    }
+    const snapshot = await loadSnapshotComparison(month);
+    if (!snapshot) {
+        compDiv.style.display = 'none';
+        return;
+    }
+    const current = _costModelData || {};
+    const s = current.summary || {};
+    compDiv.innerHTML = `
+        <div style="font-weight:600;margin-bottom:8px;font-size:13px;">Текущий vs ${month}</div>
+        <div class="snapshot-compare-row">
+            <span class="snapshot-compare-label">Ümumi Maya/ay:</span>
+            <div class="snapshot-compare-values">
+                <span class="snapshot-compare-val">${_fmtAZN(s.grand_total_cost || s.grand_total_g || 0)}</span>
+                <span style="color:#94a3b8;">vs</span>
+                <span class="snapshot-compare-val">${_fmtAZN(snapshot.total_cost || 0)}</span>
+            </div>
+        </div>
+        <div class="snapshot-compare-row">
+            <span class="snapshot-compare-label">Ümumi Gəlir/ay:</span>
+            <div class="snapshot-compare-values">
+                <span class="snapshot-compare-val">${_fmtAZN(s.total_revenue || 0)}</span>
+                <span style="color:#94a3b8;">vs</span>
+                <span class="snapshot-compare-val">${_fmtAZN(snapshot.total_revenue || 0)}</span>
+            </div>
+        </div>
+        <div class="snapshot-compare-row">
+            <span class="snapshot-compare-label">Marja/ay:</span>
+            <div class="snapshot-compare-values">
+                <span class="snapshot-compare-val" style="color:${(s.total_margin || 0)>=0?'#4ade80':'#f87171'}">${_fmtAZN(s.total_margin || 0)}</span>
+                <span style="color:#94a3b8;">vs</span>
+                <span class="snapshot-compare-val" style="color:${(snapshot.margin || 0)>=0?'#4ade80':'#f87171'}">${_fmtAZN(snapshot.margin || 0)}</span>
+            </div>
+        </div>
+        <div class="snapshot-compare-row">
+            <span class="snapshot-compare-label">Marja %:</span>
+            <div class="snapshot-compare-values">
+                <span class="snapshot-compare-val" style="color:${(s.margin_pct || 0)>=0?'#4ade80':'#f87171'}">${(s.margin_pct || 0).toFixed(1)}%</span>
+                <span style="color:#94a3b8;">vs</span>
+                <span class="snapshot-compare-val" style="color:${(snapshot.margin_pct || 0)>=0?'#4ade80':'#f87171'}">${(snapshot.margin_pct || 0).toFixed(1)}%</span>
+            </div>
+        </div>
+    `;
+    compDiv.style.display = 'block';
+}
+
 function _renderCostAnalytics(d) {
   const s = d.summary;
   const marginColor = s.total_margin >= 0 ? 'text-green-400' : 'text-red-400';
@@ -13065,7 +13167,46 @@ function _renderCostAnalytics(d) {
       .legend-item { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 0; }
       .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
       .total-row-v2 { display:flex; justify-content:space-between; padding:8px 14px; font-weight:700; font-size:13px; border-top:1px solid #334155; margin-top:4px; }
+      .snapshot-controls {
+        display:flex; gap:12px; align-items:center; padding:14px 16px; margin-bottom:16px;
+        background:rgba(30,41,59,0.5); border:1px solid rgba(51,65,85,0.35); border-radius:8px;
+      }
+      .snapshot-btn {
+        padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600;
+        background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); color:#a5b4fc;
+        cursor:pointer; transition:all 0.2s ease;
+      }
+      .snapshot-btn:hover { background:rgba(99,102,241,0.25); border-color:rgba(99,102,241,0.5); }
+      .snapshot-select {
+        padding:6px 10px; border-radius:6px; font-size:12px;
+        background:rgba(15,23,42,0.7); border:1px solid rgba(51,65,85,0.5); color:#e2e8f0;
+      }
+      .snapshot-compare {
+        padding:12px 14px; margin-bottom:16px;
+        background:rgba(15,23,42,0.4); border:1px solid rgba(99,102,241,0.2); border-radius:8px;
+        font-size:12px; color:#cbd5e1;
+      }
+      .snapshot-compare-row {
+        display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(51,65,85,0.2);
+      }
+      .snapshot-compare-row:last-child { border-bottom:none; }
+      .snapshot-compare-label { color:#94a3b8; font-weight:500; }
+      .snapshot-compare-values { display:flex; gap:20px; }
+      .snapshot-compare-val { font-family:'JetBrains Mono',monospace; font-weight:600; }
     </style>
+
+    <!-- Snapshot Controls -->
+    <div class="snapshot-controls">
+      <button class="snapshot-btn" onclick="saveCostSnapshot()">📸 Сохранить снимок</button>
+      <select class="snapshot-select" id="snapshotMonth" onchange="_onSnapshotMonthChange(this.value)">
+        <option value="current">📅 Текущий месяц</option>
+      </select>
+    </div>
+
+    <!-- Snapshot Comparison (hidden by default) -->
+    <div id="snapshotComparison" class="snapshot-compare" style="display:none;">
+      <!-- Filled dynamically -->
+    </div>
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -13538,8 +13679,12 @@ function _renderCostOverhead(d) {
 
   const renderOverheadGroup = (items, title, titleColor, borderColor, isAdmin) => {
     const groupRows = items.map(oh => `
-      <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;align-items:center;">
-        <div style="color:#cbd5e1;font-size:12px;">${esc(oh.label)}</div>
+      <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;align-items:center;">
+        <div style="color:#cbd5e1;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:4px;transition:all 0.2s;position:relative;"
+          id="label-display-${oh.id}"
+          onmouseenter="this.style.background='rgba(99,102,241,0.1)'"
+          onmouseleave="this.style.background='transparent'"
+          onclick="startEditLabel(${oh.id}, '${esc(oh.label).replace(/'/g, "&apos;")}')">${esc(oh.label)}</div>
         <div>
           <input type="number" value="${oh.amount}" step="0.01" min="0"
             style="width:100%;text-align:right;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:12px;color:#e2e8f0;font-family:'JetBrains Mono',monospace;transition:all 0.2s;"
@@ -13559,6 +13704,13 @@ function _renderCostOverhead(d) {
             onchange="updateOverhead(${oh.id}, 'has_vat', this.checked?1:0)">
           <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">+ƏDV</span>
         </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <select onchange="updateOverhead(${oh.id}, 'is_admin', this.value)" style="padding:4px 6px;background:#0f172a;border:1px solid #334155;border-radius:4px;font-size:11px;color:#94a3b8;cursor:pointer;">
+            <option value="1" ${oh.is_admin ? 'selected' : ''}>Admin</option>
+            <option value="0" ${!oh.is_admin ? 'selected' : ''}>Texniki</option>
+          </select>
+          <button onclick="deleteOverhead(${oh.id}, '${esc(oh.label).replace(/'/g, "&apos;")}')" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px;transition:all 0.2s;" onmouseenter="this.style.backgroundColor='#f43f5e22';this.style.color='#f43f5e';" onmouseleave="this.style.backgroundColor='transparent';this.style.color='#94a3b8';">🗑</button>
+        </div>
         <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#e2e8f0;">${_fmtAZN(oh.monthly_amount)}</div>
       </div>
     `).join('');
@@ -13568,16 +13720,18 @@ function _renderCostOverhead(d) {
     return `
       <div style="border:1px solid ${borderColor};border-radius:10px;background:rgba(30,41,59,0.4);margin-bottom:12px;overflow:hidden;">
         <div style="padding:10px 12px;background:${borderColor}15;border-bottom:1px solid ${borderColor};font-weight:600;color:${titleColor};font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">${title}</div>
-        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto auto 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid #1e293b;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
           <div>Xərc Növü</div>
           <div style="text-align:right;">Məbləğ</div>
           <div>Hesablama</div>
           <div>ƏDV</div>
+          <div style="text-align:center;">Kateq.</div>
           <div style="text-align:right;">Aylıq</div>
         </div>
         ${groupRows}
-        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;padding:10px 12px;background:rgba(51,65,85,0.15);border-top:1px solid ${borderColor};font-weight:600;color:${titleColor};font-family:'JetBrains Mono',monospace;font-size:12px;">
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto auto 1fr;gap:12px;padding:10px 12px;background:rgba(51,65,85,0.15);border-top:1px solid ${borderColor};font-weight:600;color:${titleColor};font-family:'JetBrains Mono',monospace;font-size:12px;">
           <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Qrup Cəmi</div>
+          <div></div>
           <div></div>
           <div></div>
           <div></div>
@@ -13592,18 +13746,20 @@ function _renderCostOverhead(d) {
     <div class="card p-5">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold">Overhead Xərclər</h3>
-        <div style="text-align:right;">
-          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Cəm Aylıq Overhead</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#e2e8f0;">${_fmtAZN(d.total_overhead)}</div>
-        </div>
+        <button onclick="openAddOverheadModal()" style="padding:8px 14px;background:#6366f1;border:none;border-radius:6px;color:white;font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;" onmouseenter="this.style.background='#818cf8'" onmouseleave="this.style.background='#6366f1'">+ Yeni Xərc</button>
+      </div>
+      <div style="text-align:right;margin-bottom:16px;">
+        <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Cəm Aylıq Overhead</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#e2e8f0;">${_fmtAZN(d.total_overhead)}</div>
       </div>
 
       ${adminItems.length > 0 ? renderOverheadGroup(adminItems, '📋 Admin Xərclər', '#818cf8', '#475569') : ''}
       ${techItems.length > 0 ? renderOverheadGroup(techItems, '⚙️ Texniki Xərclər', '#4ade80', '#334155') : ''}
 
       <div style="padding:12px;background:rgba(99,102,241,0.08);border:1px solid #475569;border-radius:10px;margin-top:12px;">
-        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto 1fr;gap:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;">
+        <div style="display:grid;grid-template-columns:2fr 1.2fr auto auto auto 1fr;gap:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;">
           <div style="color:#818cf8;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;">Cəm Overhead</div>
+          <div></div>
           <div></div>
           <div></div>
           <div></div>
@@ -13612,7 +13768,7 @@ function _renderCostOverhead(d) {
       </div>
 
       <p style="font-size:11px;color:#94a3b8;margin-top:12px;padding:8px;background:rgba(30,41,59,0.5);border-radius:6px;border-left:3px solid #475569;">
-        💡 Dəyişiklik etdikdən sonra səhifəni yeniləyin.
+        💡 Dəyişikliklər avtomatik olaraq saxlanılır.
       </p>
     </div>
   `;
@@ -13620,9 +13776,128 @@ function _renderCostOverhead(d) {
 
 async function updateOverhead(id, field, value) {
   try {
-    await api.put(`/api/cost-model/overhead/${id}`, {[field]: field === 'is_annual' || field === 'has_vat' ? parseInt(value) : parseFloat(value)});
+    const payload = {};
+    if (field === 'is_annual' || field === 'has_vat' || field === 'is_admin') {
+      payload[field] = parseInt(value);
+    } else {
+      payload[field] = parseFloat(value);
+    }
+    await api.put(`/api/cost-model/overhead/${id}`, payload);
     _costModelData = null;
     await renderCostModel(document.getElementById('app'));
+  } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
+}
+
+async function deleteOverhead(id, label) {
+  if (!confirm(`"${label}" xərci silmək istədiniz?`)) return;
+  try {
+    await api.remove(`/api/cost-model/overhead/${id}`);
+    _costModelData = null;
+    await renderCostModel(document.getElementById('app'));
+    showToast('Xərc silindi', 'success');
+  } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
+}
+
+function startEditLabel(id, currentLabel) {
+  const displayEl = document.getElementById(`label-display-${id}`);
+  if (!displayEl) return;
+
+  displayEl.innerHTML = `
+    <input type="text" id="label-input-${id}" value="${currentLabel}"
+      style="padding:4px 6px;background:#0f172a;border:1px solid #818cf8;border-radius:4px;font-size:12px;color:#e2e8f0;width:100%;"
+      onblur="finishEditLabel(${id})"
+      onkeypress="if(event.key==='Enter') finishEditLabel(${id})">
+  `;
+
+  const input = document.getElementById(`label-input-${id}`);
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+async function finishEditLabel(id) {
+  const input = document.getElementById(`label-input-${id}`);
+  if (!input) return;
+
+  const newLabel = input.value.trim();
+  if (!newLabel) {
+    showToast('Ad boş ola bilməz', 'error');
+    return;
+  }
+
+  try {
+    await updateOverhead(id, 'label', newLabel);
+  } catch(e) {
+    showToast('Xəta: ' + e.message, 'error');
+  }
+}
+
+function openAddOverheadModal() {
+  const modal = document.createElement('div');
+  modal.id = 'addOverheadModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+  modal.innerHTML = `
+    <div class="card" style="width:480px;padding:28px;position:relative;">
+      <button onclick="document.getElementById('addOverheadModal').remove()" style="position:absolute;top:12px;right:12px;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">&times;</button>
+      <h3 class="font-semibold text-lg mb-4">Yeni Overhead Xərci</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Xərc Adı *</label>
+          <input id="ohLabel" type="text" placeholder="Ofis Icarəsi, Elektrik, vb." style="width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:13px;color:#e2e8f0;">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Məbləğ (₼) *</label>
+            <input id="ohAmount" type="number" value="0" min="0" step="0.01" style="width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:13px;color:#e2e8f0;">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Kateqoriya</label>
+            <select id="ohCategory" style="width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:13px;color:#e2e8f0;">
+              <option value="1">Admin</option>
+              <option value="0">Texniki İnfrastruktur</option>
+            </select>
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input id="ohAnnual" type="checkbox">
+          <span>İllik məbləğ (12-yə böl)</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input id="ohVat" type="checkbox">
+          <span>ƏDV daxil et (%18)</span>
+        </label>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Qeyd (isteğe bağlı)</label>
+          <textarea id="ohNotes" placeholder="Əlavə məlumat..." style="width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:13px;color:#e2e8f0;resize:vertical;min-height:60px;"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;">
+        <button onclick="document.getElementById('addOverheadModal').remove()" class="btn btn-secondary flex-1">Ləğv Et</button>
+        <button onclick="submitAddOverhead()" class="btn btn-primary flex-1">Əlavə Et</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function submitAddOverhead() {
+  const label = document.getElementById('ohLabel').value.trim();
+  const amount = parseFloat(document.getElementById('ohAmount').value || 0);
+  const is_admin = parseInt(document.getElementById('ohCategory').value);
+  const is_annual = document.getElementById('ohAnnual').checked ? 1 : 0;
+  const has_vat = document.getElementById('ohVat').checked ? 1 : 0;
+  const notes = document.getElementById('ohNotes').value.trim();
+
+  if (!label) { showToast('Xərc adını daxil edin', 'error'); return; }
+  if (amount <= 0) { showToast('Məbləğ 0-dan böyük olmalıdır', 'error'); return; }
+
+  try {
+    await api.post('/api/cost-model/overhead', {label, amount, is_admin, is_annual, has_vat, notes});
+    document.getElementById('addOverheadModal').remove();
+    _costModelData = null;
+    await renderCostModel(document.getElementById('app'));
+    showToast('Overhead xərci əlavə edildi', 'success');
   } catch(e) { showToast('Xəta: ' + e.message, 'error'); }
 }
 

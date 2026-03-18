@@ -12999,7 +12999,7 @@ async function loadCostSnapshots() {
         const res = await api.get('/api/cost-model/snapshots');
         return res.data || res || [];
     } catch(e) {
-        logger.error("Load snapshots error:", e);
+        console.error("Load snapshots error:", e);
         return [];
     }
 }
@@ -13013,7 +13013,7 @@ async function saveCostSnapshot() {
         await renderCostModel(document.getElementById('app'));
     } catch(e) {
         showToast('Ошибка: ' + e.message, 'error');
-        logger.error("Save snapshot error:", e);
+        console.error("Save snapshot error:", e);
     }
 }
 
@@ -13893,8 +13893,10 @@ async function submitAddOverhead() {
   if (amount <= 0) { showToast('Məbləğ 0-dan böyük olmalıdır', 'error'); return; }
 
   try {
-    await api.post('/api/cost-model/overhead', {label, amount, is_admin, is_annual, has_vat, notes});
-    document.getElementById('addOverheadModal').remove();
+    const _hdr = api._getHeaders();
+    const _r = await fetch('/api/cost-model/overhead', {method:'POST', headers:_hdr, body: JSON.stringify({label, amount, is_admin, is_annual, has_vat, notes})});
+    if (!_r.ok) throw new Error(await _r.text());
+    document.getElementById('addOverheadModal')?.remove();
     _costModelData = null;
     await renderCostModel(document.getElementById('app'));
     showToast('Overhead xərci əlavə edildi', 'success');

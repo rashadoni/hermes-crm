@@ -859,7 +859,6 @@
           <a href="#/campaigns" data-page="campaigns" data-i18n="nav_campaigns">Campaigns</a>
           <a href="#/email-templates" data-page="email-templates" data-i18n="nav_email_templates">Email Templates</a>
           <a href="#/segments" data-page="segments" data-i18n="nav_segments">Segments</a>
-          <a href="#/nurturing" data-page="nurturing" data-i18n="nur_title">Lead Nurturing</a>
           <a href="#/journeys" data-page="journeys" data-i18n="nav_journeys">Journey Builder</a>
           <a href="#/lead-scoring" data-page="lead-scoring" data-i18n="nav_lead_scoring">AI Lead Scoring</a>
           <a href="#/campaign-roi" data-page="campaign-roi" data-i18n="roi_summary">ROI Summary</a>
@@ -1080,7 +1079,7 @@ const translations = {
     nav_channels_menu: '📡 Channels',
     nav_omnichannel: 'Unified Inbox',
     nav_channel_configs: 'Channel Config',
-    nav_journeys: '🛤️ Journey Builder',
+    nav_journeys: '🛤️ Lead Chains',
     nav_lead_scoring: '🎯 AI Lead Scoring',
     nav_email_templates: 'Email Templates',
     nav_campaigns: 'Campaigns',
@@ -1871,7 +1870,7 @@ const translations = {
     nav_channels_menu: '📡 Каналы',
     nav_omnichannel: 'Единый Inbox',
     nav_channel_configs: 'Настройка каналов',
-    nav_journeys: '🛤️ Journey Builder',
+    nav_journeys: '🛤️ Цепочки лидов',
     nav_lead_scoring: '🎯 AI Скоринг',
     nav_email_templates: 'Шаблоны Email',
     nav_campaigns: 'Кампании',
@@ -2660,7 +2659,7 @@ const translations = {
     nav_channels_menu: '📡 Kanallar',
     nav_omnichannel: 'Vahid Inbox',
     nav_channel_configs: 'Kanal parametrləri',
-    nav_journeys: '🛤️ Journey Builder',
+    nav_journeys: '🛤️ Lid zəncirləri',
     nav_lead_scoring: '🎯 AI Skorinq',
     nav_email_templates: 'E-poçt şablonları',
     nav_campaigns: 'Kampaniyalar',
@@ -21100,7 +21099,7 @@ async function onLeadDrop(e, newStatus) {
             const [jRes, statsRes] = await Promise.all([api.get('/api/journeys'), api.get('/api/journeys/stats')]);
             const journeys = jRes.data || [];
             const stats = statsRes.data || {};
-            let h = '<div style="margin-bottom:20px"><h2 style="color:#e2e8f0;margin:0;display:flex;align-items:center;gap:10px">🛤️ Journey Builder</h2><p style="font-size:13px;color:#64748b;margin-top:4px">' + _t('Automate client communication: emails, delays, conditions in a visual flow','Автоматизируйте коммуникацию с клиентами: письма, задержки, условия в визуальном потоке','Müştəri rabitəsini avtomatlaşdırın: məktublar, gecikmələr, şərtlər vizual axında') + '</p></div>';
+            let h = '<div style="margin-bottom:20px"><h2 style="color:#e2e8f0;margin:0;display:flex;align-items:center;gap:10px">' + _t('🛤️ Lead Chains','🛤️ Цепочки лидов','🛤️ Lid zəncirləri') + '</h2><p style="font-size:13px;color:#64748b;margin-top:4px">' + _t('Automate client communication: emails, delays, conditions in a visual flow','Автоматизируйте коммуникацию с клиентами: письма, задержки, условия в визуальном потоке','Müştəri rabitəsini avtomatlaşdırın: məktublar, gecikmələr, şərtlər vizual axında') + '</p></div>';
             h += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">';
             h += `<button onclick="openJourneyModal()" style="${_jbx.btn('#8b5cf6')}">+ Создать путь</button>`;
             h += `<button onclick="processJourneys()" style="${_jbx.btn('#334155','#e2e8f0')}">⚙️ Обработать очередь</button>`;
